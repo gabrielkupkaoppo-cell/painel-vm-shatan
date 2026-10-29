@@ -56,7 +56,7 @@ function avisarResponsaveis_(detalhado) {
       return;
     }
     try {
-      const alvo = resumoDestino_(tk, String(sup.feishu).trim());
+      const alvo = resumoDestino_(tk, String(sup.feishu).trim(), sup.whatsapp);
       for (let i = 0; i < itens.length; i += 15) {
         const lote = itens.slice(i, i + 15);
         feishu_(tk, 'POST', '/im/v1/messages?receive_id_type=' + alvo.tipo, { receive_id: alvo.id, msg_type: 'interactive', content: JSON.stringify(avisoCartao_(uf, sup, lote)) });
@@ -127,16 +127,22 @@ function resumoEnviar_() {
   });
 }
 
-// e-mail, celular ou grupo → id que o Feishu entende
-function resumoDestino_(tk, dest) {
+// e-mail, celular ou grupo → id que o Feishu entende (procura a pessoa no Feishu da empresa)
+// "reserva" = outro número para tentar (ex.: o WhatsApp do responsável), se o e-mail não for achado
+function resumoDestino_(tk, dest, reserva) {
+  dest = String(dest || '').trim();
   if (/^oc_/.test(dest)) return { tipo: 'chat_id', id: dest };
   if (/^ou_/.test(dest)) return { tipo: 'open_id', id: dest };
-  if (dest.indexOf('@') > 0) return { tipo: 'email', id: dest };
-  let fone = dest.replace(/[^\d+]/g, ''); if (fone.charAt(0) !== '+') fone = '+' + (fone.length <= 11 ? '55' : '') + fone;
-  const d = feishu_(tk, 'POST', '/contact/v3/users/batch_get_id?user_id_type=open_id', { mobiles: [fone], include_resigned: false });
-  const u = (d.user_list || [])[0];
-  if (!u || !u.user_id) throw new Error('Não achei ninguém no Feishu com o celular ' + fone + '. Confira o número ou use o e-mail da pessoa.');
-  return { tipo: 'open_id', id: u.user_id };
+  const tentativas = [];
+  const fone_ = (v) => { let f = String(v || '').replace(/[^\d+]/g, ''); if (!f) return ''; if (f.charAt(0) !== '+') f = '+' + (f.replace(/^0+/, '').length <= 11 ? '55' : '') + f.replace(/^0+/, ''); return f; };
+  if (dest.indexOf('@') > 0) tentativas.push({ emails: [dest.toLowerCase()] }); else if (dest) tentativas.push({ mobiles: [fone_(dest)] });
+  const r = fone_(reserva); if (r && !(tentativas[0] && tentativas[0].mobiles && tentativas[0].mobiles[0] === r)) tentativas.push({ mobiles: [r] });
+  for (let i = 0; i < tentativas.length; i++) {
+    const d = feishu_(tk, 'POST', '/contact/v3/users/batch_get_id?user_id_type=open_id', Object.assign({ include_resigned: false }, tentativas[i]));
+    const u = (d.user_list || []).find((x) => x.user_id);
+    if (u) return { tipo: 'open_id', id: u.user_id };
+  }
+  throw new Error('Não achei "' + dest + '"' + (r ? ' nem o celular ' + r : '') + ' no Feishu da OPPO. Use o e-mail/celular que a pessoa usa para entrar no Feishu, e confira se ela está no "可用范围" (disponibilidade) do app.');
 }
 
 function resumoCartao_() {
