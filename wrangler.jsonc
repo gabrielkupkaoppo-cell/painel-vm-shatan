@@ -1,0 +1,6 @@
+{
+  // Site estático do Painel VM Shatan, publicado pelo Cloudflare a cada mudança no GitHub
+  "name": "painel-vm-shatan",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./public" }
+}

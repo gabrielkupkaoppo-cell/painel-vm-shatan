@@ -1,0 +1,1135 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Painel VM Sha Tan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
+<style>
+/* Layout: one centered column; password gate first, then the dashboard */
+:root{
+  --color-bg:#f6f7f6; --color-panel:#ffffff; --color-fg:#17201d; --color-fg-muted:#5c6a65; --color-border-line:#dfe4e1;
+  --color-ok:#1f7a4d; --color-warn:#a86400; --color-bad:#c0392b; --accent:#0f6e5c;
+  --font-anthropic-sans:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-anthropic-serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --cds-font-size-caption:.8125rem; --cds-font-size-body:.9375rem; --cds-font-size-heading:1.0625rem; --cds-font-size-title:2rem;
+  --cds-font-weight-medium:500;
+  --cds-gap-xs:.25rem; --cds-gap-sm:.5rem; --cds-gap-md:1rem; --cds-gap-lg:1.5rem; --cds-gap-xl:2.25rem;
+  --cds-pad-xs:.25rem; --cds-pad-sm:.5rem; --cds-pad-md:.875rem; --cds-pad-lg:1.125rem; --cds-pad-xl:1.75rem;
+  --cds-radius:10px;
+  --cds-chart-grid:#e7ebe9; --cds-chart-axis:#b9c3bf; --cds-chart-reference:#7d8a85; --cds-chart-muted:#c5ceca;
+  --cds-surface-popover:#ffffff; --cds-border:#d5dcd8; --cds-shadow-popover:0 6px 20px rgba(20,30,25,.12); --cds-text-secondary:#5c6a65;
+  --cds-dur-slow:.35s; --cds-ease-out:cubic-bezier(.2,.7,.2,1);
+  --skel:#e9edeb;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --color-bg:#111614; --color-panel:#19201d; --color-fg:#e8eeeb; --color-fg-muted:#9aa8a2; --color-border-line:#2b3531;
+  --color-ok:#4cc38a; --color-warn:#e3a33b; --color-bad:#f07a6b; --accent:#45b9a0;
+  --cds-chart-grid:#26302c; --cds-chart-axis:#3c4843; --cds-chart-reference:#8a9792; --cds-chart-muted:#3a4540;
+  --cds-surface-popover:#1f2723; --cds-border:#35403b; --cds-shadow-popover:0 6px 20px rgba(0,0,0,.45); --cds-text-secondary:#9aa8a2;
+  --skel:#232c28; color-scheme:dark;
+}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--color-bg);color:var(--color-fg);font-family:var(--font-anthropic-sans);font-size:15px;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:max(20px,env(safe-area-inset-top,0px)) 40px}
+.wrap{max-width:1180px;margin-inline:auto}
+.site-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-bottom:var(--cds-gap-md);font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.site-bar .brand{font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.site-bar button{font:inherit;background:none;border:1px solid var(--color-border-line);border-radius:999px;padding:3px 10px;color:var(--color-fg-muted);cursor:pointer}
+.gate{max-width:380px;margin:12vh auto 0;background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:14px;padding:28px;display:flex;flex-direction:column;gap:14px}
+.gate h1{font-family:var(--font-anthropic-serif);font-weight:400;font-size:1.75rem;margin:0}
+.gate p{margin:0;color:var(--color-fg-muted);font-size:var(--cds-font-size-body)}
+.gate input[type=password]{font:inherit;font-size:1rem;padding:10px 12px;border:1px solid var(--color-border-line);border-radius:8px;background:var(--color-bg);color:var(--color-fg)}
+.gate .row{display:flex;align-items:center;gap:8px;font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.gate button{font:inherit;font-weight:600;padding:10px;border:none;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+.gate button[disabled]{opacity:.6;cursor:progress}
+.gate .err{color:var(--color-bad);font-size:var(--cds-font-size-caption);min-height:1em}
+input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dash-skeleton{color:transparent!important;background:var(--skel);border-radius:6px}
+#dash-root[hidden]{display:none}
+</style>
+<script src="d3.min.js"></script>
+<script>
+window.VM_SITE = false;
+window.dash = (function () {
+  const DEF = { canal: 'Prioritários', regiao: 'Todas', situacao: 'Pendente' };
+  let params = Object.assign({}, DEF);
+  const sets = {}, calcs = {}, cbs = [], lazy = {}, raw = {};
+  let canaisFiltro = null; // Set de canais escolhidos (null = todos)
+  function aplicarFiltro() {
+    ['lojas', 'historico'].forEach((k) => { if (raw[k]) sets[k] = { status: 'ok', data: canaisFiltro ? raw[k].filter((x) => canaisFiltro.has(x.canal)) : raw[k] }; });
+    Object.values(calcs).forEach((c) => { c.cache = null; });
+  }
+  let fireQueued = false;
+  function fire() {
+    if (fireQueued) return; fireQueued = true;
+    requestAnimationFrame(() => { fireQueued = false; cbs.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } }); });
+  }
+  function data(id) {
+    const c = calcs[id];
+    if (c) {
+      const ins = c.inputs.map(data);
+      if (ins.some((x) => x.status === 'error')) return { status: 'error', data: [] };
+      if (ins.some((x) => x.status !== 'ok')) return { status: 'loading', data: [] };
+      if (!c.cache) c.cache = c.fn(...ins.map((x) => x.data));
+      return { status: 'ok', data: c.cache };
+    }
+    if (sets[id]) return sets[id];
+    if (lazy[id]) {
+      sets[id] = { status: 'loading', data: [] };
+      lazy[id]().then((v) => { sets[id] = { status: 'ok', data: v }; fire(); })
+        .catch(() => { sets[id] = { status: 'error', data: [] }; fire(); });
+      return sets[id];
+    }
+    return { status: 'loading', data: [] };
+  }
+  let lastW = 0;
+  window.addEventListener('resize', () => { if (Math.abs(window.innerWidth - lastW) > 20) { lastW = window.innerWidth; fire(); } });
+  return {
+    data,
+    onData(fn) { cbs.push(fn); try { fn(); } catch (e) { console.error(e); } },
+    calc(id, o) { calcs[id] = { inputs: o.inputs, fn: o.fn }; },
+    loader() {},
+    params() { return Object.assign({}, params); },
+    setParams(o) { params = Object.assign({}, params, o); fire(); },
+    resetParams() { params = Object.assign({}, DEF); fire(); },
+    refresh() {},
+    setLink() {},
+    colors: ['#0f6e5c', '#3d6fb6', '#b05a2c', '#7b5ea7', '#2f8f9d', '#a4436b', '#6b7f2a', '#5d6b75'],
+    _load(obj, lazyLoaders) { Object.entries(obj).forEach(([k, v]) => { raw[k] = v; sets[k] = { status: 'ok', data: v }; }); Object.assign(lazy, lazyLoaders || {}); aplicarFiltro(); lastW = window.innerWidth; fire(); },
+    filtrarCanais(list) { canaisFiltro = list && list.length ? new Set(list) : null; aplicarFiltro(); fire(); },
+  };
+})();
+
+window.VMCRYPTO = (function () {
+  const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  async function keyFor(pw, saltB64, iter) {
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b64(saltB64), iterations: iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  }
+  async function open(url, pw) {
+    const r = await fetch(url, { cache: 'no-cache' });
+    if (!r.ok) throw new Error('fetch');
+    const env = await r.json();
+    const key = await keyFor(pw, env.salt, env.iter);
+    const buf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(env.iv) }, key, b64(env.ct));
+    return JSON.parse(new TextDecoder().decode(buf));
+  }
+  return { open };
+})();
+</script>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="app">
+    <div class="site-bar"><span><span class="brand">OPPO · Sha Tan</span> · <span id="upd"></span></span></div>
+    <div id="dash-root">
+<style>
+.vm{display:flex;flex-direction:column;gap:var(--cds-gap-lg);font-family:var(--font-anthropic-sans);color:var(--color-fg)}
+.vm-head{display:flex;flex-direction:column;gap:var(--cds-gap-xs)}
+.vm-title{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);margin:0;text-wrap:balance}
+.vm-take{margin:0;font-size:var(--cds-font-size-body);color:var(--color-fg-muted);max-width:70ch;line-height:1.5}
+.vm .vm-take b{color:var(--color-fg);font-weight:600}
+.vm-filters{display:flex;flex-wrap:wrap;gap:var(--cds-gap-sm);align-items:center}
+.vm-filters label{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);letter-spacing:.02em}
+.vm-select,.vm-search{font:inherit;font-size:var(--cds-font-size-body);padding:var(--cds-pad-xs) var(--cds-pad-sm);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);background:var(--color-panel);color:var(--color-fg)}
+.vm-chips{display:flex;flex-wrap:wrap;gap:var(--cds-gap-xs)}
+.vm-chip{font:inherit;font-size:var(--cds-font-size-caption);padding:var(--cds-pad-xs) var(--cds-pad-sm);border:1px solid var(--color-border-line);border-radius:999px;background:var(--color-panel);color:var(--color-fg);cursor:pointer}
+.vm-chip[aria-pressed="true"]{background:var(--color-fg);color:var(--color-bg);border-color:var(--color-fg)}
+.vm-chip:focus-visible,.vm-cell:focus-visible,.vm-sort:focus-visible{outline:2px solid var(--color-fg);outline-offset:2px}
+.vm-reset{font:inherit;font-size:var(--cds-font-size-caption);background:none;border:none;color:var(--color-fg-muted);text-decoration:underline;cursor:pointer;padding:var(--cds-pad-xs)}
+.vm-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr));gap:var(--cds-gap-md)}
+.vm-tile{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg);display:flex;flex-direction:column;gap:var(--cds-gap-xs)}
+.vm-tile-label{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.vm .zh{display:block;font-size:.72em;font-weight:400;color:var(--color-fg-muted);letter-spacing:.02em;margin-top:1px;font-family:var(--font-anthropic-sans),"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif}
+.vm-title .zh{font-size:.42em;margin-top:4px}
+.vm-tile-label .zh{font-size:.95em}
+.vm-table th .zh{font-size:.85em}
+.vm-big{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);line-height:1.1;font-variant-numeric:tabular-nums}
+.vm-sub{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);font-variant-numeric:tabular-nums}
+.vm-sub b{color:var(--color-fg);font-weight:600}
+.vm-card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg);display:flex;flex-direction:column;gap:var(--cds-gap-sm);position:relative;min-width:0}
+.vm-card h2{margin:0;font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium)}
+.vm-note{margin:0;font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);line-height:1.45}
+.vm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:var(--cds-gap-md)}
+.vm-scroll{overflow-x:auto}
+.vm-heat{border-collapse:separate;border-spacing:4px;font-variant-numeric:tabular-nums;min-width:36rem;width:100%}
+.vm-heat th{font-size:var(--cds-font-size-caption);font-weight:500;color:var(--color-fg-muted);text-align:left;padding:2px 4px;white-space:nowrap}
+.vm-heat thead th{text-align:center}
+.vm-heat th button{font:inherit;color:inherit;background:none;border:none;padding:0;cursor:pointer;text-decoration:underline dotted}
+.vm-cell{font:inherit;width:100%;min-height:2.6rem;border:1px solid transparent;border-radius:6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:transparent;color:var(--color-fg)}
+.vm-cell .p{font-size:var(--cds-font-size-body);font-weight:600}
+.vm-cell .n{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.vm-cell.ok{background:color-mix(in srgb,var(--color-ok) 18%,transparent)}
+.vm-cell.ok .p{color:var(--color-ok)}
+.vm-cell.warn{background:color-mix(in srgb,var(--color-warn) 20%,transparent)}
+.vm-cell.warn .p{color:var(--color-warn)}
+.vm-cell.bad{background:color-mix(in srgb,var(--color-bad) 18%,transparent)}
+.vm-cell.bad .p{color:var(--color-bad)}
+.vm-cell.empty{cursor:default;color:var(--color-fg-muted)}
+.vm-cell.sel{border-color:var(--color-fg)}
+.vm-legend{display:flex;flex-wrap:wrap;gap:var(--cds-gap-md);font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.vm-legend span{display:inline-flex;align-items:center;gap:6px}
+.vm-sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+.vm-chart{min-height:12rem;position:relative}
+.vm-tip{position:absolute;pointer-events:none;background:var(--cds-surface-popover);border:1px solid var(--cds-border);border-radius:var(--cds-radius);box-shadow:var(--cds-shadow-popover);padding:var(--cds-pad-xs) var(--cds-pad-sm);font-size:var(--cds-font-size-caption);z-index:5;white-space:nowrap}
+.vm-tip .h{color:var(--cds-text-secondary);margin-bottom:2px}
+.vm-tbar{display:flex;flex-wrap:wrap;gap:var(--cds-gap-sm);align-items:center;justify-content:space-between}
+.vm-tablebox{max-height:32rem;overflow:auto;border-top:1px solid var(--color-border-line)}
+.vm-table{width:100%;border-collapse:collapse;font-size:var(--cds-font-size-caption);font-variant-numeric:tabular-nums}
+.vm-table th{position:sticky;top:0;background:var(--color-panel);text-align:left;font-weight:500;color:var(--color-fg-muted);padding:var(--cds-pad-xs) var(--cds-pad-sm);border-bottom:1px solid var(--color-border-line);white-space:nowrap;z-index:1}
+.vm-sort{font:inherit;color:inherit;background:none;border:none;padding:0;cursor:pointer}
+.vm-table td{padding:var(--cds-pad-xs) var(--cds-pad-sm);border-bottom:1px solid var(--color-border-line);vertical-align:top}
+.vm-table td.num,.vm-table th.num{text-align:right}
+.vm-exp{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:var(--cds-gap-sm)}
+.vm-exp-btns{display:flex;flex-wrap:wrap;align-items:center;gap:var(--cds-gap-sm)}
+.vm-btn{font:inherit;font-size:var(--cds-font-size-caption);font-weight:500;padding:var(--cds-pad-xs) var(--cds-pad-md);border-radius:var(--cds-radius);border:1px solid var(--color-fg);background:var(--color-fg);color:var(--color-bg);cursor:pointer}
+.vm-btn#vm-baixar{background:transparent;color:var(--color-fg)}
+.vm-btn:focus-visible{outline:2px solid var(--color-fg);outline-offset:2px}
+.vm-msg{font-size:var(--cds-font-size-caption);color:var(--color-ok)}
+.vm-copybox{width:100%;min-height:8rem;font:inherit;font-size:var(--cds-font-size-caption);padding:var(--cds-pad-sm);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);background:var(--color-bg);color:var(--color-fg)}
+.vm-table td.code{font-weight:600;white-space:nowrap}
+.vm-table td.nocode{color:var(--color-bad);font-weight:500}
+.vm-table td.obs{min-width:14rem;color:var(--color-fg-muted)}
+.vm-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-weight:500;white-space:nowrap}
+.vm-pill.ok{background:color-mix(in srgb,var(--color-ok) 16%,transparent);color:var(--color-ok)}
+.vm-pill.warn{background:color-mix(in srgb,var(--color-warn) 18%,transparent);color:var(--color-warn)}
+.vm-pill.bad{background:color-mix(in srgb,var(--color-bad) 16%,transparent);color:var(--color-bad)}
+.vm-count{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.vm-fail{display:flex;align-items:center;justify-content:center;gap:6px;min-height:8rem;font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.vm-fail::before{content:"";width:.375rem;height:.375rem;border-radius:50%;background:var(--color-bad)}
+.vm [data-dash-source-state=empty]{color:transparent}
+.vm [data-dash-source-state=refreshing]{opacity:.5;transition:opacity var(--cds-dur-slow)}
+.vm-alerta{margin-top:var(--cds-gap-sm);font:inherit;font-size:.9rem;text-align:left;padding:8px 12px;border-radius:8px;border:1px solid color-mix(in srgb,var(--color-warn) 55%,transparent);background:color-mix(in srgb,var(--color-warn) 12%,transparent);color:var(--color-fg);cursor:pointer}
+.vm-alerta b{color:var(--color-warn)}
+.vm-pill.mute{background:var(--cds-chart-grid);color:var(--color-fg-muted)}
+.vm-disp-btn{margin-left:6px;font:inherit;font-size:.72rem;padding:1px 8px;border-radius:999px;border:1px solid var(--color-border-line);background:var(--color-panel);color:var(--color-fg-muted);cursor:pointer;white-space:nowrap}
+.vm-disp-btn:hover{color:var(--color-fg);border-color:var(--color-fg)}
+.vm-disp-row td{background:color-mix(in srgb,var(--color-warn) 10%,transparent);padding:10px 12px}
+.vm-disp-row td>*{margin-right:8px}
+.vm-disp-row .fl-row{margin:6px 0}
+.fl-admin{margin-top:var(--cds-gap-md);padding-top:var(--cds-gap-md);border-top:1px solid var(--color-border-line);display:flex;flex-direction:column;gap:6px}
+.fl-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.fl-row select,.fl-row input{font:inherit;font-size:.88rem;padding:6px 10px;border:1px solid var(--color-border-line);border-radius:8px;background:var(--color-panel);color:var(--color-fg)}
+.fl-row input{flex:1 1 14rem}
+.vm-btn{font:inherit;font-weight:600;font-size:.85rem;padding:7px 14px;border-radius:8px;border:1px solid var(--color-fg);background:var(--color-fg);color:var(--color-bg);cursor:pointer}
+.vm-btn:disabled{opacity:.55;cursor:progress}
+.vm-btn.alt{background:var(--color-panel);color:var(--color-fg)}
+.vm-canais{flex-basis:100%}
+.vm-canais .vm-sep{width:1px;align-self:stretch;background:var(--color-border-line);margin:0 2px}
+.vm-canais .vm-chip.pri{border-color:color-mix(in srgb,var(--color-warn) 45%,transparent)}
+.vm-pri{display:flex;flex-wrap:wrap;align-items:center;gap:var(--cds-gap-xs);font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.vm-pri button{font:inherit;font-size:var(--cds-font-size-caption);padding:2px 8px;border-radius:999px;border:1px solid color-mix(in srgb,var(--color-warn) 45%,transparent);background:color-mix(in srgb,var(--color-warn) 12%,transparent);color:var(--color-fg);cursor:pointer}
+.vm-pri button[aria-pressed="true"]{border-color:var(--color-fg)}
+.vm-heat tr.nopri th,.vm-heat tr.nopri td{opacity:.5}
+.vm-heat tr.sep td,.vm-heat tr.sep th{padding-top:10px}
+.vm-star{color:var(--color-warn)}
+.vm-filters-break{flex-basis:100%;height:0}
+.vm-charts{grid-template-columns:repeat(auto-fit,minmax(min(100%,26rem),1fr))}
+.vm-donut-wrap{display:flex;flex-wrap:wrap;align-items:center;gap:var(--cds-gap-md)}
+.vm-donut{flex:0 0 auto;width:min(100%,220px);min-height:0}
+.vm-legend-col{flex-direction:column;gap:var(--cds-gap-sm)}
+.vm-legend-col b{color:var(--color-fg);font-weight:600;font-variant-numeric:tabular-nums}
+.vm-table tbody tr{cursor:pointer}
+.vm-table tbody tr:hover td{background:color-mix(in srgb,var(--color-fg) 5%,transparent)}
+.vm-table tbody tr.sel td{background:color-mix(in srgb,var(--color-fg) 9%,transparent)}
+.vm-delta.up b{color:var(--color-ok)}
+.vm-delta.down b{color:var(--color-bad)}
+.vm-line{min-height:11rem}
+.vm-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,11rem),1fr));gap:var(--cds-gap-sm);min-height:8rem}
+.vm-ph{margin:0;display:flex;flex-direction:column;gap:4px}
+.vm-ph img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:6px;border:1px solid var(--color-border-line);background:var(--color-bg);cursor:zoom-in}
+.vm-ph.big{grid-column:1/-1}
+.vm-ph.big img{aspect-ratio:auto;max-height:70vh;object-fit:contain;cursor:zoom-out}
+.vm-ph figcaption{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.fl-title{margin:0}
+@media (max-width:560px){.vm-table .hide-sm{display:none}}
+</style>
+
+<div class="vm">
+  <header class="vm-head" id="topo">
+    <h1 class="vm-title">Painel VM Sha Tan<span class="zh">SHATAN 体验台陈列看板</span></h1>
+    <p class="vm-take dash-skeleton" id="takeaway">
+      Na seleção atual, <b data-source="resumo" data-field="com_foto" class="tk-com">—</b> de
+      <b data-source="resumo" data-field="lojas" class="tk-lojas">—</b> lojas enviaram foto da mesa
+      (<b data-source="resumo" data-field="pct_foto" class="tk-pct">—</b>).
+      <span class="tk-worst">Maior pendência: <b class="tk-wname">—</b>, com
+      <b data-source="resumo" data-field="pendente" class="tk-wn">—</b> lojas sem foto.</span>
+    </p>
+    <button class="vm-alerta" id="vm-alerta" type="button" hidden></button>
+  </header>
+
+  <div class="vm-filters" id="filtros">
+    <label for="vm-canal" id="vm-canal-lbl">Canal · 渠道</label>
+    <select id="vm-canal" class="vm-select" aria-label="Canal"></select>
+    <div class="vm-pri" id="vm-pri" data-source="prioridades" aria-label="Canais prioritários"></div>
+    <div class="vm-chips vm-canais" id="vm-canais" role="group" aria-label="Canais (escolha um ou mais)" hidden></div>
+    <div class="vm-chips" id="vm-regs" role="group" aria-label="Regional"></div>
+    <button class="vm-reset" id="vm-reset" type="button">Limpar filtros · 清除筛选</button>
+  </div>
+
+  <section class="vm-tiles" id="indicadores">
+    <div class="vm-tile">
+      <span class="vm-tile-label">Lojas com foto<span class="zh">已上传照片门店</span></span>
+      <span class="vm-big dash-skeleton t-pct" data-source="resumo" data-field="pct_foto">—</span>
+      <span class="vm-sub"><b class="t-com" data-source="resumo" data-field="com_foto">—</b> de <b class="t-lojas" data-source="resumo" data-field="lojas">—</b> lojas na base</span>
+      <span class="vm-sub vm-delta"><b class="t-delta" data-source="variacao" data-field="delta_pp">—</b> <span class="t-delta-txt"></span></span>
+    </div>
+    <div class="vm-tile">
+      <span class="vm-tile-label">Pendentes (sem foto)<span class="zh">未上传照片门店</span></span>
+      <span class="vm-big dash-skeleton t-pend" data-source="resumo" data-field="pendente">—</span>
+      <span class="vm-sub">cobrar envio no Forms</span>
+    </div>
+    <div class="vm-tile">
+      <span class="vm-tile-label">Com foto, mas com apontamento de VM<span class="zh">已上传但有陈列问题</span></span>
+      <span class="vm-big dash-skeleton t-ap" data-source="resumo" data-field="ok_apont">—</span>
+      <span class="vm-sub"><b class="t-ok" data-source="resumo" data-field="ok">—</b> sem apontamento</span>
+    </div>
+    <div class="vm-tile">
+      <span class="vm-tile-label">Lojas com mesa de experiência<span class="zh">有体验台门店</span></span>
+      <span class="vm-big dash-skeleton t-mesa" data-source="resumo" data-field="lojas_mesa">—</span>
+      <span class="vm-sub"><b class="t-mesafoto" data-source="resumo" data-field="lojas_mesa_foto">—</b> com foto · 1.6M <b class="t-m16" data-source="resumo" data-field="mesa_16">—</b> · 1.2M <b class="t-m12" data-source="resumo" data-field="mesa_12">—</b> · 0.8M <b class="t-m08" data-source="resumo" data-field="mesa_08">—</b></span>
+    </div>
+  </section>
+
+  <div class="vm-grid vm-charts" id="graficos">
+    <section class="vm-card" id="g-situacao">
+      <h2>Situação das lojas<span class="zh">门店状态分布</span></h2>
+      <p class="vm-note">Lojas na seleção atual.</p>
+      <div class="vm-donut-wrap">
+        <div class="vm-chart vm-donut" id="donut" data-source="resumo"></div>
+        <div class="vm-legend vm-legend-col" id="donut-leg"></div>
+      </div>
+    </section>
+    <section class="vm-card" id="g-canal">
+      <h2>% com foto por canal<span class="zh">各渠道照片上传率</span></h2>
+      <p class="vm-note">Na regional selecionada. Linha tracejada: meta de 90%.</p>
+      <div class="vm-chart" id="canal-chart" data-source="resumo"></div>
+    </section>
+    <section class="vm-card" id="g-regional">
+      <h2>% com foto por regional<span class="zh">各区域照片上传率</span></h2>
+      <p class="vm-note">No canal selecionado.</p>
+      <div class="vm-chart" id="reg-chart" data-source="resumo"></div>
+    </section>
+    <section class="vm-card" id="g-mesas">
+      <h2>Mesas por tamanho<span class="zh">体验台尺寸分布</span></h2>
+      <p class="vm-note">Lojas com cada tamanho de mesa, com e sem foto. Claro, Vivo e Tim não têm essas colunas.</p>
+      <div class="vm-legend">
+        <span><i class="vm-sw" style="background:var(--color-ok)"></i>Com foto · 已上传</span>
+        <span><i class="vm-sw" style="background:var(--color-bad)"></i>Sem foto · 未上传</span>
+      </div>
+      <div class="vm-chart" id="mesas-chart" data-source="mesas"></div>
+    </section>
+  </div>
+
+  <section class="vm-card" id="mapa">
+    <h2>Mapa de envio: canal × regional<span class="zh">照片上传情况：渠道 × 区域</span></h2>
+    <p class="vm-note">% de lojas com pelo menos uma foto na linha da loja. Clique numa célula para filtrar o painel todo.</p>
+    <div class="vm-legend">
+      <span><i class="vm-sw" style="background:var(--color-ok)"></i>80% ou mais · ≥80%</span>
+      <span><i class="vm-sw" style="background:var(--color-warn)"></i>50% a 79% · 50–79%</span>
+      <span><i class="vm-sw" style="background:var(--color-bad)"></i>abaixo de 50% · &lt;50%</span>
+    </div>
+    <div class="vm-scroll" id="heat" data-source="resumo"></div>
+  </section>
+
+  <section class="vm-card" id="evolucao" hidden>
+    <h2>Evolução do % de lojas com foto<span class="zh">照片上传率趋势</span></h2>
+    <p class="vm-note">Um ponto por atualização da planilha, na seleção atual. A primeira medição é de 27/10/2026; a linha cresce a cada atualização.</p>
+    <div class="vm-chart vm-line" id="ev-chart" data-source="evolucao"></div>
+  </section>
+
+  <div>
+    <section class="vm-card" id="por-uf" hidden>
+      <h2>Status por estado<span class="zh">各州状态</span></h2>
+      <p class="vm-note">Lojas por situação da foto, na seleção atual.</p>
+      <div class="vm-legend">
+        <span><i class="vm-sw" style="background:var(--color-ok)"></i>OK · 合格</span>
+        <span><i class="vm-sw" style="background:var(--color-warn)"></i>OK com apontamento · 有问题</span>
+        <span><i class="vm-sw" style="background:var(--color-bad)"></i>Pendente · 未上传</span>
+      </div>
+      <div class="vm-chart" id="uf-chart" data-source="por_uf"></div>
+    </section>
+    <section class="vm-card" id="apontamentos">
+      <h2>Apontamentos de VM mais comuns<span class="zh">常见陈列问题</span></h2>
+      <p class="vm-note">Lojas cuja anotação cita cada problema. Uma loja pode ter mais de um.</p>
+      <div class="vm-chart" id="ap-chart" data-source="apontamentos"></div>
+    </section>
+  </div>
+
+  <section class="vm-card" id="lojas">
+    <h2>Lojas para cobrar<span class="zh">待跟进门店</span></h2>
+    <p class="vm-note">Clique numa loja para ver as fotos enviadas. "Dias" conta desde a foto mais recente com data conhecida.</p>
+    <div class="vm-tbar">
+      <div class="vm-chips" id="vm-sit" role="group" aria-label="Situação"></div>
+      <input id="vm-busca" class="vm-search" type="search" placeholder="Buscar código, loja, cidade ou anotação" aria-label="Buscar">
+    </div>
+    <div class="vm-exp">
+      <span class="vm-count" id="vm-count"></span>
+      <div class="vm-exp-btns">
+        <button class="vm-btn" id="vm-copiar" type="button">Copiar lista · 复制清单</button>
+        <button class="vm-btn" id="vm-baixar" type="button" hidden>Baixar Excel · 下载</button>
+        <span class="vm-msg" id="vm-msg" role="status"></span>
+      </div>
+    </div>
+    <textarea class="vm-copybox" id="vm-copybox" readonly hidden aria-label="Lista para copiar"></textarea>
+    <div class="vm-tablebox">
+      <table class="vm-table" id="tabela" data-source="lojas" data-row-key="id">
+        <thead><tr>
+          <th data-field="codigo"><button class="vm-sort" data-k="codigo" type="button">Código<span class="zh">门店编号</span></button></th>
+          <th data-field="loja"><button class="vm-sort" data-k="loja" type="button">Loja<span class="zh">门店名称</span></button></th>
+          <th data-field="canal"><button class="vm-sort" data-k="canal" type="button">Canal<span class="zh">渠道</span></button></th>
+          <th data-field="uf"><button class="vm-sort" data-k="uf" type="button">UF<span class="zh">州</span></button></th>
+          <th data-field="cidade" class="hide-sm"><button class="vm-sort" data-k="cidade" type="button">Cidade<span class="zh">城市</span></button></th>
+          <th data-field="classe" class="hide-sm" hidden><button class="vm-sort" data-k="classe" type="button">Classe<span class="zh">分级</span></button></th>
+          <th data-field="mesas" class="num hide-sm"><button class="vm-sort" data-k="mesas" type="button">Mesas<span class="zh">体验台</span></button></th>
+          <th data-field="fotos" class="num"><button class="vm-sort" data-k="fotos" type="button">Fotos<span class="zh">照片</span></button></th>
+          <th data-field="ultima_foto" class="hide-sm"><button class="vm-sort" data-k="ultima_foto" type="button">Última foto<span class="zh">最近照片</span></button></th>
+          <th data-field="dias_sem_foto" class="num"><button class="vm-sort" data-k="dias_sem_foto" type="button">Dias<span class="zh">天数</span></button></th>
+          <th data-field="situacao"><button class="vm-sort" data-k="situacao" type="button">Situação<span class="zh">状态</span></button></th>
+          <th data-field="observacao" class="hide-sm"><button class="vm-sort" data-k="observacao" type="button">Anotação<span class="zh">备注</span></button></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="vm-card" id="fotos-loja" hidden>
+    <div class="vm-tbar">
+      <h2 class="fl-title">Fotos da loja</h2>
+      <button class="vm-reset" id="fl-close" type="button">Fechar</button>
+    </div>
+    <p class="vm-note fl-meta"></p>
+    <div class="vm-gallery" id="fl-gallery"></div>
+  </section>
+
+  <p class="vm-note" id="como-ler">Como os números são calculados: "com foto" conta as imagens coladas nas colunas de foto de cada aba (dentro da loja, mesa frente, mesa trás, fachada). Lojas com "OK" na coluna Ok/Pendente da planilha contam como já analisadas e não aparecem como pendentes. "Apontamento" vem do texto da coluna de anotação (ex.: baixa qualidade, spec card, modo demo). Mesas usam as colunas 1.6M, 1.2M e 0.8M; Claro, Vivo e Tim não têm essas colunas. A data da foto vem do próprio arquivo quando o celular a gravou; a partir de agora, quando uma loja trocar a foto, a data da atualização passa a contar como a data da foto.</p>
+</div>
+
+<script>
+dash.calc('resumo', {
+  inputs: ['lojas', 'prioridades'],
+  title: 'Resumo canal × regional',
+  description: 'Conta lojas, fotos, apontamentos e mesas por canal e regional, com linhas Todos/Todas para os totais.',
+  fn: (lojas, prioridades) => {
+    const pri = new Set(prioridades.filter((x) => x.prioritario === true || x.prioritario === 'true').map((x) => x.canal));
+    const canais = ['Prioritários','Todos','Americanas','Magalu','Lider','Bemol','Martinello','Paraiba','Fast','Claro','Vivo','Tim'];
+    const regs = ['Todas','DF/GO','CE/PI','PA/AP','MT/MS','AM/AC/RR/RO','MA/TO'];
+    const out = [];
+    for (const c of canais) for (const r of regs) {
+      const s = lojas.filter((l) => (c === 'Todos' || (c === 'Prioritários' ? pri.has(l.canal) : l.canal === c)) && (r === 'Todas' || l.regiao === r));
+      const n = s.length;
+      const ok = s.filter((l) => l.situacao === 'OK').length;
+      const ap = s.filter((l) => l.situacao === 'OK c/ apontamento').length;
+      const sum = (k) => s.reduce((a, l) => a + Number(l[k] || 0), 0);
+      const mesa = s.filter((l) => Number(l.mesas) > 0);
+      out.push({ canal: c, regiao: r, lojas: n, ok, ok_apont: ap, pendente: n - ok - ap, com_foto: ok + ap,
+        pct_foto: n ? (ok + ap) / n : null, lojas_mesa: mesa.length,
+        lojas_mesa_foto: mesa.filter((l) => Number(l.fotos) > 0).length,
+        mesa_16: sum('mesa_16'), mesa_12: sum('mesa_12'), mesa_08: sum('mesa_08') });
+    }
+    return out;
+  },
+});
+
+dash.calc('evolucao', {
+  inputs: ['historico', 'prioridades'],
+  title: '% com foto por atualização',
+  description: 'Soma o histórico por data, canal e regional, com linhas Todos/Todas, e calcula o % de lojas com foto.',
+  fn: (historico, prioridades) => {
+    const pri = new Set(prioridades.filter((x) => x.prioritario === true || x.prioritario === 'true').map((x) => x.canal));
+    const canais = ['Prioritários','Todos','Americanas','Magalu','Lider','Bemol','Martinello','Paraiba','Fast','Claro','Vivo','Tim'];
+    const regs = ['Todas','DF/GO','CE/PI','PA/AP','MT/MS','AM/AC/RR/RO','MA/TO'];
+    const datas = [...new Set(historico.map((h) => String(h.data).slice(0, 10)))].sort();
+    const out = [];
+    for (const d of datas) for (const c of canais) for (const r of regs) {
+      const s = historico.filter((h) => String(h.data).slice(0, 10) === d && (c === 'Todos' || (c === 'Prioritários' ? pri.has(h.canal) : h.canal === c)) && (r === 'Todas' || h.regiao === r));
+      const n = s.reduce((a, h) => a + Number(h.lojas), 0);
+      if (!n) continue;
+      const cf = s.reduce((a, h) => a + Number(h.com_foto), 0);
+      out.push({ data: d, canal: c, regiao: r, lojas: n, com_foto: cf, pendente: n - cf, pct_foto: cf / n });
+    }
+    return out;
+  },
+});
+
+dash.calc('variacao', {
+  inputs: ['evolucao'],
+  title: 'Variação desde a atualização anterior',
+  description: 'Diferença em pontos percentuais entre o % com foto da última atualização e o da anterior, por canal e regional.',
+  fn: (evolucao) => {
+    const by = new Map();
+    for (const e of evolucao) {
+      const k = e.canal + '|' + e.regiao;
+      if (!by.has(k)) by.set(k, []);
+      by.get(k).push(e);
+    }
+    const out = [];
+    for (const list of by.values()) {
+      list.sort((a, b) => a.data.localeCompare(b.data));
+      const cur = list[list.length - 1], prev = list[list.length - 2];
+      out.push({ canal: cur.canal, regiao: cur.regiao, data_atual: cur.data, data_anterior: prev ? prev.data : null,
+        delta_pp: prev ? Math.round((cur.pct_foto - prev.pct_foto) * 1000) / 10 : null });
+    }
+    return out;
+  },
+});
+
+dash.calc('mesas', {
+  inputs: ['lojas', 'prioridades'],
+  title: 'Mesas por tamanho',
+  description: 'Quantas lojas têm mesa de 1.6M, 1.2M e 0.8M e quantas delas já mandaram foto, por canal e regional.',
+  fn: (lojas, prioridades) => {
+    const pri = new Set(prioridades.filter((x) => x.prioritario === true || x.prioritario === 'true').map((x) => x.canal));
+    const canais = ['Prioritários','Todos','Americanas','Magalu','Lider','Bemol','Martinello','Paraiba','Fast','Claro','Vivo','Tim'];
+    const regs = ['Todas','DF/GO','CE/PI','PA/AP','MT/MS','AM/AC/RR/RO','MA/TO'];
+    const tams = [['mesa_16','Mesa 1.6M'],['mesa_12','Mesa 1.2M'],['mesa_08','Mesa 0.8M']];
+    const out = [];
+    for (const c of canais) for (const r of regs) {
+      const s = lojas.filter((l) => (c === 'Todos' || (c === 'Prioritários' ? pri.has(l.canal) : l.canal === c)) && (r === 'Todas' || l.regiao === r));
+      for (const [k, nome] of tams) {
+        const m = s.filter((l) => Number(l[k]) > 0);
+        const cf = m.filter((l) => Number(l.fotos) > 0).length;
+        out.push({ canal: c, regiao: r, tamanho: nome, lojas: m.length, com_foto: cf, sem_foto: m.length - cf });
+      }
+    }
+    return out;
+  },
+});
+
+dash.calc('por_uf', {
+  inputs: ['lojas', 'prioridades'],
+  title: 'Situação por estado',
+  description: 'Lojas OK, OK com apontamento e pendentes por canal e estado, com canal Todos para o total.',
+  fn: (lojas, prioridades) => {
+    const pri = new Set(prioridades.filter((x) => x.prioritario === true || x.prioritario === 'true').map((x) => x.canal));
+    const canais = ['Prioritários','Todos','Americanas','Magalu','Lider','Bemol','Martinello','Paraiba','Fast','Claro','Vivo','Tim'];
+    const out = [];
+    for (const c of canais) {
+      const by = new Map();
+      for (const l of lojas) {
+        if (c !== 'Todos' && (c === 'Prioritários' ? !pri.has(l.canal) : l.canal !== c)) continue;
+        const k = l.uf;
+        if (!by.has(k)) by.set(k, { canal: c, uf: k, regiao: l.regiao, lojas: 0, ok: 0, ok_apont: 0, pendente: 0 });
+        const g = by.get(k);
+        g.lojas += 1;
+        if (l.situacao === 'OK') g.ok += 1; else if (l.situacao === 'OK c/ apontamento') g.ok_apont += 1; else g.pendente += 1;
+      }
+      out.push(...by.values());
+    }
+    return out;
+  },
+});
+
+dash.calc('apontamentos', {
+  inputs: ['lojas', 'prioridades'],
+  title: 'Apontamentos de VM por tipo',
+  description: 'Quantas lojas têm cada tipo de apontamento na anotação, por canal e regional (Todos/Todas para totais).',
+  fn: (lojas, prioridades) => {
+    const pri = new Set(prioridades.filter((x) => x.prioritario === true || x.prioritario === 'true').map((x) => x.canal));
+    const canais = ['Prioritários','Todos','Americanas','Magalu','Lider','Bemol','Martinello','Paraiba','Fast','Claro','Vivo','Tim'];
+    const regs = ['Todas','DF/GO','CE/PI','PA/AP','MT/MS','AM/AC/RR/RO','MA/TO'];
+    const tipos = ['Foto fora do padrão','Sem spec card','Sem modo demo','Mostruário / estoque','Sem mesa / sem espaço','Material / canvas'];
+    const out = [];
+    for (const c of canais) for (const r of regs) {
+      const s = lojas.filter((l) => (c === 'Todos' || (c === 'Prioritários' ? pri.has(l.canal) : l.canal === c)) && (r === 'Todas' || l.regiao === r));
+      for (const t of tipos) out.push({ canal: c, regiao: r, tipo: t, lojas: s.filter((l) => String(l.apontamento || '').split('; ').includes(t)).length });
+    }
+    return out;
+  },
+});
+</script>
+
+<script>
+(function () {
+  const CANAIS = ['Americanas','Magalu','Lider','Bemol','Martinello','Paraiba','Fast','Claro','Vivo','Tim'];
+  const REGS = ['DF/GO','CE/PI','PA/AP','MT/MS','AM/AC/RR/RO','MA/TO'];
+  const SITS = [['Pendente','Pendentes · 未上传'],['OK c/ apontamento','Com apontamento · 有问题'],['Antiga','Foto com 30+ dias · 超过30天'],['Dispensadas','Dispensadas · 免拍'],['Todas','Todas · 全部']];
+  const APZH = { 'Foto fora do padrão': '照片不合格', 'Sem spec card': '缺参数卡', 'Sem modo demo': '未开演示', 'Mostruário / estoque': '样机/库存', 'Sem mesa / sem espaço': '无体验台', 'Material / canvas': '物料/画面' };
+  const fmtData = (s) => s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) : '';
+  const pct = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 0 });
+  const num = new Intl.NumberFormat('pt-BR');
+  const enc = (s) => String(s).replace(/%/g, '%25').replace(/&/g, '%26').replace(/=/g, '%3D');
+  const where = (c, r) => 'canal=' + enc(c) + '&regiao=' + enc(r);
+  const band = (p) => p == null ? 'empty' : p >= 0.8 ? 'ok' : p >= 0.5 ? 'warn' : 'bad';
+  const $ = (s) => document.querySelector(s);
+
+  let PRI = new Set();
+  const MULTI = typeof dash.filtrarCanais === 'function'; // site: escolher vários canais
+  let selCanais = null; // null = todas as lojas
+  const SKEY = 'vm-canais-sel';
+  const nomeCanal = (c) => (MULTI && c === 'Todos') ? (selCanais ? [...selCanais].join(' + ') : 'Todas as lojas') : c === 'Prioritários' ? 'Canais prioritários' : c === 'Todos' ? 'Todos os canais' : c;
+  const noCanal = (canal, c) => c === 'Todos' || (c === 'Prioritários' ? PRI.has(canal) : canal === c);
+  const defaults = () => dash.setParams({ canal: 'Prioritários', regiao: 'Todas', situacao: 'Pendente' });
+  if (!dash.params().canal) defaults();
+  $('#vm-reset').addEventListener('click', () => { dash.resetParams(); defaults(); if (MULTI) { selCanais = PRI.size ? new Set(PRI) : null; aplicarCanais(); } });
+
+  const sel = $('#vm-canal');
+  function fillSelect() {
+    const ord = CANAIS.filter((c) => PRI.has(c)).concat(CANAIS.filter((c) => !PRI.has(c)));
+    sel.replaceChildren(new Option('Canais prioritários · 重点渠道', 'Prioritários'), new Option('Todos os canais · 全部渠道', 'Todos'),
+      ...ord.map((c) => new Option((PRI.has(c) ? '★ ' : '') + c, c)));
+  }
+  fillSelect();
+  const priBox = $('#vm-pri');
+  function drawPri(p) {
+    priBox.replaceChildren();
+    const lab = document.createElement('span'); lab.textContent = '★ Prioridade · 重点:'; priBox.appendChild(lab);
+    CANAIS.filter((c) => PRI.has(c)).forEach((c) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = c;
+      b.setAttribute('aria-pressed', String(p.canal === c));
+      b.addEventListener('click', () => dash.setParams({ canal: p.canal === c ? 'Prioritários' : c }));
+      priBox.appendChild(b);
+    });
+  }
+  sel.addEventListener('change', () => dash.setParams({ canal: sel.value }));
+  const canBox = $('#vm-canais');
+  const igual = (a, b) => a.size === b.size && [...a].every((x) => b.has(x));
+  function aplicarCanais() {
+    try { localStorage.setItem(SKEY, JSON.stringify(selCanais ? [...selCanais] : 'todas')); } catch (e) {}
+    dash.filtrarCanais(selCanais ? [...selCanais] : null);
+    dash.setParams({ canal: 'Todos' });
+  }
+  function drawCanais() {
+    if (!MULTI) return;
+    canBox.replaceChildren();
+    const chip = (txt, pressed, fn, cls) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'vm-chip' + (cls ? ' ' + cls : ''); b.textContent = txt; b.setAttribute('aria-pressed', String(pressed)); b.addEventListener('click', fn); canBox.appendChild(b); };
+    chip('Todas as lojas · 全部', !selCanais, () => { selCanais = null; aplicarCanais(); });
+    if (PRI.size) chip('★ Prioritários · 重点', !!selCanais && igual(selCanais, PRI), () => { selCanais = new Set(PRI); aplicarCanais(); });
+    const sep = document.createElement('span'); sep.className = 'vm-sep'; sep.setAttribute('aria-hidden', 'true'); canBox.appendChild(sep);
+    const ord = CANAIS.filter((c) => PRI.has(c)).concat(CANAIS.filter((c) => !PRI.has(c)));
+    ord.forEach((c) => chip((PRI.has(c) ? '★ ' : '') + c, !!selCanais && selCanais.has(c), () => {
+      const s = new Set(selCanais || []); if (s.has(c)) s.delete(c); else s.add(c);
+      selCanais = s.size ? s : null; aplicarCanais();
+    }, PRI.has(c) ? 'pri' : ''));
+  }
+  if (MULTI) {
+    sel.hidden = true; priBox.hidden = true; canBox.hidden = false;
+    $('#vm-canal-lbl').textContent = 'Canais · 渠道 (escolha um ou mais)';
+    let salvo = null; try { salvo = JSON.parse(localStorage.getItem(SKEY) || 'null'); } catch (e) {}
+    if (salvo === 'todas') { selCanais = null; aplicarCanais(); }
+    else if (Array.isArray(salvo) && salvo.length) { selCanais = new Set(salvo); aplicarCanais(); }
+    else selCanais = undefined; // ainda não escolhido: assume os prioritários quando chegarem
+  }
+
+  const regBox = $('#vm-regs');
+  ['Todas', ...REGS].forEach((r) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'vm-chip'; b.dataset.r = r;
+    b.textContent = r === 'Todas' ? 'Todas as regionais · 全部区域' : r;
+    b.addEventListener('click', () => dash.setParams({ regiao: r }));
+    regBox.appendChild(b);
+  });
+  const DIAS_ALERTA = 30;
+  const sitBox = $('#vm-sit');
+  SITS.forEach(([v, label]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'vm-chip'; b.dataset.s = v; b.textContent = label;
+    b.addEventListener('click', () => dash.setParams({ situacao: v }));
+    sitBox.appendChild(b);
+  });
+
+  let sortKey = 'uf', sortDir = 1;
+  document.querySelectorAll('.vm-sort').forEach((b) => b.addEventListener('click', () => {
+    if (sortKey === b.dataset.k) sortDir = -sortDir; else { sortKey = b.dataset.k; sortDir = 1; }
+    drawTable();
+  }));
+  const busca = $('#vm-busca');
+  busca.addEventListener('input', () => drawTable());
+
+  function tipFor(card) {
+    let t = card.querySelector('.vm-tip');
+    if (!t) { t = document.createElement('div'); t.className = 'vm-tip'; t.hidden = true; card.appendChild(t); }
+    return t;
+  }
+  function showTip(card, ev, head, lines) {
+    const t = tipFor(card);
+    t.replaceChildren();
+    const h = document.createElement('div'); h.className = 'h'; h.textContent = head; t.appendChild(h);
+    lines.forEach(([color, label, val]) => {
+      const d = document.createElement('div');
+      if (color) { const s = document.createElement('i'); s.className = 'vm-sw'; s.style.background = color; s.style.marginRight = '6px'; d.appendChild(s); }
+      d.appendChild(document.createTextNode(label + ': ' + val));
+      t.appendChild(d);
+    });
+    t.hidden = false;
+    const r = card.getBoundingClientRect();
+    let x = ev.clientX - r.left + 12, y = ev.clientY - r.top + 12;
+    const w = t.offsetWidth;
+    if (x + w > r.width - 8) x = Math.max(8, ev.clientX - r.left - w - 12);
+    t.style.left = x + 'px'; t.style.top = y + 'px';
+  }
+  const hideTip = (card) => { const t = card.querySelector('.vm-tip'); if (t) t.hidden = true; };
+
+  function fail(el) { el.replaceChildren(); const d = document.createElement('div'); d.className = 'vm-fail'; d.textContent = 'Failed to load'; el.appendChild(d); }
+
+  $('#vm-alerta').addEventListener('click', () => { dash.setParams({ situacao: 'Antiga' }); const l = $('#lojas'); if (l) l.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  function drawFilters(p) {
+    sel.value = p.canal;
+    regBox.querySelectorAll('.vm-chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.r === p.regiao)));
+    sitBox.querySelectorAll('.vm-chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.s === p.situacao)));
+    const dch = sitBox.querySelector('[data-s="Dispensadas"]');
+    if (dch) { const adm = adminPai(); const n = adm ? adm.dispensadas().length : 0; dch.hidden = !n; dch.textContent = 'Dispensadas · 免拍 (' + n + ')'; }
+  }
+
+  function drawTiles(p, res) {
+    const w = where(p.canal, p.regiao);
+    document.querySelectorAll('#indicadores [data-source], #takeaway .tk-com, #takeaway .tk-lojas, #takeaway .tk-pct').forEach((el) => el.setAttribute('data-where', w));
+    const row = res && res.find((r) => r.canal === p.canal && r.regiao === p.regiao);
+    const set = (s, v) => document.querySelectorAll(s).forEach((el) => { el.textContent = v; });
+    if (!row) { ['.t-pct','.t-com','.t-lojas','.t-pend','.t-ap','.t-ok','.t-mesa','.t-mesafoto','.t-m16','.t-m12','.t-m08','.tk-com','.tk-lojas','.tk-pct'].forEach((s) => set(s, '—')); return; }
+    set('.t-pct', row.pct_foto == null ? '—' : pct.format(row.pct_foto));
+    set('.tk-pct', row.pct_foto == null ? '—' : pct.format(row.pct_foto));
+    set('.t-com', num.format(row.com_foto)); set('.tk-com', num.format(row.com_foto));
+    set('.t-lojas', num.format(row.lojas)); set('.tk-lojas', num.format(row.lojas));
+    set('.t-pend', num.format(row.pendente)); set('.t-ap', num.format(row.ok_apont)); set('.t-ok', num.format(row.ok));
+    set('.t-mesa', num.format(row.lojas_mesa)); set('.t-mesafoto', num.format(row.lojas_mesa_foto));
+    set('.t-m16', num.format(row.mesa_16)); set('.t-m12', num.format(row.mesa_12)); set('.t-m08', num.format(row.mesa_08));
+    document.querySelectorAll('.dash-skeleton').forEach((el) => el.classList.remove('dash-skeleton'));
+
+    const cells = res.filter((r) => r.canal !== 'Todos' && r.canal !== 'Prioritários' && r.regiao !== 'Todas' && r.lojas > 0 &&
+      noCanal(r.canal, p.canal) && (p.regiao === 'Todas' || r.regiao === p.regiao));
+    const worst = cells.slice().sort((a, b) => b.pendente - a.pendente || a.pct_foto - b.pct_foto)[0];
+    const ws = $('.tk-worst');
+    if (!worst || worst.pendente === 0) { ws.hidden = true; return; }
+    ws.hidden = false;
+    $('.tk-wname').textContent = worst.canal + ' · ' + worst.regiao;
+    const wn = $('.tk-wn'); wn.setAttribute('data-where', where(worst.canal, worst.regiao)); wn.textContent = num.format(worst.pendente);
+  }
+
+  function drawHeat(p, res) {
+    const box = $('#heat');
+    box.replaceChildren();
+    const t = document.createElement('table'); t.className = 'vm-heat';
+    const hr = t.createTHead().insertRow();
+    hr.appendChild(document.createElement('th'));
+    ['Todas', ...REGS].forEach((r) => {
+      const th = document.createElement('th');
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = r === 'Todas' ? 'Total · 合计' : r;
+      b.addEventListener('click', () => dash.setParams({ regiao: r }));
+      th.appendChild(b); hr.appendChild(th);
+    });
+    const tb = t.createTBody();
+    const ordem = ['Prioritários', 'Todos'].concat(CANAIS.filter((c) => PRI.has(c)), CANAIS.filter((c) => !PRI.has(c)));
+    ordem.forEach((c, i) => {
+      const tr = tb.insertRow();
+      if (CANAIS.includes(c) && !PRI.has(c)) tr.className = 'nopri';
+      if (i === 2) tr.classList.add('sep');
+      const th = document.createElement('th');
+      const b = document.createElement('button'); b.type = 'button';
+      b.textContent = c === 'Prioritários' ? '★ Total prioritários · 重点合计' : c === 'Todos' ? 'Total geral · 总计' : (PRI.has(c) ? '★ ' : '') + c;
+      b.addEventListener('click', () => dash.setParams({ canal: c }));
+      th.appendChild(b); tr.appendChild(th);
+      ['Todas', ...REGS].forEach((r) => {
+        const td = tr.insertCell();
+        const row = res.find((x) => x.canal === c && x.regiao === r);
+        const btn = document.createElement('button'); btn.type = 'button';
+        const has = row && row.lojas > 0;
+        btn.className = 'vm-cell ' + band(has ? row.pct_foto : null) + (c === p.canal && r === p.regiao ? ' sel' : '');
+        if (has) {
+          const pp = document.createElement('span'); pp.className = 'p'; pp.textContent = pct.format(row.pct_foto);
+          const nn = document.createElement('span'); nn.className = 'n'; nn.textContent = row.com_foto + '/' + row.lojas;
+          btn.append(pp, nn);
+          btn.setAttribute('aria-label', nomeCanal(c) + ', ' + r + ': ' + pct.format(row.pct_foto));
+          btn.addEventListener('click', () => dash.setParams({ canal: c, regiao: r }));
+        } else { btn.textContent = '·'; btn.disabled = true; }
+        td.appendChild(btn);
+      });
+    });
+    box.appendChild(t);
+  }
+
+  function hbar(el, rows, opts) {
+    el.replaceChildren();
+    const card = el.closest('.vm-card');
+    if (!rows.length) { const d = document.createElement('p'); d.className = 'vm-note'; d.textContent = 'Nenhuma loja nesta seleção.'; el.appendChild(d); return; }
+    const W = Math.max(260, el.clientWidth || 360), bh = 18, gap = 9, top = 4;
+    const H = top + rows.length * (bh + gap);
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img');
+    const lab = svg.append('g');
+    let lw = 0;
+    rows.forEach((r) => { const t = lab.append('text').text(opts.label(r)).style('font-size', 'var(--cds-font-size-caption)'); lw = Math.max(lw, t.node().getComputedTextLength()); t.remove(); });
+    let ew = 0;
+    rows.forEach((r) => { const t = lab.append('text').text(opts.end(r)).style('font-size', 'var(--cds-font-size-caption)'); ew = Math.max(ew, t.node().getComputedTextLength()); t.remove(); });
+    const L = lw + 10, R = ew + 10;
+    const max = d3.max(rows, opts.total) || 1;
+    const x = d3.scaleLinear([0, max], [0, Math.max(40, W - L - R)]);
+    if (opts.meta != null) svg.append('line').attr('x1', L + x(opts.meta)).attr('x2', L + x(opts.meta)).attr('y1', 0).attr('y2', H)
+      .style('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 4');
+    rows.forEach((r, i) => {
+      const y = top + i * (bh + gap);
+      const g = svg.append('g').style('cursor', 'default');
+      g.append('text').attr('x', L - 8).attr('y', y + bh / 2).attr('dy', '0.35em').attr('text-anchor', 'end')
+        .style('font-size', 'var(--cds-font-size-caption)').style('fill', 'var(--color-fg)').text(opts.label(r));
+      let x0 = L;
+      opts.parts.forEach(([key, color]) => {
+        const v = Number(r[key]) || 0; if (!v) return;
+        g.append('rect').attr('x', x0).attr('y', y).attr('width', Math.max(1, x(v) - 1)).attr('height', bh).attr('rx', 4).style('fill', color);
+        x0 += x(v);
+      });
+      g.append('text').attr('x', x0 + 6).attr('y', y + bh / 2).attr('dy', '0.35em')
+        .style('font-size', 'var(--cds-font-size-caption)').style('fill', 'var(--color-fg-muted)').text(opts.end(r));
+      g.append('rect').attr('x', 0).attr('y', y - gap / 2).attr('width', W).attr('height', bh + gap).style('fill', 'transparent')
+        .on('mousemove', (ev) => showTip(card, ev, opts.label(r), opts.tip(r)))
+        .on('mouseleave', () => hideTip(card));
+    });
+  }
+
+  const BANDCOL = { ok: 'var(--color-ok)', warn: 'var(--color-warn)', bad: 'var(--color-bad)' };
+  function drawDonut(p, res) {
+    const el = $('#donut'), leg = $('#donut-leg'); el.replaceChildren(); leg.replaceChildren();
+    const card = el.closest('.vm-card');
+    const row = res.find((r) => r.canal === p.canal && r.regiao === p.regiao);
+    if (!row || !row.lojas) { const n = document.createElement('p'); n.className = 'vm-note'; n.textContent = 'Nenhuma loja nesta seleção.'; el.appendChild(n); return; }
+    const parts = [['ok', 'OK · 合格', 'var(--color-ok)'], ['ok_apont', 'Com apontamento · 有问题', 'var(--color-warn)'], ['pendente', 'Pendente · 未上传', 'var(--color-bad)']]
+      .map(([k, lab, col]) => ({ k, lab, col, v: row[k] || 0 }));
+    const S = 200, R = S / 2, svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${S} ${S}`).attr('role', 'img');
+    const g = svg.append('g').attr('transform', `translate(${R},${R})`);
+    const arcs = d3.pie().sort(null).value((d) => d.v)(parts);
+    const arc = d3.arc().innerRadius(R * 0.62).outerRadius(R - 4).padAngle(0.012).cornerRadius(3);
+    g.selectAll('path').data(arcs).join('path').attr('d', arc).style('fill', (d) => d.data.col)
+      .on('mousemove', (ev, d) => showTip(card, ev, d.data.lab, [[d.data.col, 'Lojas', d.data.v + ' (' + pct.format(d.data.v / row.lojas) + ')']]))
+      .on('mouseleave', () => hideTip(card));
+    g.append('text').attr('text-anchor', 'middle').attr('dy', '-0.1em').style('font-family', 'var(--font-anthropic-serif)').style('font-size', '30px').style('fill', 'var(--color-fg)').text(pct.format(row.pct_foto || 0));
+    g.append('text').attr('text-anchor', 'middle').attr('dy', '1.5em').style('font-size', '11px').style('fill', 'var(--color-fg-muted)').text('com foto · 已上传');
+    parts.forEach((d) => {
+      const sp = document.createElement('span'); const sw = document.createElement('i'); sw.className = 'vm-sw'; sw.style.background = d.col;
+      const b = document.createElement('b'); b.textContent = num.format(d.v);
+      sp.append(sw, document.createTextNode(d.lab + ' '), b); leg.appendChild(sp);
+    });
+  }
+
+  function bandRows(rows, labelFn) {
+    return rows.map((r) => { const b = band(r.pct_foto); return Object.assign({}, r, { _lab: labelFn(r), p_ok: b === 'ok' ? r.pct_foto : 0, p_warn: b === 'warn' ? r.pct_foto : 0, p_bad: b === 'bad' ? r.pct_foto : 0 }); });
+  }
+  function drawCanalBars(p, res) {
+    const rows = bandRows(res.filter((r) => r.regiao === p.regiao && r.lojas > 0 && r.canal !== 'Todos' && r.canal !== 'Prioritários' &&
+      (p.canal === 'Todos' || (p.canal === 'Prioritários' ? PRI.has(r.canal) : r.canal === p.canal))), (r) => (PRI.has(r.canal) ? '★ ' : '') + r.canal)
+      .sort((a, b) => b.pct_foto - a.pct_foto);
+    hbar($('#canal-chart'), rows, {
+      label: (r) => r._lab, end: (r) => pct.format(r.pct_foto) + ' (' + r.com_foto + '/' + r.lojas + ')', total: () => 1,
+      parts: [['p_ok', BANDCOL.ok], ['p_warn', BANDCOL.warn], ['p_bad', BANDCOL.bad]],
+      tip: (r) => [[null, 'Com foto', r.com_foto + ' de ' + r.lojas], [null, 'Pendentes', r.pendente]], meta: 0.9,
+    });
+  }
+  function drawRegBars(p, res) {
+    const el = $('#reg-chart'); el.replaceChildren();
+    const card = el.closest('.vm-card');
+    const rows = REGS.map((g) => res.find((r) => r.canal === p.canal && r.regiao === g)).filter((r) => r && r.lojas > 0);
+    if (!rows.length) { const n = document.createElement('p'); n.className = 'vm-note'; n.textContent = 'Nenhuma loja nesta seleção.'; el.appendChild(n); return; }
+    const W = Math.max(280, el.clientWidth || 400), H = 220, m = { t: 22, r: 8, b: 40, l: 36 };
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img');
+    const x = d3.scaleBand(rows.map((r) => r.regiao), [m.l, W - m.r]).padding(0.28);
+    const y = d3.scaleLinear([0, 1], [H - m.b, m.t]);
+    [0, 0.5, 1].forEach((v) => {
+      svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(v)).attr('y2', y(v)).style('stroke', 'var(--cds-chart-grid)');
+      svg.append('text').attr('x', m.l - 6).attr('y', y(v)).attr('dy', '0.35em').attr('text-anchor', 'end').style('font-size', '11px').style('fill', 'var(--color-fg-muted)').text(pct.format(v));
+    });
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(0.9)).attr('y2', y(0.9)).style('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 4');
+    const bw = Math.min(48, x.bandwidth());
+    rows.forEach((r) => {
+      const cx = x(r.regiao) + x.bandwidth() / 2;
+      svg.append('rect').attr('x', cx - bw / 2).attr('y', y(r.pct_foto)).attr('width', bw).attr('height', Math.max(1, y(0) - y(r.pct_foto))).attr('rx', 4)
+        .style('fill', BANDCOL[band(r.pct_foto)])
+        .on('mousemove', (ev) => showTip(card, ev, r.regiao, [[null, 'Com foto', r.com_foto + ' de ' + r.lojas], [null, 'Pendentes', r.pendente]]))
+        .on('mouseleave', () => hideTip(card));
+      svg.append('text').attr('x', cx).attr('y', y(r.pct_foto) - 6).attr('text-anchor', 'middle').style('font-size', '11px').style('font-weight', '600').style('fill', 'var(--color-fg)').text(pct.format(r.pct_foto));
+      const short = r.regiao.length > 6 && x.bandwidth() < 60 ? r.regiao.replace(/\//g, '/\u200b') : r.regiao;
+      svg.append('text').attr('x', cx).attr('y', H - m.b + 16).attr('text-anchor', 'middle').style('font-size', x.bandwidth() < 50 ? '9px' : '11px').style('fill', 'var(--color-fg-muted)').text(short);
+    });
+  }
+  function drawMesas(p, data) {
+    const rows = data.filter((r) => r.canal === p.canal && r.regiao === p.regiao && r.lojas > 0);
+    hbar($('#mesas-chart'), rows, {
+      label: (r) => r.tamanho, end: (r) => r.lojas + ' lojas · ' + r.com_foto + ' com foto', total: (r) => r.lojas,
+      parts: [['com_foto', 'var(--color-ok)'], ['sem_foto', 'var(--color-bad)']],
+      tip: (r) => [['var(--color-ok)', 'Com foto', r.com_foto], ['var(--color-bad)', 'Sem foto', r.sem_foto]],
+    });
+  }
+
+  function drawUf(p, data) {
+    const rows = data.filter((r) => r.canal === p.canal && (p.regiao === 'Todas' || r.regiao === p.regiao))
+      .sort((a, b) => b.lojas - a.lojas || a.uf.localeCompare(b.uf));
+    hbar($('#uf-chart'), rows, {
+      label: (r) => r.uf,
+      end: (r) => (r.ok + r.ok_apont) + '/' + r.lojas,
+      total: (r) => r.lojas,
+      parts: [['ok', 'var(--color-ok)'], ['ok_apont', 'var(--color-warn)'], ['pendente', 'var(--color-bad)']],
+      tip: (r) => [['var(--color-ok)', 'OK', r.ok], ['var(--color-warn)', 'OK c/ apontamento', r.ok_apont], ['var(--color-bad)', 'Pendente', r.pendente]],
+    });
+  }
+
+  function drawAp(p, data) {
+    const rows = data.filter((r) => r.canal === p.canal && r.regiao === p.regiao && r.lojas > 0).sort((a, b) => b.lojas - a.lojas);
+    hbar($('#ap-chart'), rows, {
+      label: (r) => r.tipo + (APZH[r.tipo] ? ' · ' + APZH[r.tipo] : ''), end: (r) => String(r.lojas), total: (r) => r.lojas,
+      parts: [['lojas', dash.colors[0]]],
+      tip: (r) => [[null, 'Lojas', r.lojas]],
+    });
+  }
+
+  function drawDelta(p, vari) {
+    const el = $('.t-delta'), txt = $('.t-delta-txt'), box = $('.vm-delta');
+    el.setAttribute('data-where', where(p.canal, p.regiao));
+    const row = vari && vari.find((r) => r.canal === p.canal && r.regiao === p.regiao);
+    box.classList.remove('up', 'down');
+    if (!row || row.delta_pp == null) { el.textContent = ''; txt.textContent = row ? 'primeira medição: ' + fmtData(row.data_atual) : ''; return; }
+    el.textContent = (row.delta_pp > 0 ? '+' : '') + row.delta_pp.toLocaleString('pt-BR') + ' p.p.';
+    txt.textContent = 'desde ' + fmtData(row.data_anterior);
+    if (row.delta_pp > 0) box.classList.add('up'); else if (row.delta_pp < 0) box.classList.add('down');
+  }
+
+  function drawEvolucao(p, data) {
+    const el = $('#ev-chart'); el.replaceChildren();
+    const card = el.closest('.vm-card');
+    const rows = data.filter((r) => r.canal === p.canal && r.regiao === p.regiao)
+      .map((r) => Object.assign({}, r, { d: new Date(r.data + 'T12:00:00Z') })).sort((a, b) => a.d - b.d);
+    if (!rows.length) { const n = document.createElement('p'); n.className = 'vm-note'; n.textContent = 'Nenhuma loja nesta seleção.'; el.appendChild(n); return; }
+    const W = Math.max(280, el.clientWidth || 600), H = 176, m = { t: 14, r: 56, b: 26, l: 40 };
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img');
+    const meas = (s) => { const t = svg.append('text').style('font-size', 'var(--cds-font-size-caption)').style('font-weight', '600').text(s); const w = t.node().getComputedTextLength(); t.remove(); return w; };
+    m.r = Math.ceil(Math.max(meas('meta 90%'), meas('100%') + 9)) + 12;
+    m.l = Math.ceil(meas('100%')) + 10;
+    const first = rows[0].d, last = rows[rows.length - 1].d;
+    const span = Math.max(7 * 864e5, last - first);
+    const x = d3.scaleUtc([new Date(+first - 864e5), new Date(+first + span + 864e5)], [m.l, W - m.r]);
+    const y = d3.scaleLinear([0, 1], [H - m.b, m.t]);
+    [0, 0.5, 1].forEach((v) => {
+      svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(v)).attr('y2', y(v)).style('stroke', 'var(--cds-chart-grid)');
+      svg.append('text').attr('x', m.l - 6).attr('y', y(v)).attr('dy', '0.35em').attr('text-anchor', 'end')
+        .style('font-size', 'var(--cds-font-size-caption)').style('fill', 'var(--color-fg-muted)').text(pct.format(v));
+    });
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(0.9)).attr('y2', y(0.9))
+      .style('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 4');
+    svg.append('text').attr('x', W - m.r + 6).attr('y', y(0.9)).attr('dy', '0.35em')
+      .style('font-size', 'var(--cds-font-size-caption)').style('fill', 'var(--color-fg-muted)').text('meta 90%');
+    const ticks = x.ticks(Math.min(6, Math.floor((W - m.l - m.r) / 80))).filter((t) => x(t) - 20 >= 0 && x(t) + 20 <= W);
+    ticks.forEach((t) => svg.append('text').attr('x', x(t)).attr('y', H - 6).attr('text-anchor', 'middle')
+      .style('font-size', 'var(--cds-font-size-caption)').style('fill', 'var(--color-fg-muted)').text(d3.utcFormat('%d/%m')(t)));
+    if (rows.length > 1) {
+      svg.append('path').datum(rows).attr('d', d3.line().x((r) => x(r.d)).y((r) => y(r.pct_foto)))
+        .style('fill', 'none').style('stroke', dash.colors[0]).attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+    }
+    rows.forEach((r, i) => {
+      svg.append('circle').attr('cx', x(r.d)).attr('cy', y(r.pct_foto)).attr('r', i === rows.length - 1 ? 5 : 3.5).style('fill', dash.colors[0])
+        .on('mousemove', (ev) => showTip(card, ev, fmtData(r.data), [[null, '% com foto', pct.format(r.pct_foto)], [null, 'Lojas com foto', r.com_foto + '/' + r.lojas]]))
+        .on('mouseleave', () => hideTip(card));
+    });
+    const lr = rows[rows.length - 1];
+    svg.append('text').attr('x', x(lr.d) + 9).attr('y', y(lr.pct_foto)).attr('dy', '0.35em')
+      .style('font-size', 'var(--cds-font-size-caption)').style('font-weight', '600').style('fill', 'var(--color-fg)').text(pct.format(lr.pct_foto));
+  }
+
+  let openId = null;
+  const viewer = $('#fotos-loja'), gallery = $('#fl-gallery');
+  function openLoja(id) {
+    openId = id;
+    viewer.hidden = false;
+    gallery.setAttribute('data-source', 'fotos');
+    drawTable(); drawViewer();
+    viewer.scrollIntoView({ block: 'nearest' });
+  }
+  $('#tabela tbody').addEventListener('click', (ev) => { const tr = ev.target.closest('tr[data-key]'); if (tr) openLoja(tr.dataset.key); });
+  $('#tabela tbody').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { const tr = ev.target.closest('tr[data-key]'); if (tr) openLoja(tr.dataset.key); } });
+  $('#fl-close').addEventListener('click', () => { openId = null; viewer.hidden = true; drawTable(); });
+
+  function drawViewer() {
+    if (!openId) return;
+    const loja = lastRows.find((r) => r.id === openId);
+    $('.fl-title').textContent = loja ? (loja.codigo ? loja.codigo + ' · ' : '') + loja.loja : 'Fotos da loja';
+    $('.fl-meta').textContent = loja ? [loja.canal, loja.cidade + ' - ' + loja.uf, loja.situacao, loja.observacao].filter(Boolean).join(' · ') : '';
+    // fotos aprovadas do Forms (vem do site); se não houver, mostra as fotos da planilha
+    let vf = null; try { vf = window.parent !== window ? window.parent.VMFOTOS : null; } catch (e) {}
+    const ap = vf && loja ? vf.buscar(loja) : null;
+    if (ap && ap.fotos && ap.fotos.length) {
+      gallery.replaceChildren(); gallery.classList.remove('dash-skeleton');
+      const n = document.createElement('p'); n.className = 'vm-note'; n.style.gridColumn = '1/-1';
+      n.textContent = 'Última foto aprovada · envio de ' + ap.data.toLocaleDateString('pt-BR') + (ap.nome ? ' · ' + ap.nome : '') + ' · 最近通过的照片';
+      gallery.appendChild(n);
+      ap.fotos.forEach((x) => {
+        const fig = document.createElement('figure'); fig.className = 'vm-ph';
+        const cap = document.createElement('figcaption'); cap.textContent = String(x.label || 'Foto').split(' · ')[0];
+        const a = document.createElement('a'); a.href = 'https://drive.google.com/file/d/' + x.id + '/view'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = ' · abrir no Drive'; cap.appendChild(a);
+        if (x.path) {
+          const img = document.createElement('img'); img.alt = cap.textContent; img.loading = 'lazy'; img.addEventListener('click', () => fig.classList.toggle('big'));
+          fig.append(img, cap);
+          vf.url(x.path).then((u) => { img.src = u; }).catch(() => { img.replaceWith(Object.assign(document.createElement('div'), { className: 'vm-note', textContent: 'Não consegui abrir esta foto.' })); });
+        } else { const t = document.createElement('div'); t.className = 'vm-note'; t.textContent = 'Foto arquivada (veja no Drive).'; fig.append(t, cap); }
+        gallery.appendChild(fig);
+      });
+      return;
+    }
+    const f = dash.data('fotos');
+    gallery.replaceChildren();
+    if (f.status === 'error') { fail(gallery); return; }
+    if (f.status !== 'ok') { gallery.classList.add('dash-skeleton'); return; }
+    gallery.classList.remove('dash-skeleton');
+    const fotos = f.data.filter((x) => x.loja_id === openId);
+    if (!fotos.length) { const n = document.createElement('p'); n.className = 'vm-note'; n.textContent = 'Esta loja ainda não tem fotos na planilha.'; gallery.appendChild(n); return; }
+    fotos.forEach((x) => {
+      if (!String(x.img).startsWith('data:image/')) return;
+      const fig = document.createElement('figure'); fig.className = 'vm-ph';
+      const img = document.createElement('img'); img.src = x.img; img.alt = x.posicao; img.loading = 'lazy';
+      img.addEventListener('click', () => fig.classList.toggle('big'));
+      const cap = document.createElement('figcaption'); cap.textContent = x.posicao + (x.data_foto ? ' · ' + fmtData(x.data_foto) : '');
+      fig.append(img, cap); gallery.appendChild(fig);
+    });
+  }
+
+  let lastRows = [], filtrados = [];
+  const SITLBL = { Pendente: 'Lojas pendentes (sem foto)', 'OK c/ apontamento': 'Lojas com apontamento de VM', Antiga: 'Lojas com foto de 30+ dias', Dispensadas: 'Lojas dispensadas de foto', Todas: 'Lojas' };
+  function tituloLista() {
+    const p = dash.params();
+    const partes = [SITLBL[p.situacao] || 'Lojas', nomeCanal(p.canal), p.regiao === 'Todas' ? 'todas as regionais' : p.regiao];
+    const q = (busca.value || '').trim();
+    if (q) partes.push('busca "' + q + '"');
+    return partes.join(' · ');
+  }
+  const msg = (t) => { const m = $('#vm-msg'); m.textContent = t; clearTimeout(msg.t); msg.t = setTimeout(() => { m.textContent = ''; }, 4000); };
+  $('#vm-copiar').addEventListener('click', () => {
+    const nomeLoja = (r) => r.codigo && r.loja.indexOf(r.codigo) === 0 ? r.loja : (r.codigo || 's/ código') + ' – ' + r.loja;
+    const lin = filtrados.map((r) => '• ' + nomeLoja(r) + ' – ' + r.canal + ' – ' + (r.cidade ? r.cidade + '/' : '') + r.uf +
+      (r.situacao !== 'Pendente' && r.observacao ? ' – ' + r.observacao : ''));
+    const txt = tituloLista() + '\n' + num.format(filtrados.length) + (filtrados.length === 1 ? ' loja' : ' lojas') + '\n\n' + lin.join('\n');
+    const box = $('#vm-copybox');
+    const fallback = () => { box.value = txt; box.hidden = false; box.focus(); box.select(); msg('Selecionei a lista: use Ctrl+C (ou Copiar no celular).'); };
+    try {
+      navigator.clipboard.writeText(txt).then(() => { box.hidden = true; msg('Lista copiada: ' + num.format(filtrados.length) + ' lojas. É só colar no Feishu.'); }, fallback);
+    } catch (e) { fallback(); }
+  });
+  if (window.VM_SITE) {
+    const bx = $('#vm-baixar'); bx.hidden = false;
+    bx.addEventListener('click', () => {
+      const cols = [['codigo','Código'],['loja','Loja'],['canal','Canal'],['uf','UF'],['cidade','Cidade'],['regiao','Regional'],['classe','Classe'],['promotor','Promotor'],['mesas','Mesas'],['fotos','Fotos'],['ultima_foto','Última foto'],['dias_sem_foto','Dias sem foto'],['situacao','Situação'],['apontamento','Apontamento'],['observacao','Anotação']];
+      const esc = (v) => { const t = v == null || v === '-' ? '' : String(v); return /[;"\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+      const linhas = [cols.map((c) => c[1]).join(';')].concat(filtrados.map((r) => cols.map((c) => esc(r[c[0]])).join(';')));
+      const blob = new Blob(['\ufeff' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      const p = dash.params();
+      const nome = ('lojas-' + (p.situacao || 'todas') + '-' + p.canal + '-' + p.regiao + '-' + new Date().toISOString().slice(0, 10))
+        .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9-]+/g, '-') + '.csv';
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nome;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      msg('Baixando ' + num.format(filtrados.length) + ' lojas.');
+    });
+  }
+  function adminPai() { try { return window.parent !== window && window.parent.VMADMIN ? window.parent.VMADMIN : null; } catch (e) { return null; } }
+  function formDispensa(tr, r) {
+    document.querySelectorAll('#tabela .vm-disp-row').forEach((x) => x.remove());
+    const fr = document.createElement('tr'); fr.className = 'vm-disp-row';
+    const td = document.createElement('td'); td.colSpan = 13; fr.appendChild(td);
+    const t = document.createElement('b'); t.textContent = (r.codigo ? r.codigo + ' · ' : '') + r.loja + ' — o que está acontecendo? · 情况说明';
+    const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Motivo');
+    ['Falta canvas', 'Sem mesa OPPO', 'Mesa ainda não instalada', 'Loja fechada / em reforma', 'Outro'].forEach((m) => sel.appendChild(new Option(m, m)));
+    const inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = 'Observação (opcional)'; inp.setAttribute('aria-label', 'Observação');
+    const anotar = document.createElement('button'); anotar.type = 'button'; anotar.className = 'vm-btn'; anotar.textContent = 'Anotar e continuar cobrando · 备注';
+    const disp = document.createElement('button'); disp.type = 'button'; disp.className = 'vm-btn alt'; disp.textContent = 'Dispensar de foto · 免拍';
+    const no = document.createElement('button'); no.type = 'button'; no.className = 'vm-reset'; no.textContent = 'Cancelar';
+    const m = document.createElement('span'); m.className = 'vm-note'; m.setAttribute('role', 'status');
+    const row = document.createElement('div'); row.className = 'fl-row'; row.append(sel, inp, anotar, disp, no);
+    if (r.nota_site) { const tira = document.createElement('button'); tira.type = 'button'; tira.className = 'vm-reset'; tira.textContent = 'Tirar anotação'; row.insertBefore(tira, no);
+      tira.addEventListener('click', async (ev) => { ev.stopPropagation(); const adm = adminPai(); if (!adm) return; m.textContent = 'Salvando…'; try { await adm.limparNota(r); } catch (e) { m.textContent = 'Não consegui salvar: ' + (e.message || e); } }); }
+    const note = document.createElement('span'); note.className = 'vm-note';
+    note.textContent = '"Anotar" deixa a loja na lista de cobrança com a anotação na frente (ex.: falta canvas). "Dispensar" tira a loja da base e das pendências — dá para desfazer em "Lojas dispensadas de foto", no topo.';
+    td.append(t, row, m, note);
+    [fr, td, sel, inp].forEach((x) => { x.addEventListener('click', (ev) => ev.stopPropagation()); x.addEventListener('keydown', (ev) => ev.stopPropagation()); });
+    no.addEventListener('click', (ev) => { ev.stopPropagation(); fr.remove(); });
+    const salvar = (tipo) => async (ev) => {
+      ev.stopPropagation(); const adm = adminPai(); if (!adm) return;
+      anotar.disabled = disp.disabled = true; m.textContent = 'Salvando…';
+      try { await (tipo === 'nota' ? adm.anotar(r, sel.value, inp.value.trim()) : adm.dispensar(r, sel.value, inp.value.trim())); }
+      catch (e) { anotar.disabled = disp.disabled = false; m.textContent = 'Não consegui salvar: ' + (e.message || e); }
+    };
+    anotar.addEventListener('click', salvar('nota')); disp.addEventListener('click', salvar('dispensa'));
+    tr.after(fr); sel.focus();
+  }
+  function drawTable() {
+    const p = dash.params();
+    const q = (busca.value || '').trim().toLowerCase();
+    const DISP = p.situacao === 'Dispensadas';
+    const fonte = DISP ? ((adminPai() && adminPai().dispensadas()) || []).filter((r) => !MULTI || !selCanais || selCanais.has(r.canal)).map((r) => Object.assign({ situacao_real: 'Dispensadas' }, r)) : lastRows;
+    const rows = fonte.filter((r) => (DISP || noCanal(r.canal, p.canal)) && (p.regiao === 'Todas' || r.regiao === p.regiao) && (DISP ||
+      (p.situacao === 'Todas' || r.situacao === p.situacao || (p.situacao === 'Antiga' && r.dias_sem_foto != null && r.dias_sem_foto >= DIAS_ALERTA))) &&
+      (!q || [r.codigo, r.loja, r.cidade, r.observacao, r.uf, r.canal].join(' ').toLowerCase().includes(q)));
+    const numeric = ['mesas', 'fotos', 'dias_sem_foto'].includes(sortKey);
+    const nv = (v) => v == null ? -1 : v;
+    rows.sort((a, b) => numeric ? (nv(a[sortKey]) - nv(b[sortKey])) * sortDir : String(a[sortKey]).localeCompare(String(b[sortKey]), 'pt-BR') * sortDir || a.loja.localeCompare(b.loja));
+    document.querySelectorAll('#tabela th').forEach((th) => {
+      const k = th.querySelector('.vm-sort').dataset.k;
+      th.setAttribute('aria-sort', k === sortKey ? (sortDir > 0 ? 'ascending' : 'descending') : 'none');
+    });
+    const tb = $('#tabela tbody'); tb.replaceChildren();
+    rows.forEach((r) => {
+      const tr = tb.insertRow(); tr.dataset.key = r.id; tr.tabIndex = 0;
+      if (r.id === openId) tr.classList.add('sel');
+      const c = (v, cls) => { const td = tr.insertCell(); if (cls) td.className = cls; td.textContent = v; return td; };
+      const tdc = c(r.codigo || 'sem código', 'code'); if (!r.codigo) tdc.classList.add('nocode');
+      c(r.loja); c(r.canal); c(r.uf); c(r.cidade, 'hide-sm'); c(r.classe, 'hide-sm').hidden = true; c(String(r.mesas), 'num hide-sm'); c(String(r.fotos), 'num');
+      c(r.ultima_foto ? fmtData(r.ultima_foto) : (r.fotos ? 'sem data' : 'nunca'), 'hide-sm');
+      c(r.dias_sem_foto == null ? '' : String(r.dias_sem_foto), 'num');
+      const td = tr.insertCell(); const s = document.createElement('span');
+      s.className = 'vm-pill ' + (DISP ? 'mute' : r.situacao === 'OK' ? 'ok' : r.situacao === 'Pendente' ? 'bad' : 'warn'); s.textContent = DISP ? 'Dispensada' : r.situacao; td.appendChild(s);
+      if (DISP && adminPai()) {
+        const bv = document.createElement('button'); bv.type = 'button'; bv.className = 'vm-disp-btn'; bv.textContent = 'Voltar a cobrar · 恢复';
+        bv.addEventListener('click', async (ev) => { ev.stopPropagation(); bv.disabled = true; bv.textContent = 'Salvando…'; try { await adminPai().reativar(r); } catch (e) { bv.disabled = false; bv.textContent = 'Erro — tentar de novo'; } });
+        bv.addEventListener('keydown', (ev) => ev.stopPropagation());
+        td.appendChild(bv);
+      }
+      if (!DISP && r.situacao === 'Pendente' && adminPai()) {
+        const bd = document.createElement('button'); bd.type = 'button'; bd.className = 'vm-disp-btn'; bd.textContent = (r.nota_site ? 'Editar anotação' : 'Anotar / dispensar') + ' · 备注';
+        bd.title = 'Anotar um motivo (ex.: falta canvas) ou dispensar a loja de foto';
+        bd.addEventListener('click', (ev) => { ev.stopPropagation(); formDispensa(tr, r); });
+        bd.addEventListener('keydown', (ev) => ev.stopPropagation());
+        td.appendChild(bd);
+      }
+      c(r.observacao, 'obs hide-sm');
+    });
+    $('#vm-count').textContent = num.format(rows.length) + (rows.length === 1 ? ' loja' : ' lojas');
+    const velhas = lastRows.filter((r) => (p.regiao === 'Todas' || r.regiao === p.regiao) && noCanal(r.canal, p.canal) && r.dias_sem_foto != null && r.dias_sem_foto >= DIAS_ALERTA).length;
+    const al = $('#vm-alerta'); al.hidden = !velhas || p.situacao === 'Antiga';
+    al.replaceChildren(document.createTextNode('⚠ '), Object.assign(document.createElement('b'), { textContent: num.format(velhas) + (velhas === 1 ? ' loja' : ' lojas') }),
+      document.createTextNode(' com a última foto aprovada há ' + DIAS_ALERTA + '+ dias — precisam atualizar. Ver lista → · 超过' + DIAS_ALERTA + '天未更新'));
+    filtrados = rows;
+  }
+
+  dash.onData(() => {
+    const p = Object.assign({ canal: 'Prioritários', regiao: 'Todas', situacao: 'Pendente' }, dash.params());
+    const pr = dash.data('prioridades');
+    if (pr.status === 'ok') {
+      const nova = new Set(pr.data.filter((x) => x.prioritario === true || x.prioritario === 'true').map((x) => x.canal));
+      if ([...nova].join() !== [...PRI].join()) { PRI = nova; fillSelect(); }
+      if (MULTI && selCanais === undefined) { selCanais = PRI.size ? new Set(PRI) : null; aplicarCanais(); return; }
+    }
+    drawCanais();
+    drawPri(p);
+    drawFilters(p);
+    const lo = dash.data('lojas'), re = dash.data('resumo'), uf = dash.data('por_uf'), ap = dash.data('apontamentos');
+    if (re.status === 'ok') { drawTiles(p, re.data); drawHeat(p, re.data); drawDonut(p, re.data); drawCanalBars(p, re.data); drawRegBars(p, re.data); }
+    const me = dash.data('mesas'); if (me.status === 'ok') drawMesas(p, me.data); else if (me.status === 'error') fail($('#mesas-chart'));
+    else if (re.status === 'error') { fail($('#heat')); }
+    if (uf.status === 'ok') drawUf(p, uf.data); else if (uf.status === 'error') fail($('#uf-chart'));
+    if (ap.status === 'ok') drawAp(p, ap.data); else if (ap.status === 'error') fail($('#ap-chart'));
+    if (lo.status === 'ok') {
+      lastRows = lo.data.map((r) => Object.assign({}, r, { mesas: Number(r.mesas) || 0, fotos: Number(r.fotos) || 0,
+        dias_sem_foto: r.dias_sem_foto == null || r.dias_sem_foto === '' ? null : Number(r.dias_sem_foto) }));
+      drawTable();
+    }
+    const ev = dash.data('evolucao'), va = dash.data('variacao');
+    if (ev.status === 'ok') drawEvolucao(p, ev.data); else if (ev.status === 'error') fail($('#ev-chart'));
+    if (va.status === 'ok') drawDelta(p, va.data);
+    if (openId) drawViewer();
+  });
+})();
+</script>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

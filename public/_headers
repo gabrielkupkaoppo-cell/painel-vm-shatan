@@ -1,0 +1,16 @@
+/*
+  X-Robots-Tag: noindex, nofollow
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: no-referrer
+
+/*.html
+  Cache-Control: no-cache
+
+/
+  Cache-Control: no-cache
+
+/*.js
+  Cache-Control: no-cache
+
+/*.enc.json
+  Cache-Control: no-cache

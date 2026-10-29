@@ -1,0 +1,1109 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Painel VM Shatan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
+<style>
+/* Layout: login card first; after login a top bar with tabs (Painel | Aprovações | Usuários) over full-width panes */
+:root{
+  --bg:#f5f6f5; --panel:#ffffff; --fg:#17201d; --muted:#5d6b66; --line:#dfe4e1; --accent:#0f6e5c; --accent-fg:#ffffff;
+  --ok:#1f7a4d; --ok-bg:#e3f2ea; --bad:#b93a2c; --bad-bg:#f8e4e1; --warn:#9a5c00; --warn-bg:#fbefd9; --chip:#eef1ef; --sel:#e7f1ee;
+  --sans:"Figtree",system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  --serif:"Newsreader",Georgia,serif;
+  --r:10px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111614; --panel:#19201d; --fg:#e7eeea; --muted:#9aa8a2; --line:#2b3531; --accent:#3fb59a; --accent-fg:#06231c;
+  --ok:#53c48d; --ok-bg:#16301f; --bad:#f07a6b; --bad-bg:#3a1c18; --warn:#e3a33b; --warn-bg:#352a13; --chip:#222b27; --sel:#1d2c27; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#111614; --panel:#19201d; --fg:#e7eeea; --muted:#9aa8a2; --line:#2b3531; --accent:#3fb59a; --accent-fg:#06231c;
+  --ok:#53c48d; --ok-bg:#16301f; --bad:#f07a6b; --bad-bg:#3a1c18; --warn:#e3a33b; --warn-bg:#352a13; --chip:#222b27; --sel:#1d2c27; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1320px;margin-inline:auto;display:flex;flex-direction:column;gap:16px}
+h1{font-family:var(--serif);font-weight:400;font-size:2rem;margin:0;text-wrap:balance}
+.zh{display:block;font-size:.8rem;color:var(--muted);font-family:var(--sans);font-weight:400;margin-top:2px}
+.head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:flex-end}
+.counts{display:flex;flex-wrap:wrap;gap:8px}
+.count{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:8px 14px;min-width:7.5rem}
+.count b{display:block;font-family:var(--serif);font-weight:400;font-size:1.6rem;font-variant-numeric:tabular-nums}
+.count span{font-size:.78rem;color:var(--muted)}
+.count.aw b{color:var(--warn)} .count.ap b{color:var(--ok)} .count.rp b{color:var(--bad)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{font:inherit;font-size:.82rem;padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+select,input[type=search],textarea{font:inherit;font-size:.88rem;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg)}
+input[type=search]{min-width:min(100%,14rem)}
+.btn{font:inherit;font-weight:600;font-size:.85rem;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.btn:disabled{opacity:.55;cursor:progress}
+:is(.chip,.btn,select,input,textarea,.item):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.note{font-size:.8rem;color:var(--muted);margin:0}
+.msg{padding:10px 14px;border-radius:var(--r);border:1px solid var(--line);background:var(--panel);font-size:.88rem}
+.msg.err{border-color:var(--bad);background:var(--bad-bg)}
+.work{display:grid;grid-template-columns:minmax(0,22rem) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.work{grid-template-columns:1fr}}
+.list{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);max-height:78vh;overflow:auto}
+.list-h{position:sticky;top:0;background:var(--panel);padding:8px 12px;border-bottom:1px solid var(--line);font-size:.78rem;color:var(--muted);z-index:1}
+.item{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer;width:100%;text-align:left;font:inherit;color:inherit;background:none;border-left:3px solid transparent}
+.item:hover{background:var(--chip)}
+.item.sel{background:var(--sel);border-left-color:var(--accent)}
+.item .t{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .s{font-size:.76rem;color:var(--muted);grid-column:1/-1}
+.pill{display:inline-block;font-size:.72rem;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap;align-self:start}
+.pill.aw{background:var(--warn-bg);color:var(--warn)} .pill.ap{background:var(--ok-bg);color:var(--ok)} .pill.rp{background:var(--bad-bg);color:var(--bad)} .pill.sb{background:#eee;color:#666} .pill.mais{background:#eef2ff;color:#3949ab}
+.detail{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.dt{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline}
+.dt h2{margin:0;font-size:1.2rem;font-weight:600}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:8px 16px}
+.facts div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.facts b{font-size:.72rem;color:var(--muted);font-weight:500;letter-spacing:.02em}
+.facts span{overflow-wrap:anywhere}
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr));gap:10px}
+.ph{margin:0;display:flex;flex-direction:column;gap:4px}
+.ph .box{aspect-ratio:3/4;border-radius:8px;border:1px solid var(--line);background:var(--chip);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:zoom-in;color:var(--muted);font-size:.78rem;text-align:center;padding:6px}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph figcaption{font-size:.78rem;color:var(--muted)}
+.ph a{color:var(--accent)}
+.decide{border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px}
+.reasons{display:flex;flex-wrap:wrap;gap:6px}
+.reasons label{display:inline-flex;align-items:center;gap:6px;font-size:.84rem;padding:5px 10px;border:1px solid var(--line);border-radius:999px;cursor:pointer;background:var(--panel)}
+.reasons input{accent-color:var(--bad)}
+.reasons label:has(input:checked){border-color:var(--bad);background:var(--bad-bg)}
+textarea{width:100%;min-height:3.2rem;resize:vertical}
+.acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.no{background:var(--bad);border-color:var(--bad);color:#fff}
+.last{font-size:.84rem;padding:8px 12px;border-radius:8px}
+.last.ap{background:var(--ok-bg)} .last.rp{background:var(--bad-bg)}
+.empty{padding:40px 16px;text-align:center;color:var(--muted)}
+.light{position:fixed;inset:0;background:rgba(0,0,0,.86);display:flex;align-items:center;justify-content:center;z-index:50;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));cursor:zoom-out}
+.light img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px}
+kbd{font:inherit;font-size:.72rem;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted)}
+@media (prefers-reduced-motion: no-preference){.item,.chip{transition:background .15s}}
+.tabs{max-width:1320px;margin:0 auto 14px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.tabs .brand{font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);font-size:.78rem;margin-right:10px}
+.tab{font:inherit;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;padding:10px 12px;color:var(--muted);cursor:pointer;margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+.tab .n{display:inline-block;min-width:1.4em;padding:0 6px;margin-left:6px;border-radius:999px;background:var(--warn-bg);color:var(--warn);font-size:.75rem}
+#pane-painel iframe{display:block;width:100%;max-width:1320px;margin:0 auto;border:0;height:calc(100vh - 80px);min-height:600px;background:var(--bg)}
+
+[hidden]{display:none!important}
+.s-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,19rem);gap:16px;align-items:start}
+@media (max-width:900px){.s-grid{grid-template-columns:1fr}}
+.s-caso{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px}
+.s-caso.confirmado{border-left:4px solid var(--bad)} .s-caso.justificado{border-left:4px solid var(--ok)} .s-caso.aberto{border-left:4px solid var(--warn)}
+.s-top{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;justify-content:space-between}
+.s-top b{font-size:.95rem}
+.s-membros{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,16rem),1fr));gap:10px}
+.s-m{border:1px solid var(--line);border-radius:8px;padding:6px;display:flex;flex-direction:column;gap:4px;font-size:.8rem}
+.s-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(4.5rem,1fr));gap:4px}
+.s-m .box{aspect-ratio:4/3;border-radius:6px;background:var(--chip);display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--muted);font-size:.75rem;text-align:center;cursor:zoom-in}
+.s-m img{width:100%;height:100%;object-fit:cover}
+.s-m b{font-size:.84rem}
+.s-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.s-acts input{flex:1 1 14rem;font:inherit;font-size:.86rem;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg)}
+.s-dec{font-size:.84rem;padding:6px 10px;border-radius:8px}
+.s-dec.confirmado{background:var(--bad-bg)} .s-dec.justificado{background:var(--ok-bg)}
+.s-rank{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px;position:sticky;top:10px}
+.s-rank h2{font-size:1rem;margin:0 0 4px}
+.s-rank table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px}
+.s-rank th,.s-rank td{text-align:left;padding:5px 4px;border-bottom:1px solid var(--line)}
+.s-rank td:not(:first-child),.s-rank th:not(:first-child){text-align:right}
+
+.pill.dup{background:var(--bad-bg);color:var(--bad);grid-column:2}
+.rep{border:1px solid var(--bad);background:var(--bad-bg);border-radius:8px;padding:10px 12px;font-size:.88rem}
+.rep ul{margin:6px 0;padding-left:18px}
+
+.cmp-h{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;align-items:baseline;border-top:1px solid var(--line);padding-top:10px}
+.cmp-h b{font-size:.9rem}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cmp .ph .box{aspect-ratio:4/3}
+.cmp-vazio{border:1px dashed var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.8rem;text-align:center;padding:10px;min-height:8rem}
+@media (max-width:560px){.cmp,.cmp-h{grid-template-columns:1fr}}
+
+.ver{font-size:.7rem;color:var(--muted);opacity:.8}
+.disp{max-width:1320px;margin:0 auto 10px;padding:8px 12px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);font-size:.86rem}
+.disp summary{cursor:pointer}
+.disp ul{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.disp li{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline}
+
+.wa{display:inline-flex;align-items:center;gap:6px;font:inherit;font-weight:600;font-size:.85rem;padding:7px 14px;border-radius:8px;border:1px solid #1f9d55;background:#25d366;color:#05301a;cursor:pointer;text-decoration:none}
+.wa[aria-disabled="true"]{background:var(--chip);border-color:var(--line);color:var(--muted);cursor:not-allowed}
+.walast{max-width:1320px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);background:var(--panel);font-size:.86rem}
+
+.imp{max-width:1320px;margin:0 auto 10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+.imp-bar{flex:1 1 12rem;max-width:20rem;height:8px;border-radius:999px;background:var(--chip);overflow:hidden}
+.imp-bar span{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+
+html,body{margin:0}
+.card{max-width:400px;margin:10vh auto 0;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;display:flex;flex-direction:column;gap:12px}
+.card h1 .zh{margin-top:4px}
+.card p{margin:0;color:var(--muted);font-size:.9rem}
+.card label{display:flex;flex-direction:column;gap:4px;font-size:.8rem;color:var(--muted)}
+.card input{font:inherit;font-size:1rem;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
+.card .btn.main{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);padding:10px;font-size:.95rem}
+.card .links{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-size:.84rem}
+.linkbtn{font:inherit;background:none;border:none;padding:0;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.err{color:var(--bad);font-size:.85rem;min-height:1em}
+.ok-msg{color:var(--ok);font-size:.85rem}
+.tabs .who{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--muted);padding:6px 0}
+.tag{font-size:.7rem;font-weight:600;padding:1px 8px;border-radius:999px;background:var(--chip);color:var(--fg)}
+.users{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:auto}
+.users table{width:100%;border-collapse:collapse;font-size:.88rem}
+.users th,.users td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+.users th{font-size:.74rem;color:var(--muted);font-weight:500}
+.users tr.novo td{background:var(--warn-bg)}
+.sw{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.sw input{width:1rem;height:1rem;accent-color:var(--ok)}
+</style>
+<script src="crypto.js"></script>
+</head>
+<body>
+
+<!-- ===== Login ===== -->
+<form class="card" id="v-login" hidden autocomplete="on">
+  <h1>Painel VM Sha Tan<span class="zh">SHATAN 体验台陈列看板 · 登录</span></h1>
+  <p>Entre com o seu e-mail e senha. · 请用邮箱和密码登录。</p>
+  <label>E-mail · 邮箱<input id="l-email" type="email" autocomplete="username" required></label>
+  <label>Senha · 密码<input id="l-pw" type="password" autocomplete="current-password" required></label>
+  <button class="btn main" type="submit" id="l-go">Entrar · 登录</button>
+  <span class="err" id="l-err" role="alert"></span>
+  <div class="links"><button class="linkbtn" type="button" data-go="v-signup">Pedir acesso · 申请账号</button><button class="linkbtn" type="button" data-go="v-forgot">Esqueci a senha · 忘记密码</button></div>
+</form>
+
+<form class="card" id="v-signup" hidden autocomplete="on">
+  <h1>Pedir acesso<span class="zh">申请账号</span></h1>
+  <p>Crie sua senha. O administrador libera o acesso depois. · 设置密码后，等待管理员开通。</p>
+  <label>Nome · 姓名<input id="s-nome" type="text" autocomplete="name" required></label>
+  <label>E-mail · 邮箱<input id="s-email" type="email" autocomplete="username" required></label>
+  <label>Senha (mínimo 8) · 密码<input id="s-pw" type="password" autocomplete="new-password" minlength="8" required></label>
+  <button class="btn main" type="submit" id="s-go">Criar acesso · 创建</button>
+  <span class="err" id="s-err" role="alert"></span>
+  <div class="links"><button class="linkbtn" type="button" data-go="v-login">Voltar para o login · 返回</button></div>
+</form>
+
+<form class="card" id="v-forgot" hidden>
+  <h1>Esqueci a senha<span class="zh">忘记密码</span></h1>
+  <p>Enviamos um link para você criar uma senha nova. · 我们会发送重置链接。</p>
+  <label>E-mail · 邮箱<input id="f-email" type="email" autocomplete="username" required></label>
+  <button class="btn main" type="submit" id="f-go">Enviar link · 发送</button>
+  <span class="err" id="f-err" role="alert"></span>
+  <div class="links"><button class="linkbtn" type="button" data-go="v-login">Voltar para o login · 返回</button></div>
+</form>
+
+<form class="card" id="v-newpw" hidden>
+  <h1>Nova senha<span class="zh">设置新密码</span></h1>
+  <label>Nova senha (mínimo 8) · 新密码<input id="n-pw" type="password" autocomplete="new-password" minlength="8" required></label>
+  <button class="btn main" type="submit" id="n-go">Salvar senha · 保存</button>
+  <span class="err" id="n-err" role="alert"></span>
+</form>
+
+<div class="card" id="v-wait" hidden>
+  <h1>Acesso aguardando liberação<span class="zh">等待管理员开通</span></h1>
+  <p id="w-text">Seu cadastro foi recebido. Assim que o administrador liberar, é só entrar de novo. · 管理员开通后即可登录。</p>
+  <div class="links"><button class="linkbtn" type="button" id="w-retry">Já fui liberado · 重试</button><button class="linkbtn" type="button" id="w-out">Sair · 退出</button></div>
+</div>
+
+<!-- ===== App ===== -->
+<div id="v-app" hidden>
+<nav class="tabs" role="tablist" aria-label="Painel">
+  <span class="brand">OPPO · Sha Tan</span>
+  <button class="tab" role="tab" id="tab-painel" aria-selected="true" aria-controls="pane-painel" type="button">Painel · 看板</button>
+  <button class="tab" role="tab" id="tab-rev" aria-selected="false" aria-controls="pane-rev" type="button" hidden>Aprovações · 审核<span class="n" id="tab-n" hidden></span></button>
+  <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
+  <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
+  <span class="who"><span class="ver" title="Versão do site">versão 29/10 15:30</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+</nav>
+<section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
+  <div class="imp" id="imp" hidden>
+    <button class="btn ok" id="imp-btn" type="button">Atualizar painel com o Excel · 导入Excel</button>
+    <input type="file" id="imp-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+    <div class="imp-bar" id="imp-bar" hidden><span id="imp-fill"></span></div>
+    <span class="note" id="imp-info" role="status"></span>
+  </div>
+  <iframe id="painel" src="painel.html?v=202610291303" title="Painel VM"></iframe>
+</section>
+<section id="pane-rev" role="tabpanel" aria-labelledby="tab-rev" hidden>
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1>Revisão de Mesas Shatan<span class="zh">体验台照片审核</span></h1>
+      <p class="note">Envios dos 2 Google Forms: "Controle de Mesas Shatan" e "Checklist MESAS - FAST/Operadoras". Cada decisão fica registrada com quem aprovou e é copiada para a aba "Revisão" da planilha.</p>
+    </div>
+    <div class="counts">
+      <div class="count aw"><b id="c-aw">—</b><span>Aguardando · 待审核</span></div>
+      <div class="count ap"><b id="c-ap">—</b><span>Aprovados · 通过</span></div>
+      <div class="count rp"><b id="c-rp">—</b><span>Reprovados · 不通过</span></div>
+    </div>
+  </div>
+
+  <div class="bar" id="bar">
+    <div class="bar" id="st-chips" role="group" aria-label="Status"></div>
+    <select id="f-form" aria-label="Formulário"><option value="">Os 2 formulários · 全部表单</option></select>
+    <select id="f-canal" aria-label="Canal"><option value="">Todos os canais · 全部渠道</option></select>
+    <select id="f-uf" aria-label="Estado"><option value="">Todos os estados · 全部州</option></select>
+    <input id="f-q" type="search" placeholder="Buscar loja ou promotor" aria-label="Buscar">
+    <label class="note" style="display:inline-flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="f-ultimo" checked> Só o envio mais recente de cada loja · 仅显示最新</label>
+    <button class="btn" id="reload" type="button">Atualizar · 刷新</button>
+    <button class="btn ok" id="bulk" type="button" hidden></button>
+    <span class="note" id="bulk-info" role="status"></span>
+  </div>
+  <div class="walast" id="wa-last" hidden></div>
+
+  <div id="status" class="msg" role="status">Carregando… · 加载中</div>
+  <div class="work" id="work" hidden>
+    <div class="list" id="list" aria-label="Envios"></div>
+    <section class="detail" id="detail" aria-live="polite"><div class="empty">Escolha um envio na lista.</div></section>
+  </div>
+</div>
+
+
+</section>
+<section id="pane-susp" role="tabpanel" aria-labelledby="tab-susp" hidden>
+<div class="wrap">
+  <div class="head"><div><h1>Fotos suspeitas<span class="zh">可疑照片监控</span></h1>
+    <p class="note">Mesma foto (mesmo arquivo) usada em mais de um envio, ou foto tirada mais de 7 dias antes do envio. São suspeitas, não provas: confira e marque cada caso como Confirmado ou Justificado.</p></div></div>
+  <div class="counts" id="s-kpis"></div>
+  <div class="bar">
+    <div class="bar" id="s-st" role="group" aria-label="Situação do caso"></div>
+    <select id="s-tipo" aria-label="Tipo"><option value="">Todos os tipos · 全部类型</option><option value="entre">Mesma foto em lojas diferentes</option><option value="mesma">Foto reaproveitada na mesma loja</option><option value="antiga">Foto antiga (tirada antes)</option></select>
+    <select id="s-canal" aria-label="Canal"><option value="">Todos os canais · 全部渠道</option></select>
+    <input id="s-q" type="search" placeholder="Buscar loja ou promotor" aria-label="Buscar">
+    <button class="btn" id="s-copiar" type="button">Copiar lista · 复制</button>
+    <span class="note" id="s-msg" role="status"></span>
+  </div>
+  <div class="s-grid">
+    <div id="s-lista" aria-live="polite"></div>
+    <aside class="s-rank"><h2>Por promotor · 按促销员</h2><p class="note">Casos em que o promotor aparece (abertos e confirmados primeiro).</p><table><thead><tr><th>Promotor</th><th>Abertos</th><th>Confirm.</th><th>Justif.</th></tr></thead><tbody id="s-rank"></tbody></table></aside>
+  </div>
+</div>
+</section>
+<section id="pane-users" role="tabpanel" aria-labelledby="tab-users" hidden>
+<div class="wrap">
+  <div class="head"><div><h1>Usuários<span class="zh">用户管理</span></h1>
+    <p class="note">Quem pede acesso aparece aqui. Ligue "Ativo" para liberar e escolha o papel: Leitor vê o painel; Administrador também aprova fotos e libera usuários.</p></div></div>
+  <div class="msg" id="u-status" role="status" hidden></div>
+  <div class="users"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Papel · 角色</th><th>Ativo · 启用</th><th>Pedido em</th><th></th></tr></thead><tbody id="u-body"></tbody></table></div>
+</div>
+</section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const SB = 'https://crhkkumzfgayysgcnlhe.supabase.co';
+  const KEY = 'sb_publishable_KVETLbMDkF3wX87LI_knEA_56gY4T0E';
+  const SKEY = 'vm-sb-sessao';
+  const FORMS = [{ nome: 'Controle de Mesas' }, { nome: 'Checklist Fast/Operadoras' }];
+  const MOTIVOS = ['Sem tag verde / preço', 'Telas apagadas (demo)', 'Faltando aparelho', 'Canvas errado ou antigo', 'Foto ruim ou incompleta', 'Outro'];
+  const MOTZH = { 'Sem tag verde / preço': '缺绿色价签', 'Telas apagadas (demo)': '未开演示', 'Faltando aparelho': '缺样机', 'Canvas errado ou antigo': '画面错误/旧', 'Foto ruim ou incompleta': '照片不合格', 'Outro': '其他' };
+  const ST = [['aw', 'Aguardando · 待审核'], ['rp', 'Reprovados · 不通过'], ['ap', 'Aprovados · 通过'], ['sb', 'Substituídos · 已替换'], ['all', 'Todos · 全部']];
+  const $ = (s) => document.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+  let mcp = null, rows = [], header = [], reviews = new Map(), selKey = null;
+  let fStatus = 'aw';
+  const photoCache = new Map();
+
+
+  let sess = null, perfil = null;
+
+  // ---------- Supabase (REST, sem bibliotecas) ----------
+  function saveSess(s) { sess = s; try { if (s) localStorage.setItem(SKEY, JSON.stringify(s)); else localStorage.removeItem(SKEY); } catch (e) {} }
+  function fromToken(t) { return { access_token: t.access_token, refresh_token: t.refresh_token, expires_at: Math.floor(Date.now() / 1000) + (+t.expires_in || 3600), user: t.user || null }; }
+  async function authCall(path, body, token) {
+    const h = { apikey: KEY, 'Content-Type': 'application/json' };
+    if (token) h.Authorization = 'Bearer ' + token;
+    const r = await fetch(SB + '/auth/v1/' + path, { method: body === undefined ? 'GET' : (path === 'user' ? 'PUT' : 'POST'), headers: h, body: body === undefined ? undefined : JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(j.msg || j.error_description || j.message || ('HTTP ' + r.status)); e.code = j.error_code || j.code || j.error; e.status = r.status; throw e; }
+    return j;
+  }
+  async function token() {
+    if (!sess) throw Object.assign(new Error('sem sessão'), { status: 401 });
+    if (sess.expires_at - Date.now() / 1000 < 90) {
+      try { saveSess(fromToken(await authCall('token?grant_type=refresh_token', { refresh_token: sess.refresh_token }))); }
+      catch (e) { saveSess(null); showView('v-login'); throw e; }
+    }
+    return sess.access_token;
+  }
+  async function api(path, opt) {
+    opt = opt || {};
+    const h = Object.assign({ apikey: KEY, Authorization: 'Bearer ' + await token() }, opt.headers || {});
+    if (opt.body !== undefined && !(opt.body instanceof Blob)) h['Content-Type'] = 'application/json';
+    const r = await fetch(SB + path, { method: opt.method || 'GET', headers: h, cache: opt.cache || 'default', body: opt.body === undefined ? undefined : (opt.body instanceof Blob ? opt.body : JSON.stringify(opt.body)) });
+    if (r.status === 401) { saveSess(null); showView('v-login'); throw Object.assign(new Error('Sessão expirada. Entre de novo.'), { status: 401 }); }
+    if (!r.ok) { const t = await r.text(); throw Object.assign(new Error(t.slice(0, 200) || ('HTTP ' + r.status)), { status: r.status }); }
+    if (opt.raw) return r;
+    const t = await r.text(); return t ? JSON.parse(t) : null;
+  }
+  async function getAll(path) { // pagina de 1000 em 1000
+    let out = [], from = 0;
+    for (;;) {
+      const page = await api(path, { headers: { Range: from + '-' + (from + 999), 'Range-Unit': 'items' } });
+      out = out.concat(page || []);
+      if (!page || page.length < 1000) return out;
+      from += 1000;
+    }
+  }
+  const errMsg = (e) => (e && e.status === 401) ? 'Sessão expirada. Entre de novo.' : 'Não consegui falar com o servidor' + (e && e.message ? ': ' + e.message : '.');
+
+  // ---------- telas ----------
+  const VIEWS = ['v-login', 'v-signup', 'v-forgot', 'v-newpw', 'v-wait', 'v-app'];
+  function showView(id) { VIEWS.forEach((v) => { $('#' + v).hidden = v !== id; }); }
+  document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => { showView(b.dataset.go); document.querySelectorAll('.err').forEach((x) => { x.textContent = ''; }); }));
+  function busy(btn, on, txt) { btn.disabled = on; if (txt) btn.textContent = txt; }
+
+  $('#v-login').addEventListener('submit', async (ev) => {
+    ev.preventDefault(); const b = $('#l-go'), err = $('#l-err'); err.textContent = ''; busy(b, true, 'Entrando… · 登录中');
+    try { saveSess(fromToken(await authCall('token?grant_type=password', { email: $('#l-email').value.trim(), password: $('#l-pw').value }))); await start(); }
+    catch (e) {
+      err.textContent = e.code === 'email_not_confirmed' ? 'Confirme seu e-mail pelo link que enviamos e tente de novo. · 请先确认邮箱' :
+        (e.code === 'invalid_credentials' || e.status === 400) ? 'E-mail ou senha incorretos. · 邮箱或密码错误' : errMsg(e);
+    } finally { busy(b, false, 'Entrar · 登录'); }
+  });
+  $('#v-signup').addEventListener('submit', async (ev) => {
+    ev.preventDefault(); const b = $('#s-go'), err = $('#s-err'); err.textContent = ''; busy(b, true, 'Criando… · 创建中');
+    try {
+      const j = await authCall('signup?redirect_to=' + encodeURIComponent(location.origin + location.pathname), { email: $('#s-email').value.trim(), password: $('#s-pw').value, data: { nome: $('#s-nome').value.trim() } });
+      if (j.access_token) { saveSess(fromToken(j)); await start(); }
+      else { showView('v-wait'); $('#w-text').textContent = 'Pronto! Confirme seu e-mail pelo link que enviamos. Depois, o administrador libera o seu acesso. · 请确认邮箱，等待管理员开通。'; }
+    } catch (e) { err.textContent = /registered|exists/i.test(e.message) ? 'Este e-mail já tem cadastro. Use "Esqueci a senha" se precisar. · 邮箱已注册' : /password/i.test(e.message) ? 'Senha fraca: use pelo menos 8 caracteres. · 密码太短' : errMsg(e); }
+    finally { busy(b, false, 'Criar acesso · 创建'); }
+  });
+  $('#v-forgot').addEventListener('submit', async (ev) => {
+    ev.preventDefault(); const b = $('#f-go'), err = $('#f-err'); err.textContent = ''; busy(b, true, 'Enviando… · 发送中');
+    try { await authCall('recover?redirect_to=' + encodeURIComponent(location.origin + location.pathname), { email: $('#f-email').value.trim() }); err.className = 'ok-msg'; err.textContent = 'Se o e-mail tiver cadastro, o link chega em alguns minutos (veja o spam). · 请查收邮件'; }
+    catch (e) { err.className = 'err'; err.textContent = errMsg(e); }
+    finally { busy(b, false, 'Enviar link · 发送'); }
+  });
+  $('#v-newpw').addEventListener('submit', async (ev) => {
+    ev.preventDefault(); const b = $('#n-go'), err = $('#n-err'); err.textContent = ''; busy(b, true, 'Salvando… · 保存中');
+    try { await authCall('user', { password: $('#n-pw').value }, await token()); await start(); }
+    catch (e) { err.textContent = /password/i.test(e.message) ? 'Senha fraca: use pelo menos 8 caracteres.' : errMsg(e); }
+    finally { busy(b, false, 'Salvar senha · 保存'); }
+  });
+  function logout() { const t = sess && sess.access_token; saveSess(null); if (t) authCall('logout', {}, t).catch(() => {}); location.hash = ''; location.reload(); }
+  $('#logout').addEventListener('click', logout);
+  $('#w-out').addEventListener('click', logout);
+  $('#w-retry').addEventListener('click', () => { if (sess) start(); else showView('v-login'); });
+
+  // ---------- depois do login ----------
+  const isAdmin = () => perfil && perfil.ativo && perfil.papel === 'admin';
+  async function start() {
+    const uid = (sess.user && sess.user.id) || (await authCall('user', undefined, await token())).id;
+    if (!sess.user) { sess.user = { id: uid }; saveSess(sess); }
+    const p = await api('/rest/v1/perfis?id=eq.' + uid + '&select=*');
+    perfil = p && p[0];
+    if (!perfil || !perfil.ativo) { showView('v-wait'); $('#w-text').textContent = 'Seu cadastro foi recebido. Assim que o administrador liberar, clique em "Já fui liberado". · 管理员开通后即可登录。'; return; }
+    showView('v-app');
+    $('#who').textContent = perfil.nome || perfil.email;
+    $('#who-role').textContent = isAdmin() ? 'Administrador · 管理员' : 'Leitor · 查看';
+    $('#tab-rev').hidden = !isAdmin(); $('#tab-users').hidden = !isAdmin(); $('#tab-susp').hidden = !isAdmin();
+    $('#imp').hidden = true; // importação do Excel desativada: o painel vem do Feishu
+    ligarAdminPainel();
+    let t = 'painel'; try { t = localStorage.getItem('vm-tab') || 'painel'; } catch (e) {}
+    showTab(isAdmin() ? t : 'painel');
+    loadPainel();
+    if (isAdmin()) { load(); loadUsers(); }
+  }
+
+  // ---------- painel: dados do banco (importados do Excel); se ainda não houver, usa os arquivos criptografados do site ----------
+  let painelOk = false, painelAtual = null;
+  const fmtD10 = (s) => s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4);
+  async function loadPainel(force) {
+    if (painelOk && !force) return;
+    const frame = $('#painel');
+    if (force) { painelOk = false; await new Promise((res) => { frame.addEventListener('load', res, { once: true }); frame.src = 'painel.html?v=' + Date.now(); }); }
+    const ready = new Promise((res) => { if (frame.contentWindow && frame.contentWindow.dash && frame.contentDocument.readyState === 'complete') res(); else frame.addEventListener('load', res, { once: true }); });
+    try {
+      let d = null, fotosLoader = null, fonte = '', quando = '';
+      const pd = await api('/rest/v1/painel_dados?id=eq.atual&select=dados,atualizado_em,atualizado_por', { cache: 'no-store' });
+      if (pd && pd[0]) {
+        d = pd[0].dados; fonte = ' · fonte: ' + (pd[0].atualizado_por || '—'); quando = pd[0].atualizado_em;
+        fotosLoader = () => api('/storage/v1/object/authenticated/painel/fotos.json', { raw: true, cache: 'no-store' }).then((r) => r.json());
+      } else {
+        const cfg = await api('/rest/v1/config?chave=eq.senha_dados&select=valor');
+        const k = cfg && cfg[0] && cfg[0].valor; if (!k) throw new Error('chave do painel não encontrada');
+        d = await VMCRYPTO.open('dados.enc.json', k);
+        fotosLoader = () => VMCRYPTO.open('fotos.enc.json', k);
+      }
+      painelAtual = d;
+      await ready;
+      const w = frame.contentWindow, doc = frame.contentDocument;
+      const upd = doc.getElementById('upd'); if (upd) upd.textContent = 'Dados atualizados em ' + (quando ? fmtEm(quando) : fmtD10(d.atualizado)) + ' · 数据更新于 ' + (quando ? fmtEm(quando) : fmtD10(d.atualizado)) + (isAdmin() ? fonte + ' (atualiza a cada 10 min)' : '');
+      await carregarFotosAprov();
+      ajustes = await api('/rest/v1/lojas_ajustes?select=*&order=em.desc').catch(() => []) || [];
+      const disp = new Set(ajustes.filter((a) => (a.tipo || 'dispensa') === 'dispensa').map((a) => a.chave));
+      const notas = {}; ajustes.filter((a) => a.tipo === 'nota').forEach((a) => { notas[a.chave] = a; });
+      const ajPor = {}; ajustes.forEach((a) => { ajPor[a.chave] = a; });
+      dispLojas = (d.lojas || []).filter((l) => disp.has(chaveLoja(l))).map((l) => { const a = ajPor[chaveLoja(l)];
+        return Object.assign({}, l, { observacao: '⛔ ' + a.motivo + (a.obs ? ': ' + a.obs : '') + ' · ' + fmtEm(a.em) + (a.por_email ? ' · ' + a.por_email : '') }); });
+      const lojasVis = (d.lojas || []).filter((l) => !disp.has(chaveLoja(l))).map((l) => {
+        const n = notas[chaveLoja(l)]; if (!n) return l;
+        const txt = '📝 ' + n.motivo + (n.obs ? ': ' + n.obs : '');
+        return Object.assign({}, l, { nota_site: txt, observacao: txt + (l.observacao ? ' · ' + l.observacao : '') });
+      });
+      w.dash._load({ lojas: lojasVis, historico: d.historico || [], prioridades: d.prioridades || [] }, { fotos: fotosLoader });
+      desenharDispensadas();
+      painelOk = true;
+    } catch (e) {
+      await ready; const upd = frame.contentDocument.getElementById('upd'); if (upd) upd.textContent = 'Não consegui abrir os dados do painel: ' + (e.message || e);
+    }
+  }
+
+  // ---------- fotos aprovadas do Forms, para o quadro de fotos do painel (leitores e administradores) ----------
+  let fotosAprov = null;
+  const normCod = (v) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^0+/, '');
+  const digCod = (v) => { const m = String(v || '').match(/\d+/g); return m ? (m[m.length - 1].replace(/^0+/, '') || '0') : ''; };
+  async function carregarFotosAprov() {
+    try {
+      const lista = await api('/rest/v1/rpc/fotos_aprovadas', { method: 'POST', body: {} });
+      const idx = new Map();
+      (lista || []).forEach((e) => {
+        const c = canalNorm(e.canal), d = new Date(e.data);
+        [c + '|' + normCod(e.loja_raw), c + '|#' + digCod(e.loja_raw)].forEach((k) => { const cur = idx.get(k); if (!cur || d > cur.data) idx.set(k, { data: d, nome: e.nome, fotos: e.fotos || [] }); });
+      });
+      fotosAprov = idx;
+    } catch (e) { fotosAprov = new Map(); }
+  }
+  window.VMFOTOS = {
+    buscar(loja) {
+      if (!fotosAprov) return null;
+      const c = loja.canal;
+      return fotosAprov.get(c + '|' + normCod(loja.codigo)) || (loja.codigo ? fotosAprov.get(c + '|#' + digCod(loja.codigo)) : null) || null;
+    },
+    url(path) { return loadPhoto({ path }); },
+  };
+
+  // ---------- lojas dispensadas de foto (sem mesa etc.) ----------
+  let ajustes = [], dispLojas = [];
+  const chaveLoja = (l) => l.canal + '|' + String(l.codigo || l.loja || '').trim().toUpperCase();
+  window.VMADMIN = null;
+  function ligarAdminPainel() {
+    if (!isAdmin()) { window.VMADMIN = null; return; }
+    window.VMADMIN = {
+      async dispensar(loja, motivo, obs) { await salvarAjuste(loja, 'dispensa', motivo, obs); },
+      async anotar(loja, motivo, obs) { await salvarAjuste(loja, 'nota', motivo, obs); },
+      dispensadas() { return dispLojas; },
+      async reativar(loja) { await api('/rest/v1/lojas_ajustes?chave=eq.' + encodeURIComponent(chaveLoja(loja)), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); await loadPainel(true); },
+      async limparNota(loja) { await api('/rest/v1/lojas_ajustes?chave=eq.' + encodeURIComponent(chaveLoja(loja)), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); await loadPainel(true); },
+    };
+  }
+  async function salvarAjuste(loja, tipo, motivo, obs) {
+    await api('/rest/v1/lojas_ajustes?on_conflict=chave', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: [{ chave: chaveLoja(loja), canal: loja.canal, codigo: loja.codigo || '', loja: loja.loja, tipo, motivo, obs: obs || '', por_email: (perfil && perfil.email) || '', em: new Date().toISOString() }] });
+    await loadPainel(true);
+  }
+  function desenharDispensadas() { /* lista agora fica no filtro "Dispensadas" da tabela */ }
+
+  // ---------- importar o Excel (só administradores) ----------
+  function loadScript(src) { return new Promise((res, rej) => { if (window.VMIMPORT) return res(); const sc = document.createElement('script'); sc.src = src; sc.onload = res; sc.onerror = () => rej(new Error('não consegui carregar o importador')); document.head.appendChild(sc); }); }
+  function impProg(txt, frac) { $('#imp-info').textContent = txt; if (frac != null) { $('#imp-bar').hidden = false; $('#imp-fill').style.width = Math.round(frac * 100) + '%'; } }
+  $('#imp-btn').addEventListener('click', () => { $('#imp-file').value = ''; $('#imp-file').click(); });
+  $('#imp-file').addEventListener('change', async (ev) => {
+    const file = ev.target.files && ev.target.files[0]; if (!file) return;
+    const btn = $('#imp-btn'); btn.disabled = true;
+    try {
+      if (!/\.xlsx$/i.test(file.name)) throw new Error('Escolha o arquivo do Excel (.xlsx).');
+      impProg('Lendo ' + file.name + ' (' + Math.round(file.size / 1e6) + ' MB)…', 0.01);
+      await loadScript('importador.js');
+      const hoje = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      const base = painelAtual || {};
+      const res = await VMIMPORT.importar(file, { hoje, historico: base.historico || [], prioridades: base.prioridades || [], onProgress: impProg });
+      const nLojas = res.dados.lojas.length, nFotos = res.fotos.length;
+      if (nLojas < 50) throw new Error('Só encontrei ' + nLojas + ' lojas nesse arquivo. Confira se é a planilha certa.');
+      impProg('Enviando as fotos (' + nFotos + ')…', 0.97);
+      await api('/storage/v1/object/painel/fotos.json', { method: 'POST', body: new Blob([JSON.stringify(res.fotos)], { type: 'application/json' }), headers: { 'Content-Type': 'application/json', 'x-upsert': 'true' } });
+      impProg('Salvando os números…', 0.99);
+      await api('/rest/v1/painel_dados?on_conflict=id', { method: 'POST', body: [{ id: 'atual', dados: res.dados, atualizado_em: new Date().toISOString(), atualizado_por: (perfil && perfil.email) || '' }], headers: { Prefer: 'resolution=merge-duplicates,return=minimal' } });
+      const comFoto = res.dados.lojas.filter((l) => l.situacao !== 'Pendente').length;
+      await loadPainel(true);
+      impProg('Painel atualizado: ' + nLojas + ' lojas, ' + comFoto + ' com foto, ' + nFotos + ' fotos. Todos já veem os números novos. · 已更新', 1);
+    } catch (e) { $('#imp-bar').hidden = true; $('#imp-info').textContent = 'Não consegui importar: ' + (e.message || e); }
+    finally { btn.disabled = false; }
+  });
+
+  // ---------- data shaping ----------
+  const REG = { DF: 'DF/GO', GO: 'DF/GO', CE: 'CE/PI', PI: 'CE/PI', PA: 'PA/AP', AP: 'PA/AP', MT: 'MT/MS', MS: 'MT/MS', AM: 'AM/AC/RR/RO', AC: 'AM/AC/RR/RO', RR: 'AM/AC/RR/RO', RO: 'AM/AC/RR/RO', MA: 'MA/TO', TO: 'MA/TO' };
+  function lojaCodigo(raw) {
+    const s = String(raw || '').trim();
+    const m = s.match(/(\d[\d.]*)/g);
+    if (!m) return s;
+    return m[m.length - 1].replace(/\./g, '');
+  }
+  function photoLabel(h) {
+    const u = h.toUpperCase();
+    if (u.includes('ENTRADA')) return 'Entrada da loja · 门店入口';
+    if (u.includes('FRENTE')) return 'Mesa de frente · 体验台正面';
+    if (u.includes('OUTRO LADO')) return 'Mesa — lado 2 · 侧面2';
+    if (u.includes('UM LADO')) return 'Mesa — lado 1 · 侧面1';
+    if (u.includes('TOTEM')) return 'Totem Marina Sena · 人形立牌';
+    if (u.includes('RENO')) return 'Display Reno16 · Reno16 展示';
+    if (u.includes('OPPO LOGO')) return 'Display OPPO logo · 台面标识';
+    if (u.includes('LOGO')) return 'Logo de mesa · 台面Logo';
+    if (u.includes('A4')) return 'Display A4 · A4 展示';
+    return h.trim();
+  }
+  function driveIds(v) {
+    const out = [];
+    String(v || '').split(/[,\s]+/).forEach((p) => {
+      const m = p.match(/[?&]id=([\w-]{10,})/) || p.match(/\/d\/([\w-]{10,})/);
+      if (m) out.push(m[1]);
+    });
+    return out;
+  }
+  function parseDate(s) { const m = String(s).match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?/); return m ? new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5], +(m[6] || 0)) : null; }
+
+  function shapeEnvios(list) {
+    return list.map((e) => {
+      const uf = String(e.uf || '').toUpperCase();
+      return { key: e.key, form: e.form, linha: e.linha, carimbo: e.carimbo, data: e.data ? new Date(e.data) : parseDate(e.carimbo), nome: e.nome || '', cargo: e.cargo || '',
+        tel: e.tel || '', canal: canalNorm(e.canal) || '—', lojaRaw: e.loja_raw || '', loja: e.loja || lojaCodigo(e.loja_raw), uf, regiao: REG[uf] || '—',
+        produtos: e.produtos || '', mesa: e.mesa || '', photos: (e.fotos || []).map((p) => ({ id: p.id, label: p.label || 'Foto', path: p.path || null, arquivada: !!p.arquivada, md5: p.md5 || null, tirada: p.tirada == null ? null : p.tirada })), notas: e.notas || '' };
+    }).sort((a, b) => b.data - a.data);
+  }
+  const fmtEm = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); };
+  function shapeRevs(list) { const m = new Map(); list.forEach((x) => m.set(x.key, { status: x.status, motivo: x.motivos || '', obs: x.obs || '', em: fmtEm(x.revisado_em) + (x.revisado_por_email ? ' · ' + x.revisado_por_email : '') })); return m; }
+  async function saveRevs(items) {
+    const uid = sess.user && sess.user.id, email = (perfil && perfil.email) || '';
+    const body = items.map((x) => ({ key: x.key, status: x.status, motivos: x.motivos || '', obs: x.obs || '', revisado_por: uid, revisado_por_email: email, revisado_em: new Date().toISOString(), origem: 'site' }));
+    await api('/rest/v1/revisoes?on_conflict=key', { method: 'POST', body, headers: { Prefer: 'resolution=merge-duplicates,return=minimal' } });
+  }
+  // Lojas já validadas no painel (foto conferida na planilha Excel ou "OK" na coluna Ok/Pendente)
+  const JA_OK = new Set(["Americanas|#1023", "Americanas|#1068", "Americanas|#107", "Americanas|#1079", "Americanas|#1093", "Americanas|#1109", "Americanas|#1119", "Americanas|#1143", "Americanas|#1201", "Americanas|#1270", "Americanas|#133", "Americanas|#1378", "Americanas|#143", "Americanas|#148", "Americanas|#1527", "Americanas|#1553", "Americanas|#1567", "Americanas|#185", "Americanas|#206", "Americanas|#321", "Americanas|#343", "Americanas|#346", "Americanas|#375", "Americanas|#381", "Americanas|#391", "Americanas|#398", "Americanas|#421", "Americanas|#47", "Americanas|#61", "Americanas|1023", "Americanas|1068", "Americanas|107", "Americanas|1079", "Americanas|1093", "Americanas|1109", "Americanas|1119", "Americanas|1143", "Americanas|1201", "Americanas|1270", "Americanas|133", "Americanas|1378", "Americanas|143", "Americanas|148", "Americanas|1527", "Americanas|1553", "Americanas|1567", "Americanas|185", "Americanas|206", "Americanas|321", "Americanas|343", "Americanas|346", "Americanas|375", "Americanas|381", "Americanas|391", "Americanas|398", "Americanas|421", "Americanas|47", "Americanas|61", "Bemol|#101", "Bemol|#103", "Bemol|#105", "Bemol|#106", "Bemol|#109", "Bemol|#114", "Bemol|#115", "Bemol|#116", "Bemol|#118", "Bemol|#119", "Bemol|#120", "Bemol|#121", "Bemol|#201", "Bemol|#202", "Bemol|#204", "Bemol|#205", "Bemol|#206", "Bemol|#401", "Bemol|#404", "Bemol|#500", "Bemol|#520", "Bemol|#530", "Bemol|#531", "Bemol|#550", "Bemol|#560", "Bemol|#561", "Bemol|#570", "Bemol|#580", "Bemol|#590", "Bemol|#591", "Bemol|#592", "Bemol|#701", "Bemol|#702", "Bemol|#703", "Bemol|#705", "Bemol|#706", "Bemol|101", "Bemol|103", "Bemol|105", "Bemol|106", "Bemol|109", "Bemol|114", "Bemol|115", "Bemol|116", "Bemol|118", "Bemol|119", "Bemol|120", "Bemol|121", "Bemol|201", "Bemol|202", "Bemol|204", "Bemol|205", "Bemol|206", "Bemol|401", "Bemol|404", "Bemol|500", "Bemol|520", "Bemol|530", "Bemol|531", "Bemol|550", "Bemol|560", "Bemol|561", "Bemol|570", "Bemol|580", "Bemol|590", "Bemol|591", "Bemol|592", "Bemol|701", "Bemol|702", "Bemol|703", "Bemol|705", "Bemol|706", "Claro|#6107", "Claro|#6111", "Claro|#6112", "Claro|#6113", "Claro|#6203", "Claro|#6209", "Claro|#6213", "Claro|#6215", "Claro|#6216", "Claro|#6502", "Claro|#6504", "Claro|#6505", "Claro|#6507", "Claro|#6805", "Claro|#6806", "Claro|#6905", "Claro|#8504", "Claro|#9117", "Claro|#9118", "Claro|#9206", "Claro|#9804", "Claro|#9805", "Claro|6107", "Claro|6111", "Claro|6112", "Claro|6113", "Claro|6203", "Claro|6209", "Claro|6213", "Claro|6215", "Claro|6216", "Claro|6502", "Claro|6504", "Claro|6505", "Claro|6507", "Claro|6805", "Claro|6806", "Claro|6905", "Claro|8504", "Claro|9117", "Claro|9118", "Claro|9206", "Claro|9804", "Claro|9805", "Fast|1019", "Fast|1039", "Fast|1155", "Fast|138", "Fast|1590", "Fast|1746", "Fast|237", "Fast|279", "Fast|370", "Fast|444", "Fast|52", "Fast|661", "Fast|725", "Fast|98", "Lider|#5", "Lider|#8", "Lider|248", "Lider|35", "Magalu|#1027", "Magalu|#1028", "Magalu|#1029", "Magalu|#1037", "Magalu|#1051", "Magalu|#1056", "Magalu|#106", "Magalu|#1085", "Magalu|#1090", "Magalu|#1105", "Magalu|#1106", "Magalu|#1108", "Magalu|#1117", "Magalu|#1129", "Magalu|#1136", "Magalu|#1162", "Magalu|#1166", "Magalu|#1170", "Magalu|#1186", "Magalu|#1187", "Magalu|#1193", "Magalu|#1213", "Magalu|#1214", "Magalu|#1224", "Magalu|#1225", "Magalu|#1228", "Magalu|#1235", "Magalu|#1242", "Magalu|#1266", "Magalu|#1268", "Magalu|#1271", "Magalu|#1272", "Magalu|#1273", "Magalu|#1275", "Magalu|#1276", "Magalu|#1282", "Magalu|#1283", "Magalu|#1284", "Magalu|#1286", "Magalu|#1287", "Magalu|#1288", "Magalu|#1290", "Magalu|#1291", "Magalu|#1292", "Magalu|#1293", "Magalu|#1294", "Magalu|#1297", "Magalu|#1303", "Magalu|#1308", "Magalu|#1311", "Magalu|#1312", "Magalu|#1316", "Magalu|#1334", "Magalu|#1340", "Magalu|#1353", "Magalu|#1365", "Magalu|#1366", "Magalu|#1383", "Magalu|#1410", "Magalu|#1510", "Magalu|#1517", "Magalu|#1521", "Magalu|#1524", "Magalu|#1529", "Magalu|#1531", "Magalu|#1539", "Magalu|#1545", "Magalu|#1557", "Magalu|#194", "Magalu|#202", "Magalu|#205", "Magalu|#215", "Magalu|#274", "Magalu|#295", "Magalu|#453", "Magalu|#479", "Magalu|#586", "Magalu|#81", "Magalu|1027", "Magalu|1028", "Magalu|1029", "Magalu|1037", "Magalu|1051", "Magalu|1056", "Magalu|106", "Magalu|1085", "Magalu|1090", "Magalu|1105", "Magalu|1106", "Magalu|1108", "Magalu|1117", "Magalu|1129", "Magalu|1136", "Magalu|1162", "Magalu|1166", "Magalu|1170", "Magalu|1186", "Magalu|1187", "Magalu|1193", "Magalu|1213", "Magalu|1214", "Magalu|1224", "Magalu|1225", "Magalu|1228", "Magalu|1235", "Magalu|1242", "Magalu|1266", "Magalu|1268", "Magalu|1271", "Magalu|1272", "Magalu|1273", "Magalu|1275", "Magalu|1276", "Magalu|1282", "Magalu|1283", "Magalu|1284", "Magalu|1286", "Magalu|1287", "Magalu|1288", "Magalu|1290", "Magalu|1291", "Magalu|1292", "Magalu|1293", "Magalu|1294", "Magalu|1297", "Magalu|1303", "Magalu|1308", "Magalu|1311", "Magalu|1312", "Magalu|1316", "Magalu|1334", "Magalu|1340", "Magalu|1353", "Magalu|1365", "Magalu|1366", "Magalu|1383", "Magalu|1410", "Magalu|1510", "Magalu|1517", "Magalu|1521", "Magalu|1524", "Magalu|1529", "Magalu|1531", "Magalu|1539", "Magalu|1545", "Magalu|1557", "Magalu|194", "Magalu|202", "Magalu|205", "Magalu|215", "Magalu|274", "Magalu|295", "Magalu|453", "Magalu|479", "Magalu|586", "Magalu|81", "Martinello|#19", "Martinello|#20", "Martinello|#25", "Martinello|#50", "Martinello|#7", "Martinello|F07", "Martinello|F19", "Martinello|F20", "Martinello|F25", "Martinello|F50", "Paraiba|1019", "Paraiba|1039", "Paraiba|1155", "Paraiba|138", "Paraiba|1590", "Paraiba|1746", "Paraiba|237", "Paraiba|279", "Paraiba|370", "Paraiba|444", "Paraiba|52", "Paraiba|661", "Paraiba|725", "Paraiba|98", "Vivo|#105", "Vivo|#17", "Vivo|#18", "Vivo|#3", "Vivo|101H", "Vivo|102Y", "Vivo|103F", "Vivo|103V", "Vivo|105I", "Vivo|108F", "Vivo|17A", "Vivo|18A", "Vivo|3CE"]);
+  const CANAL_MAP = { FASTSHOP: 'Fast', FAST: 'Fast', 'MAGAZINE LUIZA': 'Magalu', MAGALU: 'Magalu', 'PARAÍBA': 'Paraiba', PARAIBA: 'Paraiba', AMERICANAS: 'Americanas', CLARO: 'Claro', VIVO: 'Vivo', TIM: 'Tim', BEMOL: 'Bemol', MARTINELLO: 'Martinello', GAZIN: 'Gazin', LIDER: 'Lider', 'LÍDER': 'Lider' };
+  const canalNorm = (c) => { const t = String(c || '').trim(); return CANAL_MAP[t.toUpperCase()] || t; };
+  function matchKeys(canal, raw) {
+    const u = String(raw || '').toUpperCase(); const out = [canal + '|' + u.replace(/[^A-Z0-9]/g, '').replace(/^0+/, '')];
+    const m = u.match(/\d+/g); if (m) out.push(canal + '|#' + (m[m.length - 1].replace(/^0+/, '') || '0'));
+    return out;
+  }
+  const jaValidados = () => rows.filter((r) => stOf(r) === 'aw' && matchKeys(r.canal, r.lojaRaw).some((k) => JA_OK.has(k)));
+  let bulkArmed = false;
+  function bulkLabel() {
+    const b = $('#bulk'); if (!b) return;
+    const n = jaValidados().length; b.hidden = n === 0; bulkArmed = false; b.disabled = false;
+    b.textContent = 'Dar baixa nas já validadas (' + n + ') · 同步已审核';
+  }
+  async function bulkApprove() {
+    const b = $('#bulk'), info = $('#bulk-info'); const list = jaValidados();
+    if (!list.length) return;
+    if (!bulkArmed) { bulkArmed = true; b.textContent = 'Confirmar: aprovar ' + list.length + ' envios · 确认'; info.textContent = 'Clique de novo para confirmar. · 再次点击确认'; return; }
+    b.disabled = true; info.textContent = 'Gravando ' + list.length + ' aprovações…';
+    const obs = 'Validada antes no painel (planilha Excel)';
+    try {
+      await saveRevs(list.map((r) => ({ key: r.key, status: 'Aprovado', motivos: '', obs })));
+      const em = fmtEm(new Date().toISOString()) + ' · ' + (perfil.email || '');
+      list.forEach((r) => reviews.set(r.key, { status: 'Aprovado', motivo: '', obs, em }));
+      info.textContent = list.length + ' envios marcados como Aprovado.';
+      bulkArmed = false; render();
+    } catch (e) { b.disabled = false; bulkArmed = false; info.textContent = errMsg(e); }
+  }
+  const stOf = (r) => { const x = reviews.get(r.key); return !x ? 'aw' : (x.status === 'Aprovado' ? 'ap' : x.status === 'Reprovado' ? 'rp' : x.status === 'Substituído' ? 'sb' : 'aw'); };
+  const stTxt = { aw: 'Aguardando', ap: 'Aprovado', rp: 'Reprovado', sb: 'Substituído' };
+
+
+  // ---------- carregar envios ----------
+  async function load() {
+    $('#reload').disabled = true;
+    setStatus('Carregando os envios… · 加载中');
+    try {
+      const [env, rev, sd] = await Promise.all([getAll('/rest/v1/envios?select=*&order=data.desc'), getAll('/rest/v1/revisoes?select=*'), getAll('/rest/v1/suspeitas_decisoes?select=*').catch(() => [])]);
+      decisoesSusp = new Map((sd || []).map((x) => [x.caso, x]));
+      rows = shapeEnvios(env); reviews = shapeRevs(rev);
+      calcRepetidas();
+      fillFilters(); $('#work').hidden = false;
+      setStatus(rows.length ? '' : 'Ainda não chegou nenhum envio. Os Forms são copiados a cada 10 minutos pelo script da planilha.');
+      render(); renderSusp();
+    } catch (e) { setStatus(errMsg(e), true); }
+    finally { $('#reload').disabled = false; }
+  }
+  function setStatus(text, err) { const s = $('#status'); s.hidden = !text; s.textContent = text || ''; s.classList.toggle('err', !!err); }
+
+  function fillFilters() {
+    const keep = (sel, vals) => { const cur = sel.value; const first = sel.options[0]; sel.replaceChildren(first, ...vals.map((x) => new Option(x, x))); sel.value = vals.includes(cur) ? cur : ''; };
+    keep($('#f-form'), FORMS.map((F) => F.nome));
+    keep($('#f-canal'), [...new Set(rows.map((r) => r.canal))].sort());
+    keep($('#f-uf'), [...new Set(rows.map((r) => r.uf).filter(Boolean))].sort());
+  }
+
+  // ---------- render ----------
+  // mesma foto (mesmo arquivo, pela impressão digital md5 do Drive) usada em mais de um envio
+  // identifica a loja pelo canal + número do código ("Filial 297", "Gazin 297" e "297" são a mesma loja)
+  const lojaK = (x) => { const raw = String(x.lojaRaw || '').toUpperCase(); const m = raw.match(/\d+/g);
+    return x.canal + '|' + (m ? (m[m.length - 1].replace(/^0+/, '') || '0') : raw.replace(/[^A-Z0-9]/g, '')); };
+  // reenvio "inocente": mesma loja de novo em poucos dias, ou primeiro envio sem código / com código errado
+  // corrigido depois pelo mesmo promotor. Esses NÃO contam como suspeita.
+  const DIAS_MESMA_LOJA = 30, DIAS_CORRECAO = 7; // mesma loja: até 30 dias é preenchimento novo; sem código corrigido: até 7 dias
+  const codigoValido = (x) => /\d/.test(String(x.lojaRaw || ''));
+  const mesmoPromotor = (a, b) => { const fa = String(a.tel || '').replace(/\D/g, '').slice(-8), fb = String(b.tel || '').replace(/\D/g, '').slice(-8);
+    return (promotorK(a.nome) && promotorK(a.nome) === promotorK(b.nome)) || (fa.length === 8 && fa === fb); };
+  function reenvioInocente(a, b) {
+    const dias = Math.abs(a.data - b.data) / 864e5;
+    if (codigoValido(a) && codigoValido(b) && lojaK(a) === lojaK(b)) return dias < DIAS_MESMA_LOJA;   // mesma loja preenchida de novo
+    if ((!codigoValido(a) || !codigoValido(b)) && mesmoPromotor(a, b)) return dias < DIAS_CORRECAO;   // sem código / código errado, corrigido depois
+    return false;
+  }
+  function calcRepetidas() {
+    const idx = new Map();
+    rows.forEach((r) => r.photos.forEach((p) => { if (!p.md5) return; if (!idx.has(p.md5)) idx.set(p.md5, []); idx.get(p.md5).push({ r, p }); }));
+    rows.forEach((r) => {
+      r.repetidas = [];
+      r.photos.forEach((p) => {
+        (idx.get(p.md5) || []).forEach((o) => {
+          if (o.r.key === r.key || reenvioInocente(o.r, r)) return;
+          const outraLoja = lojaK(o.r) !== lojaK(r);
+          if (!outraLoja && !(o.r.data < r.data)) return; // mesma loja: só avisa se reaproveitou foto de um envio ANTERIOR
+          r.repetidas.push({ foto: p.label.split(' · ')[0], outro: o.r, fotoOutro: o.p.label.split(' · ')[0], outraLoja });
+        });
+      });
+    });
+  }
+  const DIAS_FOTO_ANTIGA = 7;
+  const dataTirada = (t) => { const m = String(t || '').match(/^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}))?/); return m ? new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)) : null; };
+  const fotosAntigas = (r) => r.photos.map((p) => { const d = dataTirada(p.tirada); if (!d || !r.data) return null; const dias = Math.floor((r.data - d) / 864e5); return dias > DIAS_FOTO_ANTIGA ? { foto: p.label.split(' · ')[0], d, dias } : null; }).filter(Boolean);
+  const temRep = (r) => (r.repetidas && r.repetidas.length > 0) || fotosAntigas(r).length > 0;
+  // ---------- um envio por loja: a loja às vezes preenche o Forms várias vezes; vale o mais recente ----------
+  const grpK = (r) => codigoValido(r) ? r.form + '|' + lojaK(r) : 'k:' + r.key;
+  const soUltimo = () => { const c = $('#f-ultimo'); return !c || c.checked; };
+  // envios anteriores da mesma loja que ainda estão aguardando (ficam para trás quando chega um mais novo)
+  function anterioresAguardando(r) {
+    const g = grpK(r); if (g.startsWith('k:')) return [];
+    return rows.filter((x) => x.key !== r.key && grpK(x) === g && stOf(x) === 'aw' && x.data <= r.data);
+  }
+  // escolhe o envio que vale de cada loja: o mais recente com fotos; esconde os outros aguardando
+  function colapsar(list) {
+    const novoRevisado = new Map();
+    rows.forEach((x) => { if (stOf(x) === 'aw' || stOf(x) === 'sb' || !x.photos.length) return; const g = grpK(x); if (!novoRevisado.has(g) || x.data > novoRevisado.get(g)) novoRevisado.set(g, x.data); });
+    const melhor = new Map();
+    list.forEach((r) => {
+      if (stOf(r) !== 'aw') return;
+      const g = grpK(r);
+      if (novoRevisado.has(g) && novoRevisado.get(g) > r.data) return; // já existe um envio mais novo decidido
+      const b = melhor.get(g);
+      if (!b || (!b.photos.length && r.photos.length) || (!!b.photos.length === !!r.photos.length && r.data > b.data)) melhor.set(g, r);
+    });
+    return list.filter((r) => stOf(r) !== 'aw' || melhor.get(grpK(r)) === r);
+  }
+  function filtered() {
+    const fm = $('#f-form').value, c = $('#f-canal').value, u = $('#f-uf').value, q = $('#f-q').value.trim().toLowerCase();
+    return rows.filter((r) => (fStatus === 'all' || (fStatus === 'dup' ? temRep(r) : stOf(r) === fStatus)) && (!fm || r.form === fm) && (!c || r.canal === c) && (!u || r.uf === u) &&
+      (!q || [r.lojaRaw, r.nome, r.canal, r.uf].join(' ').toLowerCase().includes(q))).filter(((set) => (r) => !set || set.has(r))(soUltimo() ? new Set(colapsar(rows)) : null));
+  }
+  const fmtD = (d) => d ? d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+  function render() {
+    if (!bulkArmed) bulkLabel();
+    const n = { aw: 0, ap: 0, rp: 0 };
+    const base = soUltimo() ? colapsar(rows) : rows;
+    base.forEach((r) => { const s = stOf(r); if (s in n) n[s]++; });
+    { const tn = $('#tab-n'); tn.hidden = !n.aw; tn.textContent = n.aw; }
+    $('#c-aw').textContent = n.aw; $('#c-ap').textContent = n.ap; $('#c-rp').textContent = n.rp;
+    document.querySelectorAll('#st-chips .chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.s === fStatus)));
+    const list = $('#list'); list.replaceChildren();
+    const items = filtered();
+    list.appendChild(el('div', 'list-h', items.length + ' envios · 条'));
+    if (!items.length) list.appendChild(el('div', 'empty', fStatus === 'aw' ? 'Nenhum envio aguardando revisão com esses filtros.' : 'Nenhum envio com esses filtros.'));
+    items.forEach((r) => {
+      const b = el('button', 'item' + (r.key === selKey ? ' sel' : '')); b.type = 'button'; b.dataset.key = r.key;
+      b.appendChild(el('span', 't', r.canal + ' · ' + (r.loja || r.lojaRaw || 'sem código')));
+      const s = stOf(r); b.appendChild(el('span', 'pill ' + s, stTxt[s]));
+      if (s === 'aw' && soUltimo()) { const ant = anterioresAguardando(r).length; if (ant) b.appendChild(el('span', 'pill mais', '+' + ant + ' anterior' + (ant > 1 ? 'es' : ''))); }
+      if (r.repetidas && r.repetidas.length) b.appendChild(el('span', 'pill dup', '⚠ repetida'));
+      if (fotosAntigas(r).length) b.appendChild(el('span', 'pill dup', '⚠ foto antiga'));
+      b.appendChild(el('span', 's', (r.form === FORMS[1].nome ? 'Fast/Operadoras · ' : '') + fmtD(r.data) + ' · ' + r.uf + ' · ' + r.nome + ' · ' + r.photos.length + ' fotos'));
+      b.addEventListener('click', () => select(r.key));
+      list.appendChild(b);
+    });
+    if (selKey && !rows.find((r) => r.key === selKey)) selKey = null;
+    renderDetail();
+  }
+  function select(key) { selKey = key; render(); if (window.innerWidth <= 860) $('#detail').scrollIntoView({ block: 'start' }); }
+
+  // envio aprovado mais recente da mesma loja, anterior a este
+  function fotoAnterior(r) {
+    const k = lojaK;
+    const kk = k(r); if (/\|$/.test(kk)) return null;
+    let best = null;
+    rows.forEach((x) => { if (x.key === r.key || k(x) !== kk || !(x.data < r.data)) return; const v = reviews.get(x.key); if (!v || v.status !== 'Aprovado') return; if (!best || x.data > best.data) best = x; });
+    return best;
+  }
+  function renderDetail() {
+    const d = $('#detail'); d.replaceChildren();
+    const r = rows.find((x) => x.key === selKey);
+    if (!r) { d.appendChild(el('div', 'empty', 'Escolha um envio na lista.')); return; }
+    const top = el('div', 'dt');
+    const h = el('h2', null, r.canal + ' · loja ' + (r.loja || 'sem código'));
+    top.appendChild(h);
+    const s = stOf(r); top.appendChild(el('span', 'pill ' + s, s === 'aw' ? 'Aguardando · 待审核' : s === 'ap' ? 'Aprovado · 通过' : s === 'sb' ? 'Substituído · 已被替换' : 'Reprovado · 不通过'));
+    d.appendChild(top);
+    { const ant = s === 'aw' ? anterioresAguardando(r) : [];
+      if (ant.length) {
+        const w = el('div', 'last'); w.style.background = '#eef2ff'; w.style.color = '#283593';
+        w.appendChild(document.createTextNode('Esta loja preencheu o Forms mais ' + ant.length + ' vez(es) antes deste envio. Ao aprovar ou reprovar este, os anteriores viram "Substituído" e saem da fila: '));
+        ant.forEach((x, i) => { const v = el('button', 'linkbtn', fmtD(x.data) + ' (' + x.photos.length + ' fotos)'); v.type = 'button'; v.addEventListener('click', () => select(x.key)); if (i) w.appendChild(document.createTextNode(', ')); w.appendChild(v); });
+        d.appendChild(w);
+      } }
+    const facts = el('div', 'facts');
+    [['Formulário · 表单', r.form], ['Enviado em · 提交时间', fmtD(r.data)], ['Código digitado · 门店编号', r.lojaRaw || '—'], ['Estado · 州', r.uf + (r.regiao !== '—' ? ' (' + r.regiao + ')' : '')],
+      ['Promotor · 促销员', r.nome + (r.cargo ? ' — ' + r.cargo : '')], ['Telefone · 电话', r.tel || '—'], [r.form === FORMS[1].nome ? 'Displays · 展示物料' : 'Tipo de mesa · 体验台', r.mesa || '—'],
+      ['Produtos · 在售产品', r.produtos || '—']].forEach(([k, v]) => { const x = el('div'); x.append(el('b', null, k), el('span', null, v)); facts.appendChild(x); });
+    if (r.notas) { const x = el('div'); x.append(el('b', null, 'Anotação antiga · 旧备注'), el('span', null, r.notas)); facts.appendChild(x); }
+    d.appendChild(facts);
+
+    const antigas = fotosAntigas(r);
+    if (antigas.length) {
+      const w = el('div', 'rep'); w.appendChild(el('b', null, '⚠ Foto antiga · 旧照片'));
+      const ul = el('ul');
+      antigas.forEach((x) => ul.appendChild(el('li', null, '"' + x.foto + '" foi tirada em ' + x.d.toLocaleDateString('pt-BR') + ' — ' + x.dias + ' dias antes do envio (' + r.data.toLocaleDateString('pt-BR') + ').')));
+      w.append(ul, el('span', 'note', 'A data vem da própria câmera do celular. Pode ser foto antiga da galeria reaproveitada.'));
+      d.appendChild(w);
+    }
+    if (r.repetidas && r.repetidas.length) {
+      const w = el('div', 'rep'); w.appendChild(el('b', null, '⚠ Foto repetida · 重复照片'));
+      const ul = el('ul');
+      r.repetidas.forEach((x) => {
+        const li = el('li');
+        li.append(document.createTextNode('"' + x.foto + '" é o mesmo arquivo da foto "' + x.fotoOutro + '" enviada ' + (x.outraLoja ? 'para ' : 'antes para a mesma loja, ') + x.outro.canal + ' ' + (x.outro.loja || x.outro.lojaRaw) + ' em ' + fmtD(x.outro.data) + ' por ' + (x.outro.nome || '—') + ' '));
+        const v = el('button', 'linkbtn', '(ver envio)'); v.type = 'button'; v.addEventListener('click', () => { fStatus = 'all'; select(x.outro.key); }); li.appendChild(v);
+        ul.appendChild(li);
+      });
+      w.appendChild(ul);
+      w.appendChild(el('span', 'note', 'Pode ser a mesma foto reaproveitada para outra loja ou para a renovação de 30 dias. Confira antes de aprovar.'));
+      d.appendChild(w);
+    }
+    const prev = reviews.get(r.key);
+    if (prev) {
+      const t = el('div', 'last ' + (prev.status === 'Aprovado' ? 'ap' : 'rp'));
+      t.textContent = 'Última decisão: ' + prev.status + (prev.motivo ? ' — ' + prev.motivo : '') + (prev.obs ? ' (' + prev.obs + ')' : '') + (prev.em ? ' · ' + prev.em : '') + '. Uma nova decisão substitui esta.';
+      d.appendChild(t);
+      const wa = el('div', 'acts'); wa.appendChild(waBotao(r, prev)); d.appendChild(wa);
+    }
+
+    // foto aprovada anterior da mesma loja (para comparar antes × agora)
+    const anterior = fotoAnterior(r);
+    const fotoBox = (p) => {
+      const fig = el('figure', 'ph'); const box = el('div', 'box', 'Carregando foto…'); box.tabIndex = 0; box.setAttribute('role', 'button'); box.setAttribute('aria-label', 'Ampliar ' + p.label);
+      const dt = dataTirada(p.tirada);
+      const cap = el('figcaption', null, p.label + (dt ? ' · tirada em ' + dt.toLocaleDateString('pt-BR') : (p.tirada === '' ? ' · sem data da câmera' : '')) + ' · ');
+      const a = el('a', null, 'abrir no Drive'); a.href = 'https://drive.google.com/file/d/' + p.id + '/view'; a.target = '_blank'; a.rel = 'noopener'; cap.appendChild(a);
+      fig.append(box, cap);
+      if (p.arquivada && !p.path) { box.textContent = 'Foto arquivada (já substituída). Use "abrir no Drive". · 已归档'; box.style.cursor = 'default'; return fig; }
+      loadPhoto(p).then((url) => { if (!box.isConnected) return; box.replaceChildren(); const img = el('img'); img.src = url; img.alt = p.label; box.appendChild(img); const open = () => lightbox(url); box.addEventListener('click', open); box.addEventListener('keydown', (e) => { if (e.key === 'Enter') open(); }); })
+        .catch((e) => { if (box.isConnected) { box.textContent = e && e.pend ? 'A foto ainda está sendo copiada do Drive. Use "abrir no Drive". · 照片同步中' : 'Não consegui abrir esta foto. Use "abrir no Drive".'; box.style.cursor = 'default'; } });
+      return fig;
+    };
+    if (!r.photos.length) d.appendChild(el('p', 'note', 'Este envio não tem fotos anexadas.'));
+    else if (!anterior) {
+      d.appendChild(el('p', 'note', 'Primeira foto aprovada desta loja: não há foto anterior para comparar. · 首次提交'));
+      const ph = el('div', 'photos'); r.photos.forEach((p) => ph.appendChild(fotoBox(p))); d.appendChild(ph);
+    } else {
+      const dias = Math.round((r.data - anterior.data) / 864e5);
+      const cab = el('div', 'cmp-h');
+      const c1 = el('div'); c1.append(el('b', null, 'Antes · 之前 '), el('span', 'note', 'aprovada · envio de ' + fmtD(anterior.data) + (dias > 0 ? ' (' + dias + ' dias antes)' : '')));
+      const c2 = el('div'); c2.append(el('b', null, 'Agora · 现在 '), el('span', 'note', 'enviada em ' + fmtD(r.data)));
+      cab.append(c1, c2);
+      d.appendChild(cab);
+      const tipo = (l) => String(l || '').split(' · ')[0].replace(/\s*\(\d+\)$/, '');
+      const usados = new Set();
+      r.photos.forEach((p) => {
+        const par = anterior.photos.find((q) => !usados.has(q) && tipo(q.label) === tipo(p.label)); if (par) usados.add(par);
+        const linha = el('div', 'cmp');
+        linha.append(par ? fotoBox(par) : el('div', 'cmp-vazio', 'Sem foto anterior deste tipo'), fotoBox(p));
+        d.appendChild(linha);
+      });
+    }
+
+    const dec = el('div', 'decide');
+    dec.appendChild(el('b', null, 'Decisão · 审核结果'));
+    const rs = el('div', 'reasons'); rs.setAttribute('role', 'group'); rs.setAttribute('aria-label', 'Motivos da reprovação');
+    MOTIVOS.forEach((m, i) => { const l = el('label'); const c = el('input'); c.type = 'checkbox'; c.value = m; c.id = 'mot-' + i; l.append(c, document.createTextNode(m + ' · ' + MOTZH[m])); rs.appendChild(l); });
+    const ta = el('textarea'); ta.id = 'obs'; ta.placeholder = 'Observação (opcional) — vai junto na cobrança · 备注'; ta.setAttribute('aria-label', 'Observação');
+    const acts = el('div', 'acts');
+    const ok = el('button', 'btn ok', '✓ Aprovar · 通过'); ok.type = 'button';
+    const no = el('button', 'btn no', '✕ Reprovar · 不通过'); no.type = 'button';
+    const info = el('span', 'note', ''); info.setAttribute('role', 'status');
+    acts.append(ok, no, info, el('span', 'note', ' Atalhos: '));
+    const k1 = el('kbd', null, 'A'); const k2 = el('kbd', null, 'R'); acts.append(k1, document.createTextNode(' aprovar, '), k2, document.createTextNode(' reprovar'));
+    dec.append(el('span', 'note', 'Para reprovar, marque ao menos um motivo:'), rs, ta, acts);
+    d.appendChild(dec);
+    ok.addEventListener('click', () => decide(r, 'Aprovado', [], ta.value, [ok, no], info));
+    no.addEventListener('click', () => {
+      const ms = [...rs.querySelectorAll('input:checked')].map((x) => x.value);
+      if (!ms.length) { info.textContent = 'Marque pelo menos um motivo para reprovar.'; return; }
+      decide(r, 'Reprovado', ms, ta.value, [ok, no], info);
+    });
+  }
+
+
+  // ---------- aviso por WhatsApp (abre o WhatsApp do administrador com a mensagem pronta) ----------
+  function waFone(raw) {
+    let d = String(raw || '').replace(/\D/g, '');
+    if (d.startsWith('00')) d = d.slice(2);
+    if (d.length >= 12 && d.startsWith('55')) d = d.slice(2);
+    d = d.replace(/^0+/, '');
+    if (d.length !== 10 && d.length !== 11) return null;      // precisa DDD + número
+    if (+d.slice(0, 2) < 11) return null;
+    return '55' + d;
+  }
+  function waTexto(r, dec) {
+    const nome = (r.nome || '').trim().split(/\s+/)[0] || '';
+    const loja = r.canal + ' ' + (r.loja || r.lojaRaw || '');
+    const quando = r.data ? r.data.toLocaleDateString('pt-BR') : '';
+    if (dec.status === 'Aprovado') {
+      return 'Olá ' + nome + '! ✅ A foto da mesa da loja ' + loja + (quando ? ' (enviada em ' + quando + ')' : '') + ' foi APROVADA. Obrigado e parabéns pelo capricho!' + (dec.obs ? '\nObs.: ' + dec.obs : '');
+    }
+    return 'Olá ' + nome + '! ⚠️ A foto da mesa da loja ' + loja + (quando ? ' (enviada em ' + quando + ')' : '') + ' foi REPROVADA.' +
+      (dec.motivo ? '\nMotivo: ' + dec.motivo + '.' : '') + (dec.obs ? '\nObs.: ' + dec.obs : '') + '\nPor favor, corrija e envie de novo pelo Forms. Obrigado!';
+  }
+  function waBotao(r, dec) {
+    const fone = waFone(r.tel);
+    const a = el('a', 'wa', '📲 Avisar ' + ((r.nome || '').trim().split(/\s+/)[0] || 'promotor') + ' no WhatsApp');
+    if (!fone) { a.setAttribute('aria-disabled', 'true'); a.textContent = '📵 Sem WhatsApp: telefone incompleto (' + (r.tel || 'vazio') + ')'; a.title = 'O telefone digitado no Forms não tem DDD + número.'; return a; }
+    a.href = 'https://wa.me/' + fone + '?text=' + encodeURIComponent(waTexto(r, dec));
+    a.target = '_blank'; a.rel = 'noopener';
+    return a;
+  }
+  function waUltima(r) {
+    const box = $('#wa-last'); const dec = reviews.get(r.key); if (!dec) { box.hidden = true; return; }
+    box.replaceChildren(el('span', null, (dec.status === 'Aprovado' ? '✓ Aprovado: ' : '✕ Reprovado: ') + r.canal + ' ' + (r.loja || r.lojaRaw) + ' · ' + (r.nome || '')), waBotao(r, dec));
+    box.hidden = false;
+  }
+
+  async function decide(r, status, motivos, obs, btns, info) {
+    btns.forEach((b) => { b.disabled = true; });
+    info.textContent = 'Gravando… · 保存中';
+    try {
+      await saveRevs([{ key: r.key, status, motivos: motivos.join('; '), obs: String(obs || '').trim() }]);
+      reviews.set(r.key, { status, motivo: motivos.join('; '), obs: String(obs || '').trim(), em: fmtEm(new Date().toISOString()) + ' · ' + (perfil.email || '') });
+      const ant = anterioresAguardando(r);
+      if (ant.length) {
+        const o = 'Substituído pelo envio de ' + fmtD(r.data);
+        await saveRevs(ant.map((x) => ({ key: x.key, status: 'Substituído', motivos: '', obs: o })));
+        ant.forEach((x) => reviews.set(x.key, { status: 'Substituído', motivo: '', obs: o, em: fmtEm(new Date().toISOString()) + ' · ' + (perfil.email || '') }));
+      }
+      const next = filtered().find((x) => x.key !== r.key && stOf(x) === 'aw');
+      selKey = next ? next.key : r.key;
+      render();
+      waUltima(r);
+    } catch (e) { btns.forEach((b) => { b.disabled = false; }); info.textContent = errMsg(e); }
+  }
+
+  // ---------- fotos (copiadas do Drive para o Supabase pelo script) ----------
+  function loadPhoto(p) {
+    if (!p.path) return Promise.reject(Object.assign(new Error('pendente'), { pend: true }));
+    if (photoCache.has(p.path)) return photoCache.get(p.path);
+    const pr = api('/storage/v1/object/authenticated/fotos/' + encodeURIComponent(p.path), { raw: true }).then((r) => r.blob()).then((b) => URL.createObjectURL(b));
+    photoCache.set(p.path, pr); pr.catch(() => photoCache.delete(p.path));
+    return pr;
+  }
+  function lightbox(url) {
+    const o = el('div', 'light'); o.setAttribute('role', 'dialog'); o.setAttribute('aria-label', 'Foto ampliada'); o.tabIndex = -1;
+    const img = el('img'); img.src = url; img.alt = 'Foto ampliada'; o.appendChild(img);
+    const close = () => { o.remove(); document.removeEventListener('keydown', esc); };
+    const esc = (e) => { if (e.key === 'Escape') close(); };
+    o.addEventListener('click', close); document.addEventListener('keydown', esc);
+    document.body.appendChild(o); o.focus();
+  }
+
+
+  // ---------- usuários ----------
+  let users = [];
+  async function loadUsers() {
+    const st = $('#u-status');
+    try { users = await api('/rest/v1/perfis?select=*&order=criado_em.desc'); st.hidden = true; renderUsers(); }
+    catch (e) { st.hidden = false; st.textContent = errMsg(e); }
+  }
+  function renderUsers() {
+    const pend = users.filter((u) => !u.ativo).length; const un = $('#tab-un'); un.hidden = !pend; un.textContent = pend;
+    const tb = $('#u-body'); tb.replaceChildren();
+    users.slice().sort((a, b) => (a.ativo - b.ativo) || (new Date(b.criado_em) - new Date(a.criado_em))).forEach((u) => {
+      const tr = el('tr', u.ativo ? '' : 'novo'); const me = u.id === perfil.id;
+      tr.append(el('td', null, u.nome || '—'), el('td', null, u.email));
+      const sel = el('select'); [['leitor', 'Leitor · 查看'], ['admin', 'Administrador · 管理员']].forEach(([v, t]) => sel.appendChild(new Option(t, v))); sel.value = u.papel; sel.disabled = me; sel.setAttribute('aria-label', 'Papel de ' + u.email);
+      const td1 = el('td'); td1.appendChild(sel); tr.appendChild(td1);
+      const lab = el('label', 'sw'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = u.ativo; cb.disabled = me; lab.append(cb, document.createTextNode(u.ativo ? 'Ativo' : 'Aguardando'));
+      const td2 = el('td'); td2.appendChild(lab); tr.appendChild(td2);
+      tr.appendChild(el('td', null, fmtEm(u.criado_em)));
+      const td3 = el('td'); const sv = el('button', 'btn', me ? 'Você' : 'Salvar · 保存'); sv.type = 'button'; sv.disabled = true; td3.appendChild(sv); tr.appendChild(td3);
+      const dirty = () => { sv.disabled = me || (sel.value === u.papel && cb.checked === u.ativo); };
+      sel.addEventListener('change', dirty); cb.addEventListener('change', dirty);
+      sv.addEventListener('click', async () => {
+        sv.disabled = true; sv.textContent = 'Salvando…';
+        try { await api('/rest/v1/perfis?id=eq.' + u.id, { method: 'PATCH', body: { papel: sel.value, ativo: cb.checked }, headers: { Prefer: 'return=minimal' } }); u.papel = sel.value; u.ativo = cb.checked; renderUsers(); }
+        catch (e) { sv.textContent = 'Erro — tentar de novo'; sv.disabled = false; $('#u-status').hidden = false; $('#u-status').textContent = errMsg(e); }
+      });
+      tb.appendChild(tr);
+    });
+  }
+
+  // ---------- painel de suspeitas ----------
+  let decisoesSusp = new Map(), sStatus = 'aberto';
+  const promotorK = (n) => String(n || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ');
+  function montarCasos() {
+    const casos = [], grupos = new Map();
+    const idx = new Map();
+    rows.forEach((r) => r.photos.forEach((p) => { if (!p.md5) return; if (!idx.has(p.md5)) idx.set(p.md5, []); idx.get(p.md5).push({ r, p }); }));
+    idx.forEach((lst, md5) => {
+      const envs = new Map(); lst.forEach((x) => { if (!envs.has(x.r.key)) envs.set(x.r.key, x); });
+      if (envs.size < 2) return;
+      const ord = [...envs.values()].sort((a, b) => a.r.data - b.r.data);
+      const membros = [];
+      ord.forEach((x) => { const i = membros.findIndex((m) => reenvioInocente(m.r, x.r)); if (i >= 0) membros[i] = x; else membros.push(x); }); // fica o envio mais novo (o corrigido)
+      if (membros.length < 2) return;
+      const lojas = new Set(membros.map((x) => lojaK(x.r)));
+      // junta num caso só as fotos repetidas entre os MESMOS envios
+      const gid = 'grp:' + membros.map((m) => m.r.key).sort().join('||');
+      let c = grupos.get(gid);
+      if (!c) { c = { id: gid, tipo: lojas.size > 1 ? 'entre' : 'mesma', membros: membros.map((m) => ({ r: m.r, fotos: [] })), data: membros[membros.length - 1].r.data }; grupos.set(gid, c); casos.push(c); }
+      membros.forEach((m) => { const alvo = c.membros.find((x) => x.r.key === m.r.key); if (alvo && !alvo.fotos.includes(m.p)) alvo.fotos.push(m.p); });
+    });
+    rows.forEach((r) => { const ant = fotosAntigas(r); if (!ant.length) return;
+      casos.push({ id: 'antiga:' + r.key, tipo: 'antiga', membros: [{ r, fotos: r.photos.filter((p) => ant.some((a) => a.foto === p.label.split(' · ')[0])) }], antigas: ant, data: r.data }); });
+    casos.forEach((c) => { const d = decisoesSusp.get(c.id); c.estado = d ? d.decisao : 'aberto'; c.dec = d || null; });
+    return casos.sort((a, b) => b.data - a.data);
+  }
+  const TIPOLBL = { entre: 'Mesma foto em lojas diferentes · 不同门店同一照片', mesma: 'Foto reaproveitada na mesma loja · 同店重复使用', antiga: 'Foto antiga · 旧照片' };
+  function renderSusp() {
+    if (!isAdmin() || !$('#s-lista')) return;
+    const todos = montarCasos();
+    const n = (f) => todos.filter(f).length;
+    const ab = n((c) => c.estado === 'aberto');
+    const tn = $('#tab-sn'); tn.hidden = !ab; tn.textContent = ab;
+    const k = $('#s-kpis'); k.replaceChildren();
+    [['aw', ab, 'Abertos · 待处理'], ['rp', n((c) => c.tipo === 'entre'), 'Entre lojas · 跨店'], ['aw', n((c) => c.tipo === 'mesma'), 'Mesma loja · 同店'], ['aw', n((c) => c.tipo === 'antiga'), 'Foto antiga · 旧照片'],
+      ['rp', n((c) => c.estado === 'confirmado'), 'Confirmados · 确认'], ['ap', n((c) => c.estado === 'justificado'), 'Justificados · 合理']].forEach(([cl, v, l]) => {
+      const d = el('div', 'count ' + cl); d.append(el('b', null, String(v)), el('span', null, l)); k.appendChild(d); });
+    const cs = $('#s-canal'); const cur = cs.value; const canais = [...new Set(todos.flatMap((c) => c.membros.map((m) => m.r.canal)))].sort();
+    cs.replaceChildren(cs.options[0] || new Option('Todos os canais · 全部渠道', ''), ...canais.map((c) => new Option(c, c))); cs.value = canais.includes(cur) ? cur : '';
+    document.querySelectorAll('#s-st .chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.s === sStatus)));
+    const tipo = $('#s-tipo').value, canal = $('#s-canal').value, q = $('#s-q').value.trim().toLowerCase();
+    const lista = todos.filter((c) => (sStatus === 'todos' || c.estado === sStatus) && (!tipo || c.tipo === tipo) && (!canal || c.membros.some((m) => m.r.canal === canal)) &&
+      (!q || c.membros.some((m) => [m.r.lojaRaw, m.r.loja, m.r.nome, m.r.canal, m.r.uf].join(' ').toLowerCase().includes(q))));
+    sVisiveis = lista;
+    const box = $('#s-lista'); box.replaceChildren();
+    box.appendChild(el('p', 'note', lista.length + (lista.length === 1 ? ' caso' : ' casos') + ' · 条'));
+    if (!lista.length) box.appendChild(el('div', 'empty', todos.length ? 'Nenhum caso com esses filtros.' : 'Nenhuma suspeita encontrada até agora. As impressões digitais e as datas das fotos são lidas aos poucos pelo script.'));
+    lista.slice(0, 150).forEach((c) => box.appendChild(cartaoCaso(c)));
+    if (lista.length > 150) box.appendChild(el('p', 'note', 'Mostrando os 150 mais recentes. Use os filtros para achar os outros.'));
+    // ranking
+    const rk = new Map();
+    todos.forEach((c) => { new Set(c.membros.map((m) => promotorK(m.r.nome))).forEach((pk) => { if (!pk) return;
+      const nome = c.membros.find((m) => promotorK(m.r.nome) === pk).r.nome.trim();
+      const x = rk.get(pk) || { nome, aberto: 0, confirmado: 0, justificado: 0 }; x[c.estado]++; rk.set(pk, x); }); });
+    const tb = $('#s-rank'); tb.replaceChildren();
+    [...rk.values()].sort((a, b) => (b.confirmado + b.aberto) - (a.confirmado + a.aberto) || b.justificado - a.justificado).slice(0, 30).forEach((x) => {
+      const tr = el('tr'); tr.append(el('td', null, x.nome), el('td', null, String(x.aberto)), el('td', null, String(x.confirmado)), el('td', null, String(x.justificado))); tb.appendChild(tr); });
+    if (!rk.size) { const tr = el('tr'); const td = el('td', null, 'Sem casos.'); td.colSpan = 4; tr.appendChild(td); tb.appendChild(tr); }
+  }
+  let sVisiveis = [];
+  function cartaoCaso(c) {
+    const card = el('div', 's-caso ' + c.estado);
+    const top = el('div', 's-top');
+    top.append(el('b', null, (c.tipo === 'antiga' ? '🕓 ' : '⚠ ') + TIPOLBL[c.tipo]), el('span', 'pill ' + (c.estado === 'aberto' ? 'aw' : c.estado === 'confirmado' ? 'rp' : 'ap'), c.estado === 'aberto' ? 'Aberto' : c.estado === 'confirmado' ? 'Confirmado' : 'Justificado'));
+    card.appendChild(top);
+    if (c.tipo === 'antiga') card.appendChild(el('span', 'note', c.antigas.map((a) => '"' + a.foto + '" tirada em ' + a.d.toLocaleDateString('pt-BR') + ' (' + a.dias + ' dias antes do envio)').join(' · ')));
+    else { const nf = c.membros[0].fotos.length; const dias = Math.round((c.membros[c.membros.length - 1].r.data - c.membros[0].r.data) / 864e5);
+      card.appendChild(el('span', 'note', (nf > 1 ? nf + ' fotos iguais (mesmos arquivos)' : 'A mesma foto (mesmo arquivo)') + ' em ' + c.membros.length + ' envios' + (dias > 0 ? ', com ' + dias + ' dias de diferença' : '') + ':')); }
+    const ms = el('div', 's-membros');
+    c.membros.forEach((m) => {
+      const d = el('div', 's-m');
+      const th = el('div', 's-thumbs');
+      m.fotos.forEach((ft) => {
+        const bx = el('div', 'box', ft.path ? 'Carregando…' : 'Arquivada'); bx.title = ft.label.split(' · ')[0];
+        if (ft.path) loadPhoto(ft).then((u) => { if (!bx.isConnected) return; bx.replaceChildren(); const im = el('img'); im.src = u; im.alt = ft.label; bx.appendChild(im); bx.addEventListener('click', () => lightbox(u)); }).catch(() => { bx.textContent = 'Não abriu'; });
+        th.appendChild(bx);
+      });
+      const st = stOf(m.r);
+      d.append(th, el('b', null, m.r.canal + ' ' + (m.r.loja || m.r.lojaRaw || 's/ código')), el('span', null, fmtD(m.r.data) + ' · ' + m.r.uf), el('span', null, (m.r.nome || '—')),
+        el('span', 'note', m.fotos.map((ft) => ft.label.split(' · ')[0]).join(', ')));
+      const lk = el('div', 's-acts'); lk.append(el('span', 'pill ' + st, st === 'aw' ? 'Aguardando' : st === 'ap' ? 'Aprovado' : 'Reprovado'));
+      const ab = el('button', 'linkbtn', 'abrir envio'); ab.type = 'button'; ab.addEventListener('click', () => { fStatus = 'all'; showTab('rev'); select(m.r.key); }); lk.appendChild(ab);
+      d.appendChild(lk); ms.appendChild(d);
+    });
+    card.appendChild(ms);
+    const acts = el('div', 's-acts');
+    if (c.dec) {
+      card.appendChild(el('div', 's-dec ' + c.estado, (c.estado === 'confirmado' ? 'Confirmado' : 'Justificado') + (c.dec.obs ? ': ' + c.dec.obs : '') + ' · ' + fmtEm(c.dec.em) + (c.dec.por_email ? ' · ' + c.dec.por_email : '')));
+      const re = el('button', 'btn', 'Reabrir caso'); re.type = 'button'; re.addEventListener('click', () => decidirCaso(c, null, '', re)); acts.appendChild(re);
+    } else {
+      const inp = el('input'); inp.type = 'text'; inp.placeholder = 'Observação (ex.: mesmo promotor em lojas vizinhas)'; inp.setAttribute('aria-label', 'Observação');
+      const cf = el('button', 'btn no', 'Confirmar suspeita · 确认'); cf.type = 'button';
+      const js = el('button', 'btn ok', 'Justificado · 合理'); js.type = 'button';
+      cf.addEventListener('click', () => decidirCaso(c, 'confirmado', inp.value, cf)); js.addEventListener('click', () => decidirCaso(c, 'justificado', inp.value, js));
+      acts.append(inp, cf, js);
+    }
+    card.appendChild(acts);
+    return card;
+  }
+  async function decidirCaso(c, decisao, obs, btn) {
+    btn.disabled = true;
+    try {
+      if (!decisao) { await api('/rest/v1/suspeitas_decisoes?caso=eq.' + encodeURIComponent(c.id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); decisoesSusp.delete(c.id); }
+      else {
+        const reg = { caso: c.id, decisao, obs: String(obs || '').trim(), por_email: (perfil && perfil.email) || '', em: new Date().toISOString() };
+        await api('/rest/v1/suspeitas_decisoes?on_conflict=caso', { method: 'POST', body: [reg], headers: { Prefer: 'resolution=merge-duplicates,return=minimal' } });
+        decisoesSusp.set(c.id, reg);
+      }
+      renderSusp();
+    } catch (e) { btn.disabled = false; $('#s-msg').textContent = errMsg(e); }
+  }
+  [['aberto', 'Abertos · 待处理'], ['confirmado', 'Confirmados · 确认'], ['justificado', 'Justificados · 合理'], ['todos', 'Todos · 全部']].forEach(([v, l]) => {
+    const b = el('button', 'chip', l); b.type = 'button'; b.dataset.s = v; b.addEventListener('click', () => { sStatus = v; renderSusp(); }); $('#s-st').appendChild(b); });
+  ['#s-tipo', '#s-canal'].forEach((x) => $(x).addEventListener('change', renderSusp));
+  $('#s-q').addEventListener('input', renderSusp);
+  $('#s-copiar').addEventListener('click', () => {
+    const txt = 'Fotos suspeitas · ' + sVisiveis.length + ' casos\n\n' + sVisiveis.map((c) => '• ' + TIPOLBL[c.tipo].split(' · ')[0] + ' (' + (c.estado) + '): ' +
+      c.membros.map((m) => m.r.canal + ' ' + (m.r.loja || m.r.lojaRaw) + ' – ' + (m.r.nome || '') + ' – ' + (m.r.data ? m.r.data.toLocaleDateString('pt-BR') : '') + ' (' + m.fotos.length + ' foto' + (m.fotos.length > 1 ? 's' : '') + ')').join(' | ')).join('\n');
+    const ok = () => { $('#s-msg').textContent = 'Lista copiada.'; };
+    try { navigator.clipboard.writeText(txt).then(ok, () => { $('#s-msg').textContent = 'Não consegui copiar automaticamente.'; }); } catch (e) { $('#s-msg').textContent = 'Não consegui copiar automaticamente.'; }
+  });
+
+  // ---------- abas ----------
+  function showTab(t) {
+    if (!isAdmin()) t = 'painel';
+    ['painel', 'rev', 'susp', 'users'].forEach((x) => { $('#tab-' + x).setAttribute('aria-selected', String(x === t)); $('#pane-' + x).hidden = x !== t; });
+    try { localStorage.setItem('vm-tab', t); } catch (e) {}
+  }
+  ['painel', 'rev', 'susp', 'users'].forEach((x) => $('#tab-' + x).addEventListener('click', () => { showTab(x); if (x === 'users') loadUsers(); if (x === 'susp') renderSusp(); }));
+
+  // ---------- controls ----------
+  ST.forEach(([s, lab]) => { const b = el('button', 'chip', lab); b.type = 'button'; b.dataset.s = s; b.addEventListener('click', () => { fStatus = s; render(); }); $('#st-chips').appendChild(b); });
+  ['#f-form', '#f-canal', '#f-uf'].forEach((s) => $(s).addEventListener('change', render));
+  $('#f-q').addEventListener('input', render);
+  try { if (localStorage.getItem('vm-soultimo') === '0') $('#f-ultimo').checked = false; } catch (e) {}
+  $('#f-ultimo').addEventListener('change', () => { try { localStorage.setItem('vm-soultimo', $('#f-ultimo').checked ? '1' : '0'); } catch (e) {} render(); });
+  $('#reload').addEventListener('click', () => { load(); });
+  $('#bulk').addEventListener('click', () => { bulkApprove(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.target.closest && e.target.closest('input,textarea,select')) return;
+    if (document.querySelector('.light') || $('#pane-rev').hidden) return;
+    if (e.key === 'a' || e.key === 'A') { const b = document.querySelector('#detail .btn.ok'); if (b && !b.disabled) b.click(); }
+    if (e.key === 'r' || e.key === 'R') { const b = document.querySelector('#detail .btn.no'); if (b && !b.disabled) b.click(); }
+  });
+
+
+  // ---------- início: volta de links de e-mail (#access_token) ou sessão salva ----------
+  (async () => {
+    const h = new URLSearchParams(location.hash.replace(/^#/, ''));
+    if (h.get('error_description')) { showView('v-login'); $('#l-err').textContent = h.get('error_description').replace(/\+/g, ' '); history.replaceState(null, '', location.pathname); return; }
+    if (h.get('access_token')) {
+      saveSess(fromToken({ access_token: h.get('access_token'), refresh_token: h.get('refresh_token'), expires_in: h.get('expires_in') }));
+      const type = h.get('type'); history.replaceState(null, '', location.pathname);
+      if (type === 'recovery') { showView('v-newpw'); return; }
+    } else { try { sess = JSON.parse(localStorage.getItem(SKEY) || 'null'); } catch (e) { sess = null; } }
+    if (!sess) { showView('v-login'); return; }
+    try { await start(); } catch (e) { showView('v-login'); if (e.status !== 401) $('#l-err').textContent = errMsg(e); }
+  })();
+})();
+</script>
+</body>
+</html>
