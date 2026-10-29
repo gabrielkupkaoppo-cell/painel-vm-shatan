@@ -220,7 +220,7 @@ html,body{margin:0}
   <button class="tab" role="tab" id="tab-rev" aria-selected="false" aria-controls="pane-rev" type="button" hidden>Aprovações · 审核<span class="n" id="tab-n" hidden></span></button>
   <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 29/10 16:00 · GitHub</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 29/10 16:30</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -292,6 +292,10 @@ html,body{margin:0}
     <p class="note">Quem pede acesso aparece aqui. Ligue "Ativo" para liberar e escolha o papel: Leitor vê o painel; Administrador também aprova fotos e libera usuários.</p></div></div>
   <div class="msg" id="u-status" role="status" hidden></div>
   <div class="users"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Papel · 角色</th><th>Ativo · 启用</th><th>Pedido em</th><th></th></tr></thead><tbody id="u-body"></tbody></table></div>
+  <div class="head" style="margin-top:28px"><div><h2 style="margin:0">Responsáveis por estado<span class="zh"> · 各州负责人</span></h2>
+    <p class="note">Quando você aprova ou reprova uma foto, o aviso vai para o responsável do estado da loja, não para o promotor. <b>Feishu</b>: chega sozinho em até 10 minutos (e-mail do Feishu ou celular com +55). <b>WhatsApp</b>: o botão abre seu WhatsApp com a mensagem pronta para ele.</p></div></div>
+  <div class="msg" id="r-status" role="status" hidden></div>
+  <div class="users"><table><thead><tr><th>Estado</th><th>Responsável · 负责人</th><th>WhatsApp (DDD + número)</th><th>Feishu (e-mail ou celular)</th><th></th></tr></thead><tbody id="r-body"></tbody></table></div>
 </div>
 </section>
 </div>
@@ -617,7 +621,8 @@ html,body{margin:0}
     $('#reload').disabled = true;
     setStatus('Carregando os envios… · 加载中');
     try {
-      const [env, rev, sd] = await Promise.all([getAll('/rest/v1/envios?select=*&order=data.desc'), getAll('/rest/v1/revisoes?select=*'), getAll('/rest/v1/suspeitas_decisoes?select=*').catch(() => [])]);
+      const [env, rev, sd, rp] = await Promise.all([getAll('/rest/v1/envios?select=*&order=data.desc'), getAll('/rest/v1/revisoes?select=*'), getAll('/rest/v1/suspeitas_decisoes?select=*').catch(() => []), getAll('/rest/v1/responsaveis?select=*').catch(() => [])]);
+      resp = new Map((rp || []).map((x) => [x.uf, x]));
       decisoesSusp = new Map((sd || []).map((x) => [x.caso, x]));
       rows = shapeEnvios(env); reviews = shapeRevs(rev);
       calcRepetidas();
@@ -854,23 +859,27 @@ html,body{margin:0}
     if (+d.slice(0, 2) < 11) return null;
     return '55' + d;
   }
-  function waTexto(r, dec) {
-    const nome = (r.nome || '').trim().split(/\s+/)[0] || '';
-    const loja = r.canal + ' ' + (r.loja || r.lojaRaw || '');
+  function waTexto(r, dec, sup) {
+    const nome = (sup.nome || '').trim().split(/\s+/)[0] || '';
+    const loja = r.canal + ' ' + (r.loja || r.lojaRaw || '') + (r.uf ? ' (' + r.uf + ')' : '');
     const quando = r.data ? r.data.toLocaleDateString('pt-BR') : '';
+    const quem = (r.nome || '').trim() ? ' por ' + r.nome.trim() : '';
     if (dec.status === 'Aprovado') {
-      return 'Olá ' + nome + '! ✅ A foto da mesa da loja ' + loja + (quando ? ' (enviada em ' + quando + ')' : '') + ' foi APROVADA. Obrigado e parabéns pelo capricho!' + (dec.obs ? '\nObs.: ' + dec.obs : '');
+      return 'Olá ' + nome + '! ✅ A foto da mesa da loja ' + loja + ', enviada' + quem + (quando ? ' em ' + quando : '') + ', foi APROVADA.' + (dec.obs ? '\nObs.: ' + dec.obs : '');
     }
-    return 'Olá ' + nome + '! ⚠️ A foto da mesa da loja ' + loja + (quando ? ' (enviada em ' + quando + ')' : '') + ' foi REPROVADA.' +
-      (dec.motivo ? '\nMotivo: ' + dec.motivo + '.' : '') + (dec.obs ? '\nObs.: ' + dec.obs : '') + '\nPor favor, corrija e envie de novo pelo Forms. Obrigado!';
+    return 'Olá ' + nome + '! ⚠️ A foto da mesa da loja ' + loja + ', enviada' + quem + (quando ? ' em ' + quando : '') + ', foi REPROVADA.' +
+      (dec.motivo ? '\nMotivo: ' + dec.motivo + '.' : '') + (dec.obs ? '\nObs.: ' + dec.obs : '') + '\nPor favor, oriente a equipe a corrigir e enviar de novo pelo Forms. Obrigado!';
   }
   function waBotao(r, dec) {
-    const fone = waFone(r.tel);
-    const a = el('a', 'wa', '📲 Avisar ' + ((r.nome || '').trim().split(/\s+/)[0] || 'promotor') + ' no WhatsApp');
-    if (!fone) { a.setAttribute('aria-disabled', 'true'); a.textContent = '📵 Sem WhatsApp: telefone incompleto (' + (r.tel || 'vazio') + ')'; a.title = 'O telefone digitado no Forms não tem DDD + número.'; return a; }
-    a.href = 'https://wa.me/' + fone + '?text=' + encodeURIComponent(waTexto(r, dec));
-    a.target = '_blank'; a.rel = 'noopener';
-    return a;
+    const sup = resp.get(r.uf) || {};
+    const fone = waFone(sup.whatsapp);
+    const box = el('span'); box.style.display = 'inline-flex'; box.style.gap = '10px'; box.style.alignItems = 'center'; box.style.flexWrap = 'wrap';
+    const a = el('a', 'wa', '📲 Avisar ' + ((sup.nome || '').trim().split(/\s+/)[0] || 'responsável') + ' (' + (r.uf || '—') + ') no WhatsApp');
+    if (!fone) { a.setAttribute('aria-disabled', 'true'); a.textContent = '📵 Sem WhatsApp do responsável de ' + (r.uf || 'este estado'); a.title = 'Cadastre em Usuários → Responsáveis por estado.'; }
+    else { a.href = 'https://wa.me/' + fone + '?text=' + encodeURIComponent(waTexto(r, dec, sup)); a.target = '_blank'; a.rel = 'noopener'; }
+    box.appendChild(a);
+    box.appendChild(el('span', 'note', sup.feishu ? 'Feishu: ' + (sup.nome || sup.feishu) + ' recebe sozinho em até 10 min.' : 'Feishu: sem responsável cadastrado para ' + (r.uf || 'este estado') + '.'));
+    return box;
   }
   function waUltima(r) {
     const box = $('#wa-last'); const dec = reviews.get(r.key); if (!dec) { box.hidden = true; return; }
@@ -940,6 +949,35 @@ html,body{margin:0}
         sv.disabled = true; sv.textContent = 'Salvando…';
         try { await api('/rest/v1/perfis?id=eq.' + u.id, { method: 'PATCH', body: { papel: sel.value, ativo: cb.checked }, headers: { Prefer: 'return=minimal' } }); u.papel = sel.value; u.ativo = cb.checked; renderUsers(); }
         catch (e) { sv.textContent = 'Erro — tentar de novo'; sv.disabled = false; $('#u-status').hidden = false; $('#u-status').textContent = errMsg(e); }
+      });
+      tb.appendChild(tr);
+    });
+  }
+
+  // ---------- responsáveis por estado ----------
+  let resp = new Map();
+  async function loadResp() {
+    try { resp = new Map((await api('/rest/v1/responsaveis?select=*')).map((x) => [x.uf, x])); } catch (e) { const st = $('#r-status'); st.hidden = false; st.textContent = errMsg(e); }
+    renderResp();
+  }
+  function renderResp() {
+    const tb = $('#r-body'); if (!tb) return; tb.replaceChildren();
+    const ufs = [...new Set(Object.keys(REG).concat(rows.map((r) => r.uf).filter(Boolean)).concat([...resp.keys()]))].sort((a, b) => (REG[a] || 'zz').localeCompare(REG[b] || 'zz') || a.localeCompare(b));
+    ufs.forEach((uf) => {
+      const x = resp.get(uf) || { uf, nome: '', whatsapp: '', feishu: '' };
+      const tr = el('tr');
+      tr.appendChild(el('td', null, uf + (REG[uf] ? ' · ' + REG[uf] : '')));
+      const inp = (v, ph, lab) => { const i = el('input'); i.value = v || ''; i.placeholder = ph; i.setAttribute('aria-label', lab + ' ' + uf); i.style.width = '100%'; const td = el('td'); td.appendChild(i); tr.appendChild(td); return i; };
+      const n = inp(x.nome, 'Nome', 'Responsável'), w = inp(x.whatsapp, '(91) 99999-8888', 'WhatsApp'), f = inp(x.feishu, 'email@... ou +5591...', 'Feishu');
+      const td = el('td'); const sv = el('button', 'btn', 'Salvar · 保存'); sv.type = 'button'; sv.disabled = true; td.appendChild(sv); tr.appendChild(td);
+      const dirty = () => { sv.disabled = n.value.trim() === (x.nome || '') && w.value.trim() === (x.whatsapp || '') && f.value.trim() === (x.feishu || ''); sv.textContent = 'Salvar · 保存'; };
+      [n, w, f].forEach((i) => i.addEventListener('input', dirty));
+      sv.addEventListener('click', async () => {
+        if (w.value.trim() && !waFone(w.value)) { sv.textContent = 'WhatsApp precisa de DDD + número'; return; }
+        sv.disabled = true; sv.textContent = 'Salvando…';
+        const body = { uf, nome: n.value.trim(), whatsapp: w.value.trim(), feishu: f.value.trim(), atualizado_em: new Date().toISOString(), atualizado_por: (perfil && perfil.email) || '' };
+        try { await api('/rest/v1/responsaveis?on_conflict=uf', { method: 'POST', body: [body], headers: { Prefer: 'resolution=merge-duplicates,return=minimal' } }); resp.set(uf, body); renderResp(); if (selKey) renderDetail(); }
+        catch (e) { sv.disabled = false; sv.textContent = 'Erro — tentar de novo'; const st = $('#r-status'); st.hidden = false; st.textContent = errMsg(e); }
       });
       tb.appendChild(tr);
     });
@@ -1073,7 +1111,7 @@ html,body{margin:0}
     ['painel', 'rev', 'susp', 'users'].forEach((x) => { $('#tab-' + x).setAttribute('aria-selected', String(x === t)); $('#pane-' + x).hidden = x !== t; });
     try { localStorage.setItem('vm-tab', t); } catch (e) {}
   }
-  ['painel', 'rev', 'susp', 'users'].forEach((x) => $('#tab-' + x).addEventListener('click', () => { showTab(x); if (x === 'users') loadUsers(); if (x === 'susp') renderSusp(); }));
+  ['painel', 'rev', 'susp', 'users'].forEach((x) => $('#tab-' + x).addEventListener('click', () => { showTab(x); if (x === 'users') { loadUsers(); loadResp(); } if (x === 'susp') renderSusp(); }));
 
   // ---------- controls ----------
   ST.forEach(([s, lab]) => { const b = el('button', 'chip', lab); b.type = 'button'; b.dataset.s = s; b.addEventListener('click', () => { fStatus = s; render(); }); $('#st-chips').appendChild(b); });

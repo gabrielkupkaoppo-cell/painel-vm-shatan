@@ -1,17 +1,108 @@
 /**
- * Painel VM Shatan — resumo diário no Feishu (mensagem do app "Painel VM Shatan").
+ * Painel VM Shatan — avisos no Feishu (mensagens do app "Painel VM Shatan").
  * Quarto arquivo do mesmo Apps Script (usa funções do Sincronizar.gs, Feishu.gs e Painel.gs).
  *
- * Propriedade do script:
- *   FEISHU_RESUMO_PARA = para quem mandar. Pode ser:
- *      - e-mail da pessoa no Feishu (ex.: fulano@oppo.com)
- *      - celular com DDI (ex.: +5591999998888)
- *      - id de um grupo (começa com oc_)
- *     Vários destinos: separe com vírgula.
+ * A) AVISO DE APROVAÇÃO/REPROVAÇÃO → responsável do estado da loja
+ *    Os responsáveis são cadastrados no site: aba Usuários → "Responsáveis por estado"
+ *    (campo Feishu = e-mail da pessoa no Feishu ou celular com +55).
+ *    1) Rode avisosTeste()  → manda agora os avisos pendentes e mostra no registro.
+ *    2) Deu certo? Rode avisosLigar() → passa a mandar sozinho a cada 10 min. avisosDesligar() para parar.
  *
- * 1) Rode resumoTeste()  → manda o resumo agora.
- * 2) Gostou? Rode resumoLigar() → manda sozinho todo dia ~8h. resumoDesligar() para parar.
+ * B) RESUMO DIÁRIO (opcional)
+ *    Propriedade FEISHU_RESUMO_PARA = e-mail, celular com +55 ou id de grupo (oc_...). Vários: separe com vírgula.
+ *    resumoTeste() manda agora; resumoLigar() manda todo dia ~8h; resumoDesligar() para.
  */
+
+// ===================== A) avisos para o responsável do estado =====================
+function avisosTeste() { avisarResponsaveis_(true); }
+function avisarResponsaveis() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) return;
+  try { avisarResponsaveis_(false); } finally { lock.releaseLock(); }
+}
+function avisosLigar() {
+  ScriptApp.getProjectTriggers().forEach((t) => { if (t.getHandlerFunction() === 'avisarResponsaveis') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('avisarResponsaveis').timeBased().everyMinutes(10).create();
+  console.log('Avisos para os responsáveis ligados (a cada 10 min).');
+}
+function avisosDesligar() {
+  ScriptApp.getProjectTriggers().forEach((t) => { if (t.getHandlerFunction() === 'avisarResponsaveis') ScriptApp.deleteTrigger(t); });
+  console.log('Avisos para os responsáveis desligados.');
+}
+
+function avisarResponsaveis_(detalhado) {
+  const pend = supa_('GET', '/rest/v1/revisoes?select=key,status,motivos,obs,revisado_em,aviso_info&aviso_em=is.null&order=revisado_em.asc&limit=300') || [];
+  if (!pend.length) { if (detalhado) console.log('Nenhuma aprovação/reprovação nova para avisar.'); return; }
+  const marcar = (key, info) => supa_('PATCH', '/rest/v1/revisoes?key=eq.' + encodeURIComponent(key), { aviso_em: new Date().toISOString(), aviso_info: info }, { Prefer: 'return=minimal' });
+  const resp = {}; (supa_('GET', '/rest/v1/responsaveis?select=*') || []).forEach((x) => { resp[String(x.uf || '').toUpperCase()] = x; });
+  const porUf = {};
+  pend.forEach((r) => {
+    if (r.status !== 'Aprovado' && r.status !== 'Reprovado') { marcar(r.key, 'sem aviso (' + r.status + ')'); return; }
+    if (/^Validada antes/.test(r.obs || '')) { marcar(r.key, 'sem aviso (baixa em lote)'); return; }
+    if (Date.now() - new Date(r.revisado_em) > 3 * 864e5) { marcar(r.key, 'sem aviso (decisão antiga)'); return; }
+    const e = (supa_('GET', '/rest/v1/envios?select=key,canal,loja_raw,loja,uf,nome,data&key=eq.' + encodeURIComponent(r.key)) || [])[0];
+    if (!e) { marcar(r.key, 'sem aviso (envio não encontrado)'); return; }
+    const uf = String(e.uf || '').toUpperCase();
+    (porUf[uf] = porUf[uf] || []).push({ r: r, e: e });
+  });
+  const ufs = Object.keys(porUf);
+  if (!ufs.length) return;
+  const tk = feishuToken_();
+  ufs.forEach((uf) => {
+    const itens = porUf[uf], sup = resp[uf];
+    if (!sup || !String(sup.feishu || '').trim()) {
+      itens.forEach((x) => marcar(x.r.key, 'sem responsável no Feishu para ' + (uf || 'estado vazio')));
+      console.log(uf + ': sem responsável com Feishu cadastrado — ' + itens.length + ' aviso(s) não enviados.');
+      return;
+    }
+    try {
+      const alvo = resumoDestino_(tk, String(sup.feishu).trim());
+      for (let i = 0; i < itens.length; i += 15) {
+        const lote = itens.slice(i, i + 15);
+        feishu_(tk, 'POST', '/im/v1/messages?receive_id_type=' + alvo.tipo, { receive_id: alvo.id, msg_type: 'interactive', content: JSON.stringify(avisoCartao_(uf, sup, lote)) });
+        lote.forEach((x) => marcar(x.r.key, 'avisado no Feishu: ' + (sup.nome || sup.feishu)));
+      }
+      console.log(uf + ': ' + itens.length + ' aviso(s) enviados para ' + (sup.nome || sup.feishu) + '.');
+    } catch (err) {
+      const msg = String(err.message || err).slice(0, 300);
+      itens.forEach((x) => {
+        const n = +((String(x.r.aviso_info || '').match(/tentativa (\d+)/) || [])[1] || 0) + 1;
+        if (n >= 3) marcar(x.r.key, 'NÃO ENVIADO após 3 tentativas: ' + msg);
+        else supa_('PATCH', '/rest/v1/revisoes?key=eq.' + encodeURIComponent(x.r.key), { aviso_info: 'erro (tentativa ' + n + '): ' + msg }, { Prefer: 'return=minimal' });
+      });
+      console.log(uf + ': erro ao avisar ' + (sup.nome || sup.feishu) + ' — ' + msg);
+    }
+  });
+}
+
+function avisoCartao_(uf, sup, itens) {
+  const tz = 'America/Sao_Paulo';
+  const ap = itens.filter((x) => x.r.status === 'Aprovado').length, rp = itens.length - ap;
+  const linhas = itens.map((x) => {
+    const e = x.e, r = x.r;
+    const loja = canalFeishu_(e.canal) + ' ' + (e.loja || e.loja_raw || '');
+    const quando = e.data ? Utilities.formatDate(new Date(e.data), tz, 'dd/MM HH:mm') : '';
+    const cab = (r.status === 'Aprovado' ? '✅ **APROVADA**' : '❌ **REPROVADA**') + ' · ' + loja + ' (' + uf + ')';
+    const det = 'Enviada por ' + (String(e.nome || '—').trim()) + (quando ? ' em ' + quando : '');
+    const extra = (r.status === 'Reprovado' && r.motivos ? '\nMotivo · 原因: ' + r.motivos : '') + (r.obs ? '\nObs. · 备注: ' + r.obs : '');
+    return cab + '\n' + det + extra;
+  });
+  const nome = String(sup.nome || '').trim().split(/\s+/)[0];
+  const intro = (nome ? 'Olá ' + nome + '! ' : '') + 'Fotos das mesas das lojas de ' + uf + ' revisadas agora:';
+  const fim = rp ? '\n\n⚠️ Para as reprovadas: oriente a equipe a corrigir e enviar de novo pelo Forms.' : '';
+  return {
+    config: { wide_screen_mode: true },
+    header: { template: rp ? 'orange' : 'green', title: { tag: 'plain_text', content: 'Fotos das mesas · 体验台照片审核 — ' + uf + ' (' + (ap ? ap + ' aprovada' + (ap > 1 ? 's' : '') : '') + (ap && rp ? ', ' : '') + (rp ? rp + ' reprovada' + (rp > 1 ? 's' : '') : '') + ')' } },
+    elements: [
+      { tag: 'div', text: { tag: 'lark_md', content: intro } },
+      { tag: 'hr' },
+      { tag: 'div', text: { tag: 'lark_md', content: linhas.join('\n\n') + fim } },
+      { tag: 'action', actions: [{ tag: 'button', type: 'primary', text: { tag: 'plain_text', content: 'Abrir o painel · 打开看板' }, url: PAINEL_SITE }] },
+    ],
+  };
+}
+
+// ===================== B) resumo diário =====================
 function resumoTeste() { resumoEnviar_(); }
 function resumoDiario() { resumoEnviar_(); }
 function resumoLigar() {
