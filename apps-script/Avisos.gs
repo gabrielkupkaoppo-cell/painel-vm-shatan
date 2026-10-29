@@ -31,7 +31,7 @@ function avisosDesligar() {
 }
 
 function avisarResponsaveis_(detalhado) {
-  const pend = supa_('GET', '/rest/v1/revisoes?select=key,status,motivos,obs,revisado_em,aviso_info&aviso_em=is.null&order=revisado_em.asc&limit=300') || [];
+  const pend = supa_('GET', '/rest/v1/revisoes?select=key,status,motivos,obs,revisado_em,aviso_info,canal_corrigido,loja_corrigida&aviso_em=is.null&order=revisado_em.asc&limit=300') || [];
   if (!pend.length) { if (detalhado) console.log('Nenhuma aprovação/reprovação nova para avisar.'); return; }
   const marcar = (key, info) => supa_('PATCH', '/rest/v1/revisoes?key=eq.' + encodeURIComponent(key), { aviso_em: new Date().toISOString(), aviso_info: info }, { Prefer: 'return=minimal' });
   const resp = {}; (supa_('GET', '/rest/v1/responsaveis?select=*') || []).forEach((x) => { resp[String(x.uf || '').toUpperCase()] = x; });
@@ -42,6 +42,8 @@ function avisarResponsaveis_(detalhado) {
     if (Date.now() - new Date(r.revisado_em) > 3 * 864e5) { marcar(r.key, 'sem aviso (decisão antiga)'); return; }
     const e = (supa_('GET', '/rest/v1/envios?select=key,canal,loja_raw,loja,uf,nome,data&key=eq.' + encodeURIComponent(r.key)) || [])[0];
     if (!e) { marcar(r.key, 'sem aviso (envio não encontrado)'); return; }
+    if (r.canal_corrigido) e.canal = r.canal_corrigido;
+    if (r.loja_corrigida) { e.loja_raw = r.loja_corrigida; e.loja = r.loja_corrigida; }
     const uf = String(e.uf || '').toUpperCase();
     (porUf[uf] = porUf[uf] || []).push({ r: r, e: e });
   });

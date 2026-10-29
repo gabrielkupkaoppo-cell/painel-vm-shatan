@@ -235,11 +235,11 @@ function lojaChave_(canal, raw) {
   return (M[c] || c) + '|' + String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^0+/, '');
 }
 function limparFotos_(envios, inicio, detalhado) {
-  const rev = {}; supa_('GET', '/rest/v1/revisoes?select=key,status,revisado_em,feishu_em&limit=20000').forEach((r) => { rev[r.key] = r; });
+  const rev = {}; supa_('GET', '/rest/v1/revisoes?select=key,status,revisado_em,feishu_em,canal_corrigido,loja_corrigida&limit=20000').forEach((r) => { rev[r.key] = r; });
   const agora = Date.now(), dia = 864e5;
   // referência: último envio aprovado por loja
   const ref = {};
-  envios.forEach((e) => { const r = rev[e.key]; if (!r || r.status !== 'Aprovado') return; const k = lojaChave_(e.canal, e.loja_raw);
+  envios.forEach((e) => { const r = rev[e.key]; if (!r || r.status !== 'Aprovado') return; const k = lojaChave_(r.canal_corrigido || e.canal, r.loja_corrigida || e.loja_raw);
     if (!/\|.+/.test(k)) return; if (!ref[k] || new Date(e.data) > new Date(ref[k].data)) ref[k] = e; });
   const manter = {}; Object.keys(ref).forEach((k) => { manter[ref[k].key] = true; });
   envios.forEach((e) => {

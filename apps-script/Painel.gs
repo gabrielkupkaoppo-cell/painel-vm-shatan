@@ -34,9 +34,11 @@ function atualizarPainel_(detalhado) {
   // data da última foto aprovada por linha (vem do envio ao Feishu: "Magalu linha 75: ...")
   // data do último envio APROVADO de cada loja, pelo canal + código da loja (não depende da linha do Feishu)
   const ultima = {};
-  const aprov = {}; supa_('GET', '/rest/v1/revisoes?select=key&status=eq.Aprovado&limit=20000').forEach((r) => { aprov[r.key] = 1; });
+  const aprov = {}; supa_('GET', '/rest/v1/revisoes?select=key,canal_corrigido,loja_corrigida&status=eq.Aprovado&limit=20000').forEach((r) => { aprov[r.key] = r; });
   supa_('GET', '/rest/v1/envios?select=key,canal,loja_raw,data&limit=20000').forEach((e) => {
     if (!aprov[e.key] || !e.data) return;
+    if (aprov[e.key].canal_corrigido) e.canal = aprov[e.key].canal_corrigido;   // código da loja corrigido no site
+    if (aprov[e.key].loja_corrigida) e.loja_raw = aprov[e.key].loja_corrigida;
     const c = semAcento_(canalFeishu_(e.canal)); const ks = chaves_(e.loja_raw);
     const iso = Utilities.formatDate(new Date(e.data), 'America/Sao_Paulo', 'yyyy-MM-dd');
     [ks[0] && c + '|' + ks[0], ks[1] && c + '|#' + ks[1]].filter(Boolean).forEach((k) => { if (!ultima[k] || ultima[k] < iso) ultima[k] = iso; });

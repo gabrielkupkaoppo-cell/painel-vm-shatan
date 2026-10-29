@@ -62,6 +62,7 @@ input[type=search]{min-width:min(100%,14rem)}
 .detail{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .dt{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline}
 .dt h2{margin:0;font-size:1.2rem;font-weight:600}
+.lj{margin:12px 0;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:.88rem;display:flex;flex-direction:column;gap:8px} .lj.ok{background:var(--ok-bg)} .lj.warn{background:var(--warn-bg)} .lj .sug{display:flex;flex-wrap:wrap;gap:6px} .lj .sug button{font:inherit;font-size:.82rem;padding:5px 10px;border-radius:16px;border:1px solid var(--line);background:#fff;cursor:pointer;text-align:left} .lj .sug button:hover{border-color:var(--ok)} .lj .sug small{color:var(--muted)} .lj .man{display:flex;gap:6px;flex-wrap:wrap;align-items:center} .lj input,.lj select{font:inherit;font-size:.85rem;padding:4px 8px}
 .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:8px 16px}
 .facts div{display:flex;flex-direction:column;gap:1px;min-width:0}
 .facts b{font-size:.72rem;color:var(--muted);font-weight:500;letter-spacing:.02em}
@@ -220,7 +221,7 @@ html,body{margin:0}
   <button class="tab" role="tab" id="tab-rev" aria-selected="false" aria-controls="pane-rev" type="button" hidden>Aprovações · 审核<span class="n" id="tab-n" hidden></span></button>
   <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 29/10 16:30</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 29/10 17:15</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -576,10 +577,10 @@ html,body{margin:0}
     }).sort((a, b) => b.data - a.data);
   }
   const fmtEm = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); };
-  function shapeRevs(list) { const m = new Map(); list.forEach((x) => m.set(x.key, { status: x.status, motivo: x.motivos || '', obs: x.obs || '', em: fmtEm(x.revisado_em) + (x.revisado_por_email ? ' · ' + x.revisado_por_email : '') })); return m; }
+  function shapeRevs(list) { const m = new Map(); list.forEach((x) => m.set(x.key, { status: x.status, motivo: x.motivos || '', obs: x.obs || '', canal_corrigido: x.canal_corrigido || '', loja_corrigida: x.loja_corrigida || '', em: fmtEm(x.revisado_em) + (x.revisado_por_email ? ' · ' + x.revisado_por_email : '') })); return m; }
   async function saveRevs(items) {
     const uid = sess.user && sess.user.id, email = (perfil && perfil.email) || '';
-    const body = items.map((x) => ({ key: x.key, status: x.status, motivos: x.motivos || '', obs: x.obs || '', revisado_por: uid, revisado_por_email: email, revisado_em: new Date().toISOString(), origem: 'site' }));
+    const body = items.map((x) => ({ key: x.key, status: x.status, motivos: x.motivos || '', obs: x.obs || '', canal_corrigido: x.canal_corrigido || null, loja_corrigida: x.loja_corrigida || null, revisado_por: uid, revisado_por_email: email, revisado_em: new Date().toISOString(), origem: 'site' }));
     await api('/rest/v1/revisoes?on_conflict=key', { method: 'POST', body, headers: { Prefer: 'resolution=merge-duplicates,return=minimal' } });
   }
   // Lojas já validadas no painel (foto conferida na planilha Excel ou "OK" na coluna Ok/Pendente)
@@ -621,10 +622,12 @@ html,body{margin:0}
     $('#reload').disabled = true;
     setStatus('Carregando os envios… · 加载中');
     try {
-      const [env, rev, sd, rp] = await Promise.all([getAll('/rest/v1/envios?select=*&order=data.desc'), getAll('/rest/v1/revisoes?select=*'), getAll('/rest/v1/suspeitas_decisoes?select=*').catch(() => []), getAll('/rest/v1/responsaveis?select=*').catch(() => [])]);
+      const [env, rev, sd, rp, bl] = await Promise.all([getAll('/rest/v1/envios?select=*&order=data.desc'), getAll('/rest/v1/revisoes?select=*'), getAll('/rest/v1/suspeitas_decisoes?select=*').catch(() => []), getAll('/rest/v1/responsaveis?select=*').catch(() => []), api('/rest/v1/painel_dados?id=eq.atual&select=lojas:dados->lojas').catch(() => null)]);
+      baseLojas = (bl && bl[0] && bl[0].lojas) || (painelAtual && painelAtual.lojas) || [];
       resp = new Map((rp || []).map((x) => [x.uf, x]));
       decisoesSusp = new Map((sd || []).map((x) => [x.caso, x]));
-      rows = shapeEnvios(env); reviews = shapeRevs(rev);
+      rows = shapeEnvios(env); reviews = shapeRevs(rev); corr.clear();
+      rows.forEach((r) => { const v = reviews.get(r.key); if (v && v.loja_corrigida) aplicarCorrecao(r, { canal: v.canal_corrigido || r.canal, codigo: v.loja_corrigida }); });
       calcRepetidas();
       fillFilters(); $('#work').hidden = false;
       setStatus(rows.length ? '' : 'Ainda não chegou nenhum envio. Os Forms são copiados a cada 10 minutos pelo script da planilha.');
@@ -639,6 +642,128 @@ html,body{margin:0}
     keep($('#f-form'), FORMS.map((F) => F.nome));
     keep($('#f-canal'), [...new Set(rows.map((r) => r.canal))].sort());
     keep($('#f-uf'), [...new Set(rows.map((r) => r.uf).filter(Boolean))].sort());
+  }
+
+  // ---------- loja provável: acha a loja quando o promotor não põe o código ou digita errado ----------
+  let baseLojas = [];
+  const corr = new Map(); // correção escolhida e ainda não gravada (grava junto com a decisão)
+  const normT = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  const PALAVRAS_FRACAS = new Set(['loja', 'filial', 'de', 'da', 'do', 'das', 'dos', 'e', 'the', 'magazine', 'luiza', 'lasa', 'fastshop', 'oppo', 'mesa', 'unidade']);
+  const tokensNome = (t, canal) => normT(t).split(' ').filter((w) => w && !/^\d+$/.test(w) && !PALAVRAS_FRACAS.has(w) && w !== normT(canal) && w.length > 1);
+  const codN = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^0+/, '');
+  const lojasDoCanal = (c) => baseLojas.filter((l) => l.canal === c);
+  function lojaNaBase(canal, raw) {
+    const lst = lojasDoCanal(canal); if (!lst.length) return null;
+    const tok = String(raw || '').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean).map(codN).filter(Boolean).reverse();
+    const all = codN(raw);
+    for (const t of [all].concat(tok)) { const l = lst.find((x) => codN(x.codigo) === t); if (l) return l; }
+    return null;
+  }
+  // compara o que foi escrito com o nome/cidade das lojas do canal
+  function porNome(canal, raw) {
+    const lst = lojasDoCanal(canal), out = [];
+    const tk = tokensNome(raw, canal), frase = tk.join(' ');
+    if (!tk.length) return out;
+    lst.forEach((l) => {
+      const tn = tokensNome(l.loja, canal), tc = tokensNome(l.cidade, canal);
+      const comum = tk.filter((w) => tn.includes(w)).length;
+      let pts = 0;
+      if (comum) pts = 10 * comum / Math.max(tn.length, tk.length) + (frase && (' ' + tn.join(' ') + ' ').includes(' ' + frase + ' ') ? 6 : 0) + (comum === tn.length ? 3 : 0);
+      if (!pts && tc.length && tc.every((w) => tk.includes(w)) && lst.filter((x) => normT(x.cidade) === normT(l.cidade)).length === 1) pts = 8;
+      if (pts >= 4) out.push({ l, pts });
+    });
+    return out.sort((a, b) => b.pts - a.pts);
+  }
+  // loja de um envio: pelo código, pela correção já feita, ou pelo nome quando não há dúvida
+  function resolverLoja(x) {
+    const l = lojaNaBase(x.canal, x.lojaRaw); if (l) return l;
+    const n = porNome(x.canal, x.lojaRaw);
+    return n.length && n[0].pts >= 8 && (!n[1] || n[0].pts - n[1].pts >= 3) ? n[0].l : null;
+  }
+  const lojaDesconhecida = (r) => lojasDoCanal(r.canal).length > 0 && !lojaNaBase(r.canal, r.lojaRaw);
+  function aplicarCorrecao(r, cx) {
+    if (r.lojaOrig == null) { r.lojaOrig = r.lojaRaw; r.canalOrig = r.canal; }
+    r.canal = cx.canal || r.canal; r.lojaRaw = String(cx.codigo); r.loja = lojaCodigo(cx.codigo) || String(cx.codigo);
+  }
+  function desfazerCorrecao(r) { if (r.lojaOrig == null) return; r.lojaRaw = r.lojaOrig; r.canal = r.canalOrig; r.loja = lojaCodigo(r.lojaOrig); delete r.lojaOrig; delete r.canalOrig; }
+  // lojas que o mesmo promotor já mandou (no mesmo canal)
+  function historicoPromotor(r) {
+    const h = new Map();
+    rows.forEach((x) => {
+      if (x.key === r.key || x.canal !== r.canal || !mesmoPromotor(x, r)) return;
+      const l = resolverLoja(x); const cod = l ? String(l.codigo) : (/\d/.test(x.lojaRaw) && !lojasDoCanal(x.canal).length ? lojaCodigo(x.lojaRaw) : null);
+      if (!cod) return;
+      const it = h.get(cod) || { cod, l, n: 0, envios: [] }; it.n++; it.envios.push(x); h.set(cod, it);
+    });
+    return h;
+  }
+  const mesmoDia = (a, b) => a && b && a.toDateString() === b.toDateString();
+  function sugestoesLoja(r) {
+    const lst = lojasDoCanal(r.canal), sug = new Map();
+    const add = (cod, l, pts, motivo) => { const k = String(cod); const s0 = sug.get(k) || { cod: k, l, pts: 0, motivos: [] }; s0.pts += pts; if (!s0.motivos.includes(motivo)) s0.motivos.push(motivo); if (l) s0.l = l; sug.set(k, s0); };
+    // 1) pelo nome / bairro / cidade escrito
+    porNome(r.canal, r.lojaRaw).forEach((x) => add(x.l.codigo, x.l, x.pts, 'pelo nome escrito ("' + String(r.lojaRaw).trim() + '")'));
+    // 2) código digitado parecido (um número trocado)
+    (String(r.lojaRaw).match(/\d+/g) || []).forEach((d0) => { const d = d0.replace(/^0+/, '');
+      lst.forEach((l) => { const c = codN(l.codigo); if (r.uf && l.uf && l.uf !== r.uf) return; if (c.length !== d.length || !/^\d+$/.test(c)) return; let dif = 0; for (let i = 0; i < c.length; i++) if (c[i] !== d[i]) dif++; if (dif === 1) add(l.codigo, l, 4, 'código parecido com "' + d0 + '"'); }); });
+    // 3) histórico do promotor
+    const h = historicoPromotor(r);
+    if (h.size) {
+      const lojasDia = new Set(rows.filter((x) => x.key !== r.key && x.canal === r.canal && mesmoPromotor(x, r) && mesmoDia(x.data, r.data)).map((x) => { const l = resolverLoja(x); return l ? String(l.codigo) : null; }).filter(Boolean));
+      const faltam = [...h.keys()].filter((c) => !lojasDia.has(c));
+      h.forEach((it, cod) => {
+        let pts = h.size === 1 ? 6 : 2, mot = 'o promotor já mandou esta loja ' + it.n + 'x';
+        if (h.size === 1) mot = 'é a única loja que este promotor manda';
+        if (lojasDia.size && faltam.length === 1 && faltam[0] === cod) { pts = 7; mot = 'no mesmo dia ele mandou as outras lojas dele, só faltou esta'; }
+        const perto = it.envios.find((x) => x.data && r.data && x.data <= r.data && r.data - x.data < 3600e3);
+        if (perto) { pts = Math.max(pts, 5); mot = 'ele mandou esta loja ' + Math.round((r.data - perto.data) / 6e4) + ' min antes (pode ser reenvio)'; }
+        add(cod, it.l, pts, mot);
+      });
+    }
+    return [...sug.values()].sort((a, b) => b.pts - a.pts).slice(0, 4);
+  }
+  const nomeLoja = (l, cod) => l ? l.codigo + ' · ' + titulo(l.loja) + (l.cidade ? ' (' + titulo(l.cidade) + ')' : '') : String(cod);
+  const titulo = (t) => String(t || '').toLowerCase().replace(/(^|[\s/(-])(\S)/g, (a, b, c) => b + c.toUpperCase());
+  function blocoLoja(r) {
+    const box = el('div', 'lj');
+    const lst = lojasDoCanal(r.canal);
+    const pend = corr.get(r.key);
+    const mudar = () => { const m = el('div', 'man');
+      const sc = el('select'); sc.setAttribute('aria-label', 'Canal');
+      [...new Set(baseLojas.map((l) => l.canal).concat(rows.map((x) => x.canal)))].filter((c) => c && c !== '—').sort().forEach((c) => sc.appendChild(new Option(c, c))); sc.value = r.canal;
+      const inp = el('input'); inp.placeholder = 'código ou nome da loja'; inp.setAttribute('aria-label', 'Código da loja'); inp.setAttribute('list', 'dl-lojas'); inp.style.minWidth = '16rem';
+      const dl = el('datalist'); dl.id = 'dl-lojas';
+      const enche = () => { dl.replaceChildren(...lojasDoCanal(sc.value).map((l) => { const o = el('option'); o.value = l.codigo + ' · ' + titulo(l.loja); return o; })); };
+      enche(); sc.addEventListener('change', enche);
+      const ok = el('button', 'btn', 'Usar · 使用'); ok.type = 'button';
+      const usar = () => { const v = inp.value.trim(); if (!v) return; const cod = v.split(' · ')[0].trim(); const l = lojaNaBase(sc.value, cod); corr.set(r.key, { canal: sc.value, codigo: l ? String(l.codigo) : cod }); renderDetail(); };
+      ok.addEventListener('click', usar); inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') usar(); });
+      m.append(el('span', 'note', 'Corrigir para:'), sc, inp, dl, ok); return m; };
+    if (pend) {
+      box.classList.add('ok');
+      box.appendChild(el('div', null, '✎ Loja escolhida: ' + pend.canal + ' ' + nomeLoja(lojaNaBase(pend.canal, pend.codigo), pend.codigo) + ' — será gravada quando você aprovar ou reprovar.'));
+      const u = el('button', 'linkbtn', 'desfazer'); u.type = 'button'; u.addEventListener('click', () => { corr.delete(r.key); renderDetail(); }); box.appendChild(u);
+      return box;
+    }
+    if (r.lojaOrig != null) {
+      box.classList.add('ok');
+      box.appendChild(el('div', null, '✎ Código corrigido: ' + r.canal + ' ' + nomeLoja(lojaNaBase(r.canal, r.lojaRaw), r.lojaRaw) + ' (o promotor digitou "' + (r.lojaOrig || 'nada') + '" em ' + r.canalOrig + ').'));
+      const u = el('button', 'linkbtn', 'mudar'); u.type = 'button'; u.addEventListener('click', () => { box.lastChild.remove(); box.appendChild(mudar()); }); box.appendChild(u);
+      return box;
+    }
+    const naBase = lojaNaBase(r.canal, r.lojaRaw);
+    if (naBase) { box.classList.add('ok'); box.appendChild(el('div', null, '✓ Loja na base: ' + r.canal + ' ' + nomeLoja(naBase))); const u = el('button', 'linkbtn', 'não é esta? corrigir'); u.type = 'button'; u.addEventListener('click', () => { u.remove(); box.appendChild(mudar()); }); box.appendChild(u); return box; }
+    box.classList.add('warn');
+    box.appendChild(el('div', null, lst.length ? '⚠ Não achei "' + (String(r.lojaRaw).trim() || 'sem código') + '" na base de lojas ' + r.canal + '. Escolha a loja certa antes de aprovar: · 未找到门店' : '⚠ Canal ' + r.canal + ' não está na base do painel. Se o código estiver errado, corrija:'));
+    const sg = sugestoesLoja(r);
+    if (sg.length) {
+      const w = el('div', 'sug');
+      sg.forEach((x) => { const b = el('button'); b.type = 'button'; b.append(el('b', null, (x === sg[0] ? '★ ' : '') + nomeLoja(x.l, x.cod)), el('br'), el('small', null, x.motivos.join(' · ')));
+        b.addEventListener('click', () => { corr.set(r.key, { canal: r.canal, codigo: x.cod }); renderDetail(); }); w.appendChild(b); });
+      box.append(el('span', 'note', 'Loja provável · 可能的门店:'), w);
+    } else if (lst.length) box.appendChild(el('span', 'note', 'Não encontrei uma loja provável. Confira pela foto e escolha abaixo.'));
+    box.appendChild(mudar());
+    return box;
   }
 
   // ---------- render ----------
@@ -724,6 +849,8 @@ html,body{margin:0}
       if (s === 'aw' && soUltimo()) { const ant = anterioresAguardando(r).length; if (ant) b.appendChild(el('span', 'pill mais', '+' + ant + ' anterior' + (ant > 1 ? 'es' : ''))); }
       if (r.repetidas && r.repetidas.length) b.appendChild(el('span', 'pill dup', '⚠ repetida'));
       if (fotosAntigas(r).length) b.appendChild(el('span', 'pill dup', '⚠ foto antiga'));
+      if (r.lojaOrig != null) b.appendChild(el('span', 'pill mais', 'código corrigido'));
+      else if (stOf(r) === 'aw' && lojaDesconhecida(r)) b.appendChild(el('span', 'pill dup', '⚠ loja?'));
       b.appendChild(el('span', 's', (r.form === FORMS[1].nome ? 'Fast/Operadoras · ' : '') + fmtD(r.data) + ' · ' + r.uf + ' · ' + r.nome + ' · ' + r.photos.length + ' fotos'));
       b.addEventListener('click', () => select(r.key));
       list.appendChild(b);
@@ -758,11 +885,12 @@ html,body{margin:0}
         d.appendChild(w);
       } }
     const facts = el('div', 'facts');
-    [['Formulário · 表单', r.form], ['Enviado em · 提交时间', fmtD(r.data)], ['Código digitado · 门店编号', r.lojaRaw || '—'], ['Estado · 州', r.uf + (r.regiao !== '—' ? ' (' + r.regiao + ')' : '')],
+    [['Formulário · 表单', r.form], ['Enviado em · 提交时间', fmtD(r.data)], ['Código digitado · 门店编号', (r.lojaOrig != null ? r.lojaOrig : r.lojaRaw) || '—'], ['Estado · 州', r.uf + (r.regiao !== '—' ? ' (' + r.regiao + ')' : '')],
       ['Promotor · 促销员', r.nome + (r.cargo ? ' — ' + r.cargo : '')], ['Telefone · 电话', r.tel || '—'], [r.form === FORMS[1].nome ? 'Displays · 展示物料' : 'Tipo de mesa · 体验台', r.mesa || '—'],
       ['Produtos · 在售产品', r.produtos || '—']].forEach(([k, v]) => { const x = el('div'); x.append(el('b', null, k), el('span', null, v)); facts.appendChild(x); });
     if (r.notas) { const x = el('div'); x.append(el('b', null, 'Anotação antiga · 旧备注'), el('span', null, r.notas)); facts.appendChild(x); }
     d.appendChild(facts);
+    d.appendChild(blocoLoja(r));
 
     const antigas = fotosAntigas(r);
     if (antigas.length) {
@@ -891,8 +1019,10 @@ html,body{margin:0}
     btns.forEach((b) => { b.disabled = true; });
     info.textContent = 'Gravando… · 保存中';
     try {
-      await saveRevs([{ key: r.key, status, motivos: motivos.join('; '), obs: String(obs || '').trim() }]);
-      reviews.set(r.key, { status, motivo: motivos.join('; '), obs: String(obs || '').trim(), em: fmtEm(new Date().toISOString()) + ' · ' + (perfil.email || '') });
+      const cx = corr.get(r.key) || (r.lojaOrig != null ? { canal: r.canal, codigo: r.lojaRaw } : null);
+      await saveRevs([{ key: r.key, status, motivos: motivos.join('; '), obs: String(obs || '').trim(), canal_corrigido: cx ? cx.canal : null, loja_corrigida: cx ? cx.codigo : null }]);
+      if (cx) aplicarCorrecao(r, cx); corr.delete(r.key);
+      reviews.set(r.key, { status, motivo: motivos.join('; '), obs: String(obs || '').trim(), canal_corrigido: cx ? cx.canal : '', loja_corrigida: cx ? cx.codigo : '', em: fmtEm(new Date().toISOString()) + ' · ' + (perfil.email || '') });
       const ant = anterioresAguardando(r);
       if (ant.length) {
         const o = 'Substituído pelo envio de ' + fmtD(r.data);

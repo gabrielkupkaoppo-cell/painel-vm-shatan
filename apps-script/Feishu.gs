@@ -44,13 +44,15 @@ function enviarFeishu_(limite, detalhado) {
   const cacheAba = {};
 
   // aprovações ainda não enviadas, com fotos já copiadas
-  const pend = supa_('GET', '/rest/v1/revisoes?select=key,status&status=eq.Aprovado&feishu_em=is.null&order=revisado_em.desc&limit=100');
+  const pend = supa_('GET', '/rest/v1/revisoes?select=key,status,canal_corrigido,loja_corrigida&status=eq.Aprovado&feishu_em=is.null&order=revisado_em.desc&limit=100');
   if (!pend.length) { console.log('Nada novo para mandar ao Feishu.'); return; }
   const envioDe = (key) => (supa_('GET', '/rest/v1/envios?select=key,form,canal,loja_raw,fotos,produtos,mesa&key=eq.' + encodeURIComponent(key)) || [])[0];
 
   let feitos = 0;
   for (let i = 0; i < pend.length && feitos < limite; i++) {
     const key = pend[i].key, e = envioDe(key);
+    if (e && pend[i].canal_corrigido) e.canal = pend[i].canal_corrigido;   // código da loja corrigido no site
+    if (e && pend[i].loja_corrigida) e.loja_raw = pend[i].loja_corrigida;
     let info = '';
     try {
       if (!e) { info = 'envio não encontrado'; marcar_(key, info); continue; }
