@@ -97,7 +97,6 @@ function avisoCartao_(uf, sup, itens) {
       { tag: 'div', text: { tag: 'lark_md', content: intro } },
       { tag: 'hr' },
       { tag: 'div', text: { tag: 'lark_md', content: linhas.join('\n\n') + fim } },
-      { tag: 'action', actions: [{ tag: 'button', type: 'primary', text: { tag: 'plain_text', content: 'Abrir o painel · 打开看板' }, url: PAINEL_SITE }] },
     ],
   };
 }
