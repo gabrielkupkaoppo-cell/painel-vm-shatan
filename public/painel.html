@@ -866,7 +866,7 @@ dash.calc('apontamentos', {
   }
 
   function drawAp(p, data) {
-    const rows = data.filter((r) => r.canal === p.canal && r.regiao === p.regiao && r.lojas > 0).sort((a, b) => b.lojas - a.lojas);
+    const rows = data.filter((r) => r.canal === p.canal && r.regiao === p.regiao && r.lojas > 0 && r.tipo !== 'Sem mesa / sem espaço').sort((a, b) => b.lojas - a.lojas);
     hbar($('#ap-chart'), rows, {
       label: (r) => r.tipo + (APZH[r.tipo] ? ' · ' + APZH[r.tipo] : ''), end: (r) => String(r.lojas), total: (r) => r.lojas,
       parts: [['lojas', dash.colors[0]]],
