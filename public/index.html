@@ -221,7 +221,7 @@ html,body{margin:0}
   <button class="tab" role="tab" id="tab-rev" aria-selected="false" aria-controls="pane-rev" type="button" hidden>Aprovações · 审核<span class="n" id="tab-n" hidden></span></button>
   <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 30/10 10:55</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 30/10 11:10</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -577,10 +577,10 @@ html,body{margin:0}
     }).sort((a, b) => b.data - a.data);
   }
   const fmtEm = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); };
-  function shapeRevs(list) { const m = new Map(); list.forEach((x) => m.set(x.key, { status: x.status, motivo: x.motivos || '', obs: x.obs || '', canal_corrigido: x.canal_corrigido || '', loja_corrigida: x.loja_corrigida || '', em: fmtEm(x.revisado_em) + (x.revisado_por_email ? ' · ' + x.revisado_por_email : '') })); return m; }
+  function shapeRevs(list) { const m = new Map(); list.forEach((x) => m.set(x.key, { status: x.status, motivo: x.motivos || '', obs: x.obs || '', canal_corrigido: x.canal_corrigido || '', loja_corrigida: x.loja_corrigida || '', mesa_corrigida: x.mesa_corrigida || '', em: fmtEm(x.revisado_em) + (x.revisado_por_email ? ' · ' + x.revisado_por_email : '') })); return m; }
   async function saveRevs(items) {
     const uid = sess.user && sess.user.id, email = (perfil && perfil.email) || '';
-    const body = items.map((x) => ({ key: x.key, status: x.status, motivos: x.motivos || '', obs: x.obs || '', canal_corrigido: x.canal_corrigido || null, loja_corrigida: x.loja_corrigida || null, revisado_por: uid, revisado_por_email: email, revisado_em: new Date().toISOString(), origem: 'site' }));
+    const body = items.map((x) => ({ key: x.key, status: x.status, motivos: x.motivos || '', obs: x.obs || '', canal_corrigido: x.canal_corrigido || null, loja_corrigida: x.loja_corrigida || null, mesa_corrigida: x.mesa_corrigida || null, revisado_por: uid, revisado_por_email: email, revisado_em: new Date().toISOString(), origem: 'site' }));
     await api('/rest/v1/revisoes?on_conflict=key', { method: 'POST', body, headers: { Prefer: 'resolution=merge-duplicates,return=minimal' } });
   }
   // Lojas já validadas no painel (foto conferida na planilha Excel ou "OK" na coluna Ok/Pendente)
@@ -627,7 +627,8 @@ html,body{margin:0}
       resp = new Map((rp || []).map((x) => [x.uf, x]));
       decisoesSusp = new Map((sd || []).map((x) => [x.caso, x]));
       rows = shapeEnvios(env); reviews = shapeRevs(rev); corr.clear();
-      rows.forEach((r) => { const v = reviews.get(r.key); if (v && v.loja_corrigida) aplicarCorrecao(r, { canal: v.canal_corrigido || r.canal, codigo: v.loja_corrigida }); });
+      rows.forEach((r) => { const v = reviews.get(r.key); if (v && v.loja_corrigida) aplicarCorrecao(r, { canal: v.canal_corrigido || r.canal, codigo: v.loja_corrigida });
+        if (v && v.mesa_corrigida) { r.mesaOrig = r.mesa; r.mesa = v.mesa_corrigida; } }); corrMesa.clear();
       calcRepetidas();
       fillFilters(); $('#work').hidden = false;
       setStatus(rows.length ? '' : 'Ainda não chegou nenhum envio. Os Forms são copiados a cada 10 minutos pelo script da planilha.');
@@ -646,6 +647,8 @@ html,body{margin:0}
 
   // ---------- loja provável: acha a loja quando o promotor não põe o código ou digita errado ----------
   let baseLojas = [];
+  const corrMesa = new Map(); // tipo de mesa corrigido, grava junto com a decisão
+  const MESAS_OPC = ['Mesa 0.8 Metros', 'Mesa 1.2 Metros', 'Mesa 1.6 Metros', 'Mesa Multimarcas', 'Não tenho mesa'];
   const corr = new Map(); // correção escolhida e ainda não gravada (grava junto com a decisão)
   const normT = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
   const PALAVRAS_FRACAS = new Set(['loja', 'filial', 'de', 'da', 'do', 'das', 'dos', 'e', 'the', 'magazine', 'luiza', 'lasa', 'fastshop', 'oppo', 'mesa', 'unidade']);
@@ -890,6 +893,25 @@ html,body{margin:0}
       ['Produtos · 在售产品', r.produtos || '—']].forEach(([k, v]) => { const x = el('div'); x.append(el('b', null, k), el('span', null, v)); facts.appendChild(x); });
     if (r.notas) { const x = el('div'); x.append(el('b', null, 'Anotação antiga · 旧备注'), el('span', null, r.notas)); facts.appendChild(x); }
     d.appendChild(facts);
+    if (r.form === FORMS[0].nome) {   // tipo de mesa: dá para corrigir (ex.: respondeu 1.2 mas é multimarcas)
+      const cel = [...facts.children].find((x) => x.firstChild && /Tipo de mesa/.test(x.firstChild.textContent));
+      if (cel) {
+        const pend = corrMesa.get(r.key), span = cel.lastChild;
+        if (pend) span.textContent = pend + ' ✎';
+        const era = pend ? r.mesa : r.mesaOrig;
+        if (era != null) cel.appendChild(el('small', 'note', 'promotor respondeu: ' + (era || 'nada') + (pend ? ' · grava ao aprovar/reprovar' : '')));
+        const b = el('button', 'linkbtn', 'corrigir'); b.type = 'button'; b.style.alignSelf = 'flex-start';
+        b.addEventListener('click', () => {
+          const sel = el('select'); sel.setAttribute('aria-label', 'Tipo de mesa correto');
+          sel.appendChild(new Option('— escolha —', ''));
+          MESAS_OPC.forEach((m) => sel.appendChild(new Option(m, m)));
+          sel.addEventListener('change', () => { if (!sel.value) return; if (sel.value === (r.mesaOrig != null ? r.mesaOrig : r.mesa)) corrMesa.delete(r.key); else corrMesa.set(r.key, sel.value); renderDetail(); });
+          b.replaceWith(sel); sel.focus();
+          if (stOf(r) !== 'aw') cel.appendChild(el('small', 'note', 'Já decidido: depois de corrigir, clique em Aprovar de novo para atualizar o Feishu.'));
+        });
+        cel.appendChild(b);
+      }
+    }
     d.appendChild(blocoLoja(r));
 
     const antigas = fotosAntigas(r);
@@ -1019,9 +1041,11 @@ html,body{margin:0}
     info.textContent = 'Gravando… · 保存中';
     try {
       const cx = corr.get(r.key) || (r.lojaOrig != null ? { canal: r.canal, codigo: r.lojaRaw } : null);
-      await saveRevs([{ key: r.key, status, motivos: motivos.join('; '), obs: String(obs || '').trim(), canal_corrigido: cx ? cx.canal : null, loja_corrigida: cx ? cx.codigo : null }]);
+      const mx = corrMesa.get(r.key) || (r.mesaOrig != null ? r.mesa : null);
+      await saveRevs([{ key: r.key, status, motivos: motivos.join('; '), obs: String(obs || '').trim(), canal_corrigido: cx ? cx.canal : null, loja_corrigida: cx ? cx.codigo : null, mesa_corrigida: mx }]);
+      if (mx && corrMesa.has(r.key)) { if (r.mesaOrig == null) r.mesaOrig = r.mesa; r.mesa = mx; } corrMesa.delete(r.key);
       if (cx) aplicarCorrecao(r, cx); corr.delete(r.key);
-      reviews.set(r.key, { status, motivo: motivos.join('; '), obs: String(obs || '').trim(), canal_corrigido: cx ? cx.canal : '', loja_corrigida: cx ? cx.codigo : '', em: fmtEm(new Date().toISOString()) + ' · ' + (perfil.email || '') });
+      reviews.set(r.key, { status, motivo: motivos.join('; '), obs: String(obs || '').trim(), canal_corrigido: cx ? cx.canal : '', loja_corrigida: cx ? cx.codigo : '', mesa_corrigida: mx || '', em: fmtEm(new Date().toISOString()) + ' · ' + (perfil.email || '') });
       const ant = anterioresAguardando(r);
       if (ant.length) {
         const o = 'Substituído pelo envio de ' + fmtD(r.data);

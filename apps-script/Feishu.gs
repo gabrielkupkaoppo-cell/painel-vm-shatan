@@ -44,7 +44,7 @@ function enviarFeishu_(limite, detalhado) {
   const cacheAba = {};
 
   // aprovações ainda não enviadas, com fotos já copiadas
-  const pend = supa_('GET', '/rest/v1/revisoes?select=key,status,canal_corrigido,loja_corrigida&status=eq.Aprovado&feishu_em=is.null&order=revisado_em.desc&limit=100');
+  const pend = supa_('GET', '/rest/v1/revisoes?select=key,status,canal_corrigido,loja_corrigida,mesa_corrigida&status=eq.Aprovado&feishu_em=is.null&order=revisado_em.desc&limit=100');
   if (!pend.length) { console.log('Nada novo para mandar ao Feishu.'); return; }
   const envioDe = (key) => (supa_('GET', '/rest/v1/envios?select=key,form,canal,loja_raw,uf,fotos,produtos,mesa&key=eq.' + encodeURIComponent(key)) || [])[0];
 
@@ -53,6 +53,7 @@ function enviarFeishu_(limite, detalhado) {
     const key = pend[i].key, e = envioDe(key);
     if (e && pend[i].canal_corrigido) e.canal = pend[i].canal_corrigido;   // código da loja corrigido no site
     if (e && pend[i].loja_corrigida) e.loja_raw = pend[i].loja_corrigida;
+    if (e && pend[i].mesa_corrigida) { e.mesa = pend[i].mesa_corrigida; e.mesaCorrigida = true; }   // tipo de mesa corrigido no site
     let info = '';
     try {
       if (!e) { info = 'envio não encontrado'; marcar_(key, info); continue; }
@@ -220,6 +221,7 @@ function itensDoEnvio_(e) {
 }
 const CAIXAS_GERENCIADAS_ = ['findx9pro', 'reno16', 'reno16f', 'reno14', 'reno14f', 'a6pro', 'a6x5g', 'a55g', 'a5pro', '1.6m体验台', '1.2m体验台', '0.8m体验台',
   '人行立牌', '桌面reno发光字', 'logo发光字', 'a4立牌', 'logo发光灯柱', 'finddisplay', 'renodisplay', 'aserisdisplay', 'aseriesdisplay', 'iotdisplay', 'multimarcas', 'mesamultimarcas', '多品牌体验台'].map(normItem_);
+const MESAS_CAIXAS_ = ['1.6M 体验台', '1.2M 体验台', '0.8M 体验台', 'Multimarcas', 'Mesa Multimarcas', '多品牌体验台'].map(normItem_);
 function marcarCaixas_(tk, planilha, aba, A, linha, e) {
   const tem = itensDoEnvio_(e);
   const desmarcar = String(PropertiesService.getScriptProperties().getProperty('FEISHU_DESMARCAR') || '').trim().toLowerCase() === 'sim';
@@ -227,7 +229,8 @@ function marcarCaixas_(tk, planilha, aba, A, linha, e) {
   CAIXAS_GERENCIADAS_.forEach((k) => {
     const col = A.caixas[k]; if (!col) return;
     const sim = tem.has(k);
-    if (!sim && !desmarcar) return;
+    const ehMesa = MESAS_CAIXAS_.indexOf(k) >= 0;   // tipo de mesa corrigido: desmarca as outras mesas
+    if (!sim && !desmarcar && !(e.mesaCorrigida && ehMesa)) return;
     ranges.push({ range: aba.sheet_id + '!' + letra_(col) + linha + ':' + letra_(col) + linha, values: [[sim ? 1 : 0]] }); // no Feishu a caixa marcada vale 1 e a desmarcada 0
     if (sim) ligadas.push(letra_(col));
   });
