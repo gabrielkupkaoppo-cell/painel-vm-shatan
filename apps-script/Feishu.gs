@@ -46,7 +46,7 @@ function enviarFeishu_(limite, detalhado) {
   // aprovações ainda não enviadas, com fotos já copiadas
   const pend = supa_('GET', '/rest/v1/revisoes?select=key,status,canal_corrigido,loja_corrigida&status=eq.Aprovado&feishu_em=is.null&order=revisado_em.desc&limit=100');
   if (!pend.length) { console.log('Nada novo para mandar ao Feishu.'); return; }
-  const envioDe = (key) => (supa_('GET', '/rest/v1/envios?select=key,form,canal,loja_raw,fotos,produtos,mesa&key=eq.' + encodeURIComponent(key)) || [])[0];
+  const envioDe = (key) => (supa_('GET', '/rest/v1/envios?select=key,form,canal,loja_raw,uf,fotos,produtos,mesa&key=eq.' + encodeURIComponent(key)) || [])[0];
 
   let feitos = 0;
   for (let i = 0; i < pend.length && feitos < limite; i++) {
@@ -62,7 +62,12 @@ function enviarFeishu_(limite, detalhado) {
       const aba = abas.find((a) => semAcento_(a.title) === semAcento_(canal));
       if (!aba) { info = 'aba "' + canal + '" não existe no Feishu'; marcar_(key, info); if (detalhado) console.log(key + ': ' + info); continue; }
       const A = cacheAba[aba.sheet_id] || (cacheAba[aba.sheet_id] = lerAba_(tk, planilha, aba));
-      const linha = acharLinha_(A, e.loja_raw);
+      let linha = acharLinha_(A, e.loja_raw);
+      if (!linha && FEISHU_NOVAS_LOJAS.some((c) => semAcento_(c) === semAcento_(aba.title)) && chaves_(e.loja_raw)[1]) {
+        linha = novaLinhaLoja_(tk, planilha, aba, A, e);   // loja nova da Gazin: cria a linha sozinho
+        cacheAba[aba.sheet_id] = null;
+        if (linha) { const A2 = lerAba_(tk, planilha, aba); cacheAba[aba.sheet_id] = A2; Object.assign(A, A2); console.log('Loja nova ' + e.loja_raw + ' criada na aba ' + aba.title + ', linha ' + linha + '.'); }
+      }
       if (!linha) { info = 'loja "' + e.loja_raw + '" não encontrada na aba ' + aba.title; marcar_(key, info); if (detalhado) console.log(key + ': ' + info); continue; }
       const destino = distribuir_(fotos, A.fotoCols);
       const feitas = [], falhas = [];
@@ -97,6 +102,40 @@ function enviarFeishu_(limite, detalhado) {
     }
   }
   console.log('Enviadas ao Feishu nesta rodada: ' + feitos);
+}
+
+// ---------- loja nova: abas em que o script pode criar a linha sozinho ----------
+var FEISHU_NOVAS_LOJAS = ['Gazin'];
+function novaLinhaLoja_(tk, planilha, aba, A, e) {
+  const base = '/sheets/v2/spreadsheets/' + planilha;
+  const col = A.dados[A.colCod] || A.dados[A.colNome] || [];
+  let ult = 0; for (let r = 0; r < col.length; r++) if (String(col[r] || '').trim()) ult = r + 1;   // última linha com loja
+  if (ult < 3) return null;
+  const nCol = Math.min((aba.grid_properties && aba.grid_properties.column_count) || 40, 60), L = letra_(nCol);
+  const tplF = (feishu_(tk, 'GET', base + '/values/' + encodeURIComponent(aba.sheet_id + '!A' + ult + ':' + L + ult) + '?valueRenderOption=Formula').valueRange || {}).values || [[]];
+  feishu_(tk, 'POST', base + '/insert_dimension_range', { dimension: { sheetId: aba.sheet_id, majorDimension: 'ROWS', startIndex: ult, endIndex: ult + 1 }, inheritStyle: 'BEFORE' });
+  const nova = ult + 1;
+  if (aba.grid_properties) aba.grid_properties.row_count = (aba.grid_properties.row_count || 500) + 1;
+  const cab = valores_(tk, planilha, aba.sheet_id + '!A1:' + L + '4');
+  const H = {}; cab.forEach((row) => (row || []).forEach((v, c) => { const t = texto_(v); if (t) H[c + 1] = (H[c + 1] ? H[c + 1] + ' ' : '') + t; }));
+  const colEst = Object.keys(H).map(Number).find((c) => /\bstate\b|estado/i.test(H[c]) && !/currently/i.test(H[c]));
+  let cod = chaves_(e.loja_raw)[1]; if (cod.length < 3) cod = ('000' + cod).slice(-3);
+  const vr = [];
+  const put = (c, v) => { if (c) vr.push({ range: aba.sheet_id + '!' + letra_(c) + nova + ':' + letra_(c) + nova, values: [[v]] }); };
+  put(A.colCod, cod);
+  put(A.colNome, aba.title.toUpperCase() + ' FILIAL ' + cod);
+  put(colEst, String(e.uf || '').toUpperCase());
+  (tplF[0] || []).forEach((v, i) => {
+    const f = v && typeof v === 'object' && v.type === 'formula' ? v.text : (typeof v === 'string' && v.charAt(0) === '=' ? v : null);
+    if (f) put(i + 1, { type: 'formula', text: f.replace(/(\$?)([A-Z]{1,3})(\$?)(\d+)/g, (m, d1, c, d2, n) => (d2 === '' && +n === ult ? d1 + c + nova : m)) });
+  });
+  feishu_(tk, 'POST', base + '/values_batch_update', { valueRanges: vr });
+  return nova;
+}
+// aprovações que não acharam a loja na aba → tentar de novo (ex.: depois de criar a linha à mão)
+function feishuReenviarLojasNaoEncontradas() {
+  supa_('PATCH', '/rest/v1/revisoes?feishu_info=like.' + encodeURIComponent('*não encontrada na aba*'), { feishu_em: null, feishu_info: null }, { Prefer: 'return=minimal' });
+  console.log('Pronto: as aprovações de lojas não encontradas serão tentadas de novo no próximo ciclo (até 10 min).');
 }
 
 // ---------- leitura da aba ----------
