@@ -63,6 +63,13 @@ input[type=search]{min-width:min(100%,14rem)}
 .dt{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline}
 .dt h2{margin:0;font-size:1.2rem;font-weight:600}
 .nv{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0;background:#fff;display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:12px} .nv h3{margin:0 0 4px;font-size:1rem} .nv ul{margin:6px 0;padding-left:18px;font-size:.86rem} .nv .th{width:180px;height:135px;border-radius:8px;background:var(--chip);display:flex;align-items:center;justify-content:center;font-size:.75rem;color:var(--muted);overflow:hidden;text-align:center} .nv .th img{width:100%;height:100%;object-fit:cover;cursor:zoom-in} .nv .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px} .nv form{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px} .nv input{font:inherit;font-size:.85rem;padding:5px 8px} .nv .tag-real{color:var(--ok);font-weight:600} .nv .tag-erro{color:var(--warn);font-weight:600} @media (max-width:640px){.nv{grid-template-columns:1fr}}
+.cob-plan{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:12px 0}
+.cob-plan div{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel);font-size:.82rem}
+.cob-plan div b{display:block;font-size:.8rem;color:var(--muted)} .cob-plan div.hoje{border-color:var(--ok);box-shadow:0 0 0 2px var(--ok-bg)} .cob-plan div.feito{opacity:.6}
+.cob-bar{height:10px;border-radius:5px;background:var(--chip);overflow:hidden;display:flex;min-width:120px} .cob-bar i{display:block;height:100%}
+.cob-reg{display:grid;grid-template-columns:minmax(110px,160px) 1fr auto;gap:10px;align-items:center;font-size:.85rem;padding:4px 0}
+.pb{display:inline-block;font-size:.72rem;padding:1px 7px;border-radius:9px;background:var(--warn-bg);color:var(--warn);margin:1px 3px 1px 0;white-space:nowrap}
+.st-ok{color:var(--ok);font-weight:600} .st-conf{color:#3949ab;font-weight:600} .st-ab{color:var(--warn);font-weight:600} .st-sr{color:var(--bad);font-weight:600}
 .lj{margin:12px 0;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:.88rem;display:flex;flex-direction:column;gap:8px} .lj.ok{background:var(--ok-bg)} .lj.warn{background:var(--warn-bg)} .lj .sug{display:flex;flex-wrap:wrap;gap:6px} .lj .sug button{font:inherit;font-size:.82rem;padding:5px 10px;border-radius:16px;border:1px solid var(--line);background:#fff;cursor:pointer;text-align:left} .lj .sug button:hover{border-color:var(--ok)} .lj .sug small{color:var(--muted)} .lj .man{display:flex;gap:6px;flex-wrap:wrap;align-items:center} .lj input,.lj select{font:inherit;font-size:.85rem;padding:4px 8px}
 .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:8px 16px}
 .facts div{display:flex;flex-direction:column;gap:1px;min-width:0}
@@ -222,8 +229,9 @@ html,body{margin:0}
   <button class="tab" role="tab" id="tab-rev" aria-selected="false" aria-controls="pane-rev" type="button" hidden>Aprovações · 审核<span class="n" id="tab-n" hidden></span></button>
   <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
   <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Códigos errados · 编码错误<span class="n" id="tab-nn" hidden></span></button>
+  <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Cobrança · 催办<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 30/10 15:10</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 30/10 16:00</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -296,6 +304,14 @@ html,body{margin:0}
     <div><button class="btn" type="button" id="n-csv">Baixar lista (Excel/CSV) · 下载</button></div></div>
   <div class="bar"><select id="n-uf" aria-label="Região"><option value="">Todas as regiões · 全部区域</option></select> <select id="n-canal" aria-label="Canal"><option value="">Todos os canais · 全部渠道</option></select></div>
   <div id="n-lista"></div>
+</div>
+</section>
+<section id="pane-cob" role="tabpanel" aria-labelledby="tab-cob" hidden>
+<div class="wrap">
+  <div class="head"><div><h1>Cobrança de correções<span class="zh">整改催办 · 15天</span></h1>
+    <p class="note">Ciclo de 15 dias: você dispara a cobrança das lojas com problema, acompanha dia a dia o que foi corrigido (foto nova aprovada) e fecha com um relatório. Só administradores veem esta aba.</p></div></div>
+  <div class="msg" id="c-status" role="status" hidden></div>
+  <div id="c-corpo"></div>
 </div>
 </section>
 <section id="pane-users" role="tabpanel" aria-labelledby="tab-users" hidden>
@@ -423,7 +439,7 @@ html,body{margin:0}
     showView('v-app');
     $('#who').textContent = perfil.nome || perfil.email;
     $('#who-role').textContent = isAdmin() ? 'Administrador · 管理员' : 'Leitor · 查看';
-    $('#tab-rev').hidden = !isAdmin(); $('#tab-users').hidden = !isAdmin(); $('#tab-susp').hidden = !isAdmin(); $('#tab-novas').hidden = !isAdmin();
+    $('#tab-rev').hidden = !isAdmin(); $('#tab-users').hidden = !isAdmin(); $('#tab-susp').hidden = !isAdmin(); $('#tab-novas').hidden = !isAdmin(); $('#tab-cob').hidden = !isAdmin();
     $('#imp').hidden = true; // importação do Excel desativada: o painel vem do Feishu
     ligarAdminPainel();
     let t = 'painel'; try { t = localStorage.getItem('vm-tab') || 'painel'; } catch (e) {}
@@ -844,6 +860,193 @@ html,body{margin:0}
       .map((r) => [regDe(r), r.uf || '', respNome(r.uf) || '', fmtD(r.data), r.canal, String(r.lojaRaw || '').trim(), r.nome || '', r.tel || '', stTxt[stOf(r)]]));
     const csv = '﻿' + linhas.map((l) => l.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'codigos-errados-' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  // ---------- cobrança de 15 dias ----------
+  const PROB_TIPOS = ['Sem foto', 'Foto com 30+ dias', 'Foto fora do padrão', 'Sem spec card', 'Sem modo demo', 'Mostruário / estoque', 'Material / canvas'];
+  const PROB_ZH = { 'Sem foto': '无照片', 'Foto com 30+ dias': '照片超30天', 'Foto fora do padrão': '照片不合格', 'Sem spec card': '缺参数卡', 'Sem modo demo': '未开演示', 'Mostruário / estoque': '样机/库存', 'Material / canvas': '物料/画面' };
+  const PLANO = [
+    { d: 0, t: 'Disparo', a: 'Mandar a lista de cada região ao responsável (mensagem "Cobrança inicial") e pedir confirmação de recebimento.' },
+    { d: 2, t: 'Alinhamento', a: 'Confirmar que todos receberam. Levantar material que falta (spec card, canvas, aparelho) e pedir reposição.' },
+    { d: 5, t: 'Checkpoint 1', a: 'Ver o % corrigido por região. Ligar para as regiões abaixo de 30%.' },
+    { d: 7, t: 'Lembrete', a: 'Mandar o "Lembrete" só com o que ainda está aberto.' },
+    { d: 10, t: 'Escalonar', a: 'Regiões abaixo de 60%: acionar o gestor do canal / coordenação com a lista.' },
+    { d: 13, t: 'Último aviso', a: 'Mandar o "Último aviso": prazo termina em 2 dias.' },
+    { d: 15, t: 'Fechamento', a: 'Conferir as fotos novas, encerrar a cobrança e baixar o relatório. O que não foi corrigido vira plano específico (material, treinamento ou visita).' },
+  ];
+  let cobAtual = null, cobItens = [], cobHist = [];
+  async function loadCob() {
+    const st = $('#c-status');
+    try {
+      const cs = await api('/rest/v1/cobrancas?select=*&order=inicio.desc');
+      cobHist = cs || []; cobAtual = cobHist.find((c) => !c.encerrada_em) || null;
+      cobItens = cobAtual ? await getAll('/rest/v1/cobranca_itens?select=*&cobranca_id=eq.' + cobAtual.id) : [];
+      st.hidden = true; renderCob();
+    } catch (e) { st.hidden = false; st.textContent = errMsg(e); }
+  }
+  const chaveL = (canal, cod) => canal + '|' + codN(cod);
+  function problemasDe(l) {
+    const p = [];
+    if (l.situacao === 'Pendente') p.push('Sem foto');
+    else if (l.dias_sem_foto != null && l.dias_sem_foto >= 30) p.push('Foto com 30+ dias');
+    String(l.apontamento || '').split('; ').filter((t) => t && PROB_TIPOS.includes(t)).forEach((t) => p.push(t));
+    return p;
+  }
+  // último envio aprovado por loja (canal|código)
+  function aprovadosPorLoja() {
+    const m = new Map();
+    rows.forEach((r) => { if (stOf(r) !== 'ap') return; const l = resolverLoja(r); if (!l) return; const k = chaveL(l.canal, l.codigo); if (!m.has(k) || r.data > m.get(k).data) m.set(k, r); });
+    return m;
+  }
+  function statusItem(it, ap) {
+    if (it.status_manual === 'corrigido') return { s: 'ok', t: '✓ Corrigido' };
+    if (it.status_manual === 'dispensado') return { s: 'ok', t: '— Dispensado' };
+    const l = baseFeishu.find((x) => chaveL(x.canal, x.codigo) === it.chave);
+    const agora = l ? problemasDe(l) : [];
+    const resolvidos = it.problemas.filter((p) => !agora.includes(p));
+    const r = ap.get(it.chave), novo = r && r.data > new Date(cobAtual.inicio);
+    if (resolvidos.length === it.problemas.length) return { s: 'ok', t: '✓ Corrigido' + (novo ? ' (foto nova ' + fmtD(r.data).slice(0, 5) + ')' : '') };
+    if (novo) return { s: 'conf', t: '📷 Foto nova ' + fmtD(r.data).slice(0, 5) + ' — conferir', r };
+    if (it.status_manual === 'sem_retorno') return { s: 'sr', t: '✕ Sem retorno' };
+    return { s: 'ab', t: '⏳ Aberto' + (resolvidos.length ? ' (' + resolvidos.length + ' de ' + it.problemas.length + ' resolvidos)' : '') };
+  }
+  const diaDe = (c) => Math.floor((Date.now() - new Date(c.inicio).getTime()) / 864e5);
+  let cobFiltro = { reg: '', canal: '', st: '' };
+  function renderCob() {
+    const box = $('#c-corpo'); box.replaceChildren();
+    const tn = $('#tab-cn');
+    if (!cobAtual) { tn.hidden = true; renderCobNova(box); renderCobHist(box); return; }
+    const ap = aprovadosPorLoja();
+    const itens = cobItens.map((it) => Object.assign(it, { st: statusItem(it, ap) }));
+    const nAb = itens.filter((x) => x.st.s === 'ab' || x.st.s === 'sr').length, nConf = itens.filter((x) => x.st.s === 'conf').length, nOk = itens.filter((x) => x.st.s === 'ok').length;
+    tn.hidden = !nConf; tn.textContent = nConf;
+    const dia = diaDe(cobAtual), prazo = new Date(cobAtual.prazo + 'T12:00:00');
+    const head = el('div'); head.style.cssText = 'display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end';
+    const h = el('div'); h.append(el('h2', null, (cobAtual.titulo || 'Cobrança') + ' · Dia ' + Math.min(dia, 15) + ' de 15'), el('span', 'note', 'Iniciada em ' + fmtEm(cobAtual.inicio) + ' por ' + (cobAtual.por_email || '—') + ' · prazo ' + prazo.toLocaleDateString('pt-BR') + (dia > 15 ? ' · ⚠ prazo vencido' : '')));
+    const fim = el('button', 'btn', 'Encerrar cobrança e baixar relatório'); fim.type = 'button';
+    fim.addEventListener('click', async () => { if (!confirmar(fim, 'Confirmar: encerrar?')) return; baixarCobCsv(itens, true); try { await api('/rest/v1/cobrancas?id=eq.' + cobAtual.id, { method: 'PATCH', body: { encerrada_em: new Date().toISOString() }, headers: { Prefer: 'return=minimal' } }); await loadCob(); } catch (e) { fim.textContent = errMsg(e); } });
+    head.append(h, fim); box.appendChild(head);
+    // plano
+    const pl = el('div', 'cob-plan'); const prox = PLANO.find((p) => p.d >= dia) || PLANO[PLANO.length - 1];
+    PLANO.forEach((p) => { const dd = new Date(new Date(cobAtual.inicio).getTime() + p.d * 864e5); const c = el('div', p === prox ? 'hoje' : (p.d < dia ? 'feito' : ''));
+      c.append(el('b', null, 'D+' + p.d + ' · ' + dd.toLocaleDateString('pt-BR').slice(0, 5)), el('strong', null, p.t), el('br'), el('span', null, p.a)); pl.appendChild(c); });
+    box.appendChild(pl);
+    // kpis
+    const k = el('div', 'counts'); [['Lojas cobradas', itens.length, ''], ['Corrigidas', nOk + ' (' + (itens.length ? Math.round(nOk * 100 / itens.length) : 0) + '%)', 'ap'], ['Foto nova p/ conferir', nConf, 'aw'], ['Em aberto', nAb, 'rp']]
+      .forEach(([t, v, c]) => { const d = el('div', 'count ' + c); d.append(el('b', null, String(v)), el('span', null, t)); k.appendChild(d); });
+    box.appendChild(k);
+    // progresso por região
+    const regs = [...new Set(itens.map((x) => x.regiao || '—'))].sort();
+    const pr = el('div', 'users'); pr.style.cssText = 'padding:10px 14px;margin:12px 0';
+    pr.appendChild(el('b', null, 'Progresso por região · 区域进度'));
+    regs.forEach((g) => { const its = itens.filter((x) => (x.regiao || '—') === g); const ok = its.filter((x) => x.st.s === 'ok').length, cf = its.filter((x) => x.st.s === 'conf').length;
+      const row = el('div', 'cob-reg'); const bar = el('div', 'cob-bar');
+      [[ok, 'var(--ok)'], [cf, '#7986cb'], [its.length - ok - cf, 'var(--warn-bg)']].forEach(([n, c]) => { const i = el('i'); i.style.width = (n * 100 / its.length) + '%'; i.style.background = c; bar.appendChild(i); });
+      const pct = Math.round(ok * 100 / its.length); const alerta = (dia >= 5 && pct < 30) || (dia >= 10 && pct < 60);
+      row.append(el('span', null, g), bar, el('span', alerta ? 'st-sr' : 'note', ok + '/' + its.length + ' (' + pct + '%)' + (alerta ? ' ⚠' : ''))); pr.appendChild(row); });
+    box.appendChild(pr);
+    // filtros
+    const bar = el('div', 'bar');
+    const mk = (id, lab, ops, val) => { const s0 = el('select'); s0.setAttribute('aria-label', lab); s0.appendChild(new Option(lab, '')); ops.forEach(([v, t]) => s0.appendChild(new Option(t, v))); s0.value = val; return s0; };
+    const sR = mk('r', 'Todas as regiões', regs.map((g) => [g, g]), cobFiltro.reg), sC = mk('c', 'Todos os canais', [...new Set(itens.map((x) => x.canal))].sort().map((c) => [c, c]), cobFiltro.canal),
+      sS = mk('s', 'Todos os status', [['ab', '⏳ Em aberto'], ['conf', '📷 Foto nova p/ conferir'], ['ok', '✓ Corrigidas']], cobFiltro.st);
+    [[sR, 'reg'], [sC, 'canal'], [sS, 'st']].forEach(([s0, k0]) => s0.addEventListener('change', () => { cobFiltro[k0] = s0.value; renderCob(); }));
+    const tipoMsg = mk('m', 'Mensagem', [], ''); tipoMsg.replaceChildren(...[['ini', 'Cobrança inicial'], ['lem', 'Lembrete'], ['ult', 'Último aviso']].map(([v, t]) => new Option(t, v)));
+    tipoMsg.value = dia >= 13 ? 'ult' : dia >= 7 ? 'lem' : 'ini';
+    const csv = el('button', 'btn', 'Baixar lista'); csv.type = 'button'; csv.addEventListener('click', () => baixarCobCsv(filtrados(), false));
+    bar.append(sR, sC, sS, el('span', 'note', 'Texto:'), tipoMsg, csv); box.appendChild(bar);
+    const filtrados = () => itens.filter((x) => (!cobFiltro.reg || (x.regiao || '—') === cobFiltro.reg) && (!cobFiltro.canal || x.canal === cobFiltro.canal) &&
+      (!cobFiltro.st || (cobFiltro.st === 'ab' ? (x.st.s === 'ab' || x.st.s === 'sr') : x.st.s === cobFiltro.st)));
+    const lst = filtrados();
+    const porReg = new Map(); lst.forEach((x) => { const g = x.regiao || '—'; if (!porReg.has(g)) porReg.set(g, []); porReg.get(g).push(x); });
+    if (!lst.length) box.appendChild(el('div', 'empty', 'Nenhuma loja com esses filtros.'));
+    [...porReg.keys()].sort().forEach((g) => {
+      const its = porReg.get(g).sort((a, b) => a.uf.localeCompare(b.uf) || a.canal.localeCompare(b.canal)), sec = el('div', 'users'); sec.style.marginBottom = '16px';
+      const hh = el('div'); hh.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px';
+      const nomes = [...new Set(its.map((x) => respNome(x.uf)).filter(Boolean))].join(', ');
+      hh.appendChild(el('b', null, 'Região ' + g + ' · ' + (nomes || 'sem responsável cadastrado') + ' — ' + its.length + ' loja(s)'));
+      const cp = el('button', 'btn', 'Copiar mensagem'); cp.type = 'button';
+      cp.addEventListener('click', async () => { const abertos = its.filter((x) => x.st.s !== 'ok'); try { await navigator.clipboard.writeText(msgCob(tipoMsg.value, g, tipoMsg.value === 'ini' ? its : abertos)); cp.textContent = 'Copiado ✓'; } catch (e) { cp.textContent = 'Não consegui copiar'; } setTimeout(() => { cp.textContent = 'Copiar mensagem'; }, 2500); });
+      hh.appendChild(cp); sec.appendChild(hh);
+      const t = el('table'); const th = el('thead'); const tr0 = el('tr'); ['Loja', 'UF', 'Problemas cobrados', 'Situação', ''].forEach((x) => tr0.appendChild(el('th', null, x))); th.appendChild(tr0); t.appendChild(th);
+      const tb = el('tbody');
+      its.forEach((x) => { const tr = el('tr');
+        tr.appendChild(el('td', null, x.canal + ' ' + x.codigo + ' · ' + titulo(x.loja)));
+        tr.appendChild(el('td', null, x.uf));
+        const tdp = el('td'); x.problemas.forEach((p) => tdp.appendChild(el('span', 'pb', p))); tr.appendChild(tdp);
+        const tds = el('td'); tds.appendChild(el('span', 'st-' + x.st.s, x.st.t)); if (x.obs) { tds.appendChild(el('br')); tds.appendChild(el('small', 'note', x.obs)); } tr.appendChild(tds);
+        const tda = el('td'); tda.style.whiteSpace = 'nowrap';
+        if (x.st.r) { const v = el('button', 'linkbtn', 'ver foto'); v.type = 'button'; v.addEventListener('click', () => { showTab('rev'); fStatus = 'all'; select(x.st.r.key); }); tda.appendChild(v); tda.appendChild(document.createTextNode(' '));}
+        const acao = (lab, val) => { const b = el('button', 'linkbtn', lab); b.type = 'button'; b.addEventListener('click', async () => { b.disabled = true;
+          try { await api('/rest/v1/cobranca_itens?id=eq.' + x.id, { method: 'PATCH', body: { status_manual: val, atualizado_em: new Date().toISOString(), atualizado_por: perfil.email || '' }, headers: { Prefer: 'return=minimal' } }); x.status_manual = val; renderCob(); } catch (e) { b.textContent = errMsg(e); } }); return b; };
+        if (x.status_manual) tda.appendChild(acao('reabrir', null));
+        else { tda.appendChild(acao('✓ corrigido', 'corrigido')); tda.appendChild(document.createTextNode(' ')); if (dia >= 7) tda.appendChild(acao('sem retorno', 'sem_retorno')); }
+        tr.appendChild(tda); tb.appendChild(tr); });
+      t.appendChild(tb); sec.appendChild(t); box.appendChild(sec);
+    });
+    renderCobHist(box);
+  }
+  function confirmar(b, txt) { if (b.dataset.armado) return true; b.dataset.armado = '1'; const old = b.textContent; b.textContent = txt; setTimeout(() => { delete b.dataset.armado; b.textContent = old; }, 4000); return false; }
+  function renderCobNova(box) {
+    const lojas = baseFeishu.map((l) => ({ l, p: problemasDe(l) })).filter((x) => x.p.length);
+    const sel = new Set(PROB_TIPOS.filter((t) => t !== 'Foto com 30+ dias'));
+    const card = el('div', 'users'); card.style.padding = '14px';
+    card.appendChild(el('h2', null, 'Nova cobrança de 15 dias'));
+    card.appendChild(el('p', 'note', 'Escolha o que cobrar. A lista é tirada do painel agora (lojas dispensadas ficam de fora). Depois de iniciar, o sistema acompanha sozinho: foto nova aprovada ou apontamento retirado = corrigido.'));
+    const ops = el('div'); ops.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0';
+    const conta = el('div', 'note');
+    const filtroR = el('select'); filtroR.appendChild(new Option('Todas as regiões', '')); [...new Set(lojas.map((x) => x.l.regiao))].filter(Boolean).sort().forEach((g) => filtroR.appendChild(new Option(g, g)));
+    const filtroC = el('select'); filtroC.appendChild(new Option('Todos os canais', '')); [...new Set(lojas.map((x) => x.l.canal))].sort().forEach((c) => filtroC.appendChild(new Option(c, c)));
+    const escolhidas = () => lojas.filter((x) => (!filtroR.value || x.l.regiao === filtroR.value) && (!filtroC.value || x.l.canal === filtroC.value)).map((x) => ({ l: x.l, p: x.p.filter((t) => sel.has(t)) })).filter((x) => x.p.length);
+    const atual = () => { const e = escolhidas(); const pr = {}; e.forEach((x) => x.p.forEach((t) => { pr[t] = (pr[t] || 0) + 1; }));
+      conta.textContent = e.length + ' lojas serão cobradas · ' + Object.keys(pr).map((t) => t + ': ' + pr[t]).join(' · '); };
+    PROB_TIPOS.forEach((t) => { const n = lojas.filter((x) => x.p.includes(t)).length; const lab = el('label'); const c = el('input'); c.type = 'checkbox'; c.checked = sel.has(t);
+      c.addEventListener('change', () => { if (c.checked) sel.add(t); else sel.delete(t); atual(); }); lab.append(c, document.createTextNode(' ' + t + ' · ' + PROB_ZH[t] + ' (' + n + ')')); ops.appendChild(lab); });
+    [filtroR, filtroC].forEach((x) => x.addEventListener('change', atual));
+    const tit = el('input'); tit.placeholder = 'Nome (opcional), ex.: Cobrança novembro'; tit.style.cssText = 'font:inherit;padding:6px 8px;min-width:16rem';
+    const go = el('button', 'btn ok', 'Iniciar cobrança de 15 dias'); go.type = 'button';
+    const info = el('span', 'note'); info.setAttribute('role', 'status');
+    go.addEventListener('click', async () => {
+      const e = escolhidas(); if (!e.length) { info.textContent = 'Nada para cobrar com essas opções.'; return; }
+      if (!confirmar(go, 'Confirmar: cobrar ' + e.length + ' lojas?')) return;
+      go.disabled = true; info.textContent = 'Criando…';
+      try {
+        const prazo = new Date(Date.now() + 15 * 864e5); const pz = prazo.getFullYear() + '-' + String(prazo.getMonth() + 1).padStart(2, '0') + '-' + String(prazo.getDate()).padStart(2, '0');
+        const c = (await api('/rest/v1/cobrancas', { method: 'POST', body: [{ titulo: tit.value.trim() || 'Cobrança ' + new Date().toLocaleDateString('pt-BR'), prazo: pz, por_email: perfil.email || '' }], headers: { Prefer: 'return=representation' } }))[0];
+        const its = e.map((x) => ({ cobranca_id: c.id, chave: chaveL(x.l.canal, x.l.codigo), canal: x.l.canal, codigo: String(x.l.codigo || ''), loja: x.l.loja || '', uf: x.l.uf || '', regiao: x.l.regiao || '', problemas: x.p }));
+        const uniq = new Map(); its.forEach((x) => { if (!uniq.has(x.chave)) uniq.set(x.chave, x); });
+        const lista = [...uniq.values()];
+        for (let i = 0; i < lista.length; i += 200) await api('/rest/v1/cobranca_itens', { method: 'POST', body: lista.slice(i, i + 200), headers: { Prefer: 'return=minimal' } });
+        await loadCob();
+      } catch (er) { go.disabled = false; info.textContent = errMsg(er); }
+    });
+    const linha = el('div', 'bar'); linha.append(filtroR, filtroC);
+    const linha2 = el('div', 'bar'); linha2.append(tit, go, info);
+    card.append(ops, linha, conta, linha2);
+    const pl = el('div', 'cob-plan'); PLANO.forEach((p) => { const c = el('div'); c.append(el('b', null, 'D+' + p.d), el('strong', null, p.t), el('br'), el('span', null, p.a)); pl.appendChild(c); });
+    card.append(el('h3', null, 'Plano dos 15 dias · 15天计划'), pl);
+    box.appendChild(card); atual();
+  }
+  function renderCobHist(box) {
+    const fe = cobHist.filter((c) => c.encerrada_em); if (!fe.length) return;
+    const d = el('div'); d.style.marginTop = '24px'; d.appendChild(el('h2', null, 'Cobranças anteriores · 历史'));
+    fe.forEach((c) => { const p = el('p', 'note', (c.titulo || 'Cobrança') + ' · ' + fmtEm(c.inicio).slice(0, 10) + ' a ' + fmtEm(c.encerrada_em).slice(0, 10) + ' · por ' + (c.por_email || '—')); d.appendChild(p); });
+    box.appendChild(d);
+  }
+  function msgCob(tipo, reg, its) {
+    const nomes = [...new Set(its.map((x) => (respNome(x.uf) || '').split(/\s+/)[0]).filter(Boolean))];
+    const ola = nomes.length ? 'Olá ' + nomes.join(' e ') + '! ' : 'Olá! ';
+    const prazo = new Date(cobAtual.prazo + 'T12:00:00').toLocaleDateString('pt-BR');
+    const intro = tipo === 'ini' ? 'Segue a lista de correções de VM das mesas da região ' + reg + '. Prazo para corrigir e mandar foto nova pelo Forms: ' + prazo + '.'
+      : tipo === 'lem' ? 'Lembrete: estas lojas da região ' + reg + ' ainda estão com pendência. Prazo: ' + prazo + '.'
+      : '⚠️ Último aviso: o prazo termina em ' + prazo + '. Estas lojas da região ' + reg + ' ainda não corrigiram:';
+    const linhas = its.map((x) => '• ' + x.uf + ' — ' + x.canal + ' ' + x.codigo + ' ' + titulo(x.loja) + ': ' + x.problemas.join(', '));
+    return ola + intro + '\n\n' + linhas.join('\n') + '\n\nDepois de corrigir, o promotor manda a foto nova pelo Forms (com o código da loja). Obrigado!';
+  }
+  function baixarCobCsv(its, final) {
+    const linhas = [['Região', 'Estado', 'Canal', 'Código', 'Loja', 'Problemas cobrados', 'Situação', 'Responsável']].concat(its.map((x) => [x.regiao, x.uf, x.canal, x.codigo, x.loja, x.problemas.join(', '), x.st.t, respNome(x.uf) || '']));
+    const csv = '﻿' + linhas.map((l) => l.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = (final ? 'relatorio-cobranca-' : 'cobranca-') + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
   }
 
   // ---------- render ----------
@@ -1338,10 +1541,10 @@ html,body{margin:0}
   // ---------- abas ----------
   function showTab(t) {
     if (!isAdmin()) t = 'painel';
-    ['painel', 'rev', 'susp', 'novas', 'users'].forEach((x) => { $('#tab-' + x).setAttribute('aria-selected', String(x === t)); $('#pane-' + x).hidden = x !== t; });
+    ['painel', 'rev', 'susp', 'novas', 'cob', 'users'].forEach((x) => { $('#tab-' + x).setAttribute('aria-selected', String(x === t)); $('#pane-' + x).hidden = x !== t; });
     try { localStorage.setItem('vm-tab', t); } catch (e) {}
   }
-  ['painel', 'rev', 'susp', 'novas', 'users'].forEach((x) => $('#tab-' + x).addEventListener('click', () => { showTab(x); if (x === 'users') { loadUsers(); loadResp(); } if (x === 'susp') renderSusp(); if (x === 'novas') renderNovas(); }));
+  ['painel', 'rev', 'susp', 'novas', 'cob', 'users'].forEach((x) => $('#tab-' + x).addEventListener('click', () => { showTab(x); if (x === 'users') { loadUsers(); loadResp(); } if (x === 'susp') renderSusp(); if (x === 'novas') renderNovas(); if (x === 'cob') loadCob(); }));
 
   // ---------- controls ----------
   ST.forEach(([s, lab]) => { const b = el('button', 'chip', lab); b.type = 'button'; b.dataset.s = s; b.addEventListener('click', () => { fStatus = s; render(); }); $('#st-chips').appendChild(b); });
