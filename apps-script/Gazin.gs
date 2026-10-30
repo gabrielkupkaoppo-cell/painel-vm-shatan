@@ -103,10 +103,17 @@ function criarAbaCanal_(canal, modelo) {
     }
     return out;
   });
+  // escreve em blocos de colunas, pulando as colunas de foto (elas precisam ficar VAZIAS de verdade para o Ok/Pendente funcionar)
+  const fotoCol = {}; for (let c = 1; c <= nCol; c++) if ((H[c] || '').indexOf('照片') >= 0) fotoCol[c] = true;
+  const blocos = []; let ini = null;
+  for (let c = 1; c <= nCol + 1; c++) { if (c <= nCol && !fotoCol[c]) { if (ini === null) ini = c; } else if (ini !== null) { blocos.push([ini, c - 1]); ini = null; } }
   for (let i = 0; i < linhas.length; i += 40) {
     const de = linha1 + i, ate = de + Math.min(40, linhas.length - i) - 1;
-    feishu_(tk, 'POST', base + '/values_batch_update', { valueRanges: [{ range: sid + '!A' + de + ':' + L + ate, values: linhas.slice(i, i + 40) }] });
+    const vr = blocos.map(([a, b]) => ({ range: sid + '!' + letra_(a) + de + ':' + letra_(b) + ate, values: linhas.slice(i, i + 40).map((row) => row.slice(a - 1, b)) }));
+    feishu_(tk, 'POST', base + '/values_batch_update', { valueRanges: vr });
   }
+  const fc = Object.keys(fotoCol).map(Number);
+  if (fc.length) console.log('Colunas de foto (' + fc.map(letra_).join(', ') + '): se aparecer foto da Bemol nas linhas ' + linha1 + ' a ' + (linha1 + Math.min(N, M) - 1) + ', selecione e aperte Delete.');
   console.log(N + ' lojas ' + canal + ' escritas nas linhas ' + linha1 + ' a ' + (linha1 + N - 1) + '.');
 
   // 6) aprovações da Gazin que não foram ao Feishu por falta da aba → mandar de novo
