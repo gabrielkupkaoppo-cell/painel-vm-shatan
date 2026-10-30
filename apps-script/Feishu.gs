@@ -170,6 +170,7 @@ function itensDoEnvio_(e) {
   if (/display iot/.test(m)) add('IOT display');
   if (/a4 display/.test(m)) add('A4立牌');
   if (/luminoso/.test(m)) add('Logo发光字');
+  if (/multimarca/.test(m)) add('Multimarcas', 'Mesa Multimarcas', '多品牌体验台');
   (e.fotos || []).forEach((f) => { const l = semAcento_(f.label);
     if (/totem/.test(l)) add('人行立牌');
     if (/display a4/.test(l)) add('A4立牌');
@@ -179,7 +180,7 @@ function itensDoEnvio_(e) {
   return out;
 }
 const CAIXAS_GERENCIADAS_ = ['findx9pro', 'reno16', 'reno16f', 'reno14', 'reno14f', 'a6pro', 'a6x5g', 'a55g', 'a5pro', '1.6m体验台', '1.2m体验台', '0.8m体验台',
-  '人行立牌', '桌面reno发光字', 'logo发光字', 'a4立牌', 'logo发光灯柱', 'finddisplay', 'renodisplay', 'aserisdisplay', 'aseriesdisplay', 'iotdisplay'].map(normItem_);
+  '人行立牌', '桌面reno发光字', 'logo发光字', 'a4立牌', 'logo发光灯柱', 'finddisplay', 'renodisplay', 'aserisdisplay', 'aseriesdisplay', 'iotdisplay', 'multimarcas', 'mesamultimarcas', '多品牌体验台'].map(normItem_);
 function marcarCaixas_(tk, planilha, aba, A, linha, e) {
   const tem = itensDoEnvio_(e);
   const desmarcar = String(PropertiesService.getScriptProperties().getProperty('FEISHU_DESMARCAR') || '').trim().toLowerCase() === 'sim';
@@ -247,7 +248,7 @@ function marcar_(key, info, ok) {
 }
 function canalFeishu_(c) {
   const t = semAcento_(c);
-  const M = { fastshop: 'Fast', fast: 'Fast', 'magazine luiza': 'Magalu', magalu: 'Magalu', paraiba: 'Paraiba', americanas: 'Americanas', claro: 'Claro', vivo: 'Vivo', tim: 'Tim', bemol: 'Bemol', martinello: 'Martinello', lider: 'Lider' };
+  const M = { fastshop: 'Fast', fast: 'Fast', 'magazine luiza': 'Magalu', magalu: 'Magalu', paraiba: 'Paraiba', americanas: 'Americanas', claro: 'Claro', vivo: 'Vivo', tim: 'Tim', bemol: 'Bemol', martinello: 'Martinello', lider: 'Lider', gazin: 'Gazin' };
   return M[t] || String(c || '').trim();
 }
 function semAcento_(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim(); }
