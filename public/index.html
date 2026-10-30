@@ -229,9 +229,9 @@ html,body{margin:0}
   <button class="tab" role="tab" id="tab-rev" aria-selected="false" aria-controls="pane-rev" type="button" hidden>Aprovações · 审核<span class="n" id="tab-n" hidden></span></button>
   <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
   <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Códigos errados · 编码错误<span class="n" id="tab-nn" hidden></span></button>
-  <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Cobrança · 催办<span class="n" id="tab-cn" hidden></span></button>
+  <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 30/10 16:00</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 30/10 16:30</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -308,9 +308,17 @@ html,body{margin:0}
 </section>
 <section id="pane-cob" role="tabpanel" aria-labelledby="tab-cob" hidden>
 <div class="wrap">
-  <div class="head"><div><h1>Cobrança de correções<span class="zh">整改催办 · 15天</span></h1>
-    <p class="note">Ciclo de 15 dias: você dispara a cobrança das lojas com problema, acompanha dia a dia o que foi corrigido (foto nova aprovada) e fecha com um relatório. Só administradores veem esta aba.</p></div></div>
+  <div class="head"><div><h1>Consulta de lojas<span class="zh">门店查询</span></h1>
+    <p class="note">Pesquise uma loja para ver a situação dela, ou use o relatório de apontamentos para cobrar.</p></div></div>
   <div class="msg" id="c-status" role="status" hidden></div>
+  <div class="users" style="padding:14px;margin-bottom:22px">
+    <h2 style="margin:0 0 8px">Pesquisar loja · 搜索门店</h2>
+    <input id="c-q" type="search" placeholder="Código, nome ou cidade (ex.: 1242, Torquato, Belém)" aria-label="Pesquisar loja" style="font:inherit;padding:8px 10px;width:100%;max-width:32rem">
+    <div id="c-res"></div>
+  </div>
+  <h2>Relatório de apontamentos · 问题门店报告</h2>
+  <p class="note">Lojas com apontamento de VM na anotação da planilha. Filtre, copie a mensagem da região ou baixe a lista para cobrar.</p>
+  <div class="bar"><select id="c-reg" aria-label="Região"></select> <select id="c-canal" aria-label="Canal"></select> <select id="c-tipo" aria-label="Apontamento"></select> <button class="btn" type="button" id="c-csv">Baixar lista · 下载</button></div>
   <div id="c-corpo"></div>
 </div>
 </section>
@@ -862,191 +870,85 @@ html,body{margin:0}
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'codigos-errados-' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
   }
 
-  // ---------- cobrança de 15 dias ----------
-  const PROB_TIPOS = ['Sem foto', 'Foto com 30+ dias', 'Foto fora do padrão', 'Sem spec card', 'Sem modo demo', 'Mostruário / estoque', 'Material / canvas'];
-  const PROB_ZH = { 'Sem foto': '无照片', 'Foto com 30+ dias': '照片超30天', 'Foto fora do padrão': '照片不合格', 'Sem spec card': '缺参数卡', 'Sem modo demo': '未开演示', 'Mostruário / estoque': '样机/库存', 'Material / canvas': '物料/画面' };
-  const PLANO = [
-    { d: 0, t: 'Disparo', a: 'Mandar a lista de cada região ao responsável (mensagem "Cobrança inicial") e pedir confirmação de recebimento.' },
-    { d: 2, t: 'Alinhamento', a: 'Confirmar que todos receberam. Levantar material que falta (spec card, canvas, aparelho) e pedir reposição.' },
-    { d: 5, t: 'Checkpoint 1', a: 'Ver o % corrigido por região. Ligar para as regiões abaixo de 30%.' },
-    { d: 7, t: 'Lembrete', a: 'Mandar o "Lembrete" só com o que ainda está aberto.' },
-    { d: 10, t: 'Escalonar', a: 'Regiões abaixo de 60%: acionar o gestor do canal / coordenação com a lista.' },
-    { d: 13, t: 'Último aviso', a: 'Mandar o "Último aviso": prazo termina em 2 dias.' },
-    { d: 15, t: 'Fechamento', a: 'Conferir as fotos novas, encerrar a cobrança e baixar o relatório. O que não foi corrigido vira plano específico (material, treinamento ou visita).' },
-  ];
-  let cobAtual = null, cobItens = [], cobHist = [];
-  async function loadCob() {
-    const st = $('#c-status');
-    try {
-      const cs = await api('/rest/v1/cobrancas?select=*&order=inicio.desc');
-      cobHist = cs || []; cobAtual = cobHist.find((c) => !c.encerrada_em) || null;
-      cobItens = cobAtual ? await getAll('/rest/v1/cobranca_itens?select=*&cobranca_id=eq.' + cobAtual.id) : [];
-      st.hidden = true; renderCob();
-    } catch (e) { st.hidden = false; st.textContent = errMsg(e); }
-  }
+  // ---------- consulta de lojas + relatório de apontamentos ----------
+  const AP_TIPOS = ['Foto fora do padrão', 'Sem spec card', 'Sem modo demo', 'Mostruário / estoque', 'Material / canvas'];
+  const apsDe = (l) => String(l.apontamento || '').split('; ').filter((t) => AP_TIPOS.includes(t));
   const chaveL = (canal, cod) => canal + '|' + codN(cod);
-  function problemasDe(l) {
-    const p = [];
-    if (l.situacao === 'Pendente') p.push('Sem foto');
-    else if (l.dias_sem_foto != null && l.dias_sem_foto >= 30) p.push('Foto com 30+ dias');
-    String(l.apontamento || '').split('; ').filter((t) => t && PROB_TIPOS.includes(t)).forEach((t) => p.push(t));
-    return p;
-  }
-  // último envio aprovado por loja (canal|código)
+  function loadCob() { renderBusca(); renderRel(); }
   function aprovadosPorLoja() {
     const m = new Map();
-    rows.forEach((r) => { if (stOf(r) !== 'ap') return; const l = resolverLoja(r); if (!l) return; const k = chaveL(l.canal, l.codigo); if (!m.has(k) || r.data > m.get(k).data) m.set(k, r); });
+    rows.forEach((r) => { const l = resolverLoja(r); if (!l) return; const k = chaveL(l.canal, l.codigo); if (!m.has(k)) m.set(k, []); m.get(k).push(r); });
+    m.forEach((v) => v.sort((a, b) => b.data - a.data));
     return m;
   }
-  function statusItem(it, ap) {
-    if (it.status_manual === 'corrigido') return { s: 'ok', t: '✓ Corrigido' };
-    if (it.status_manual === 'dispensado') return { s: 'ok', t: '— Dispensado' };
-    const l = baseFeishu.find((x) => chaveL(x.canal, x.codigo) === it.chave);
-    const agora = l ? problemasDe(l) : [];
-    const resolvidos = it.problemas.filter((p) => !agora.includes(p));
-    const r = ap.get(it.chave), novo = r && r.data > new Date(cobAtual.inicio);
-    if (resolvidos.length === it.problemas.length) return { s: 'ok', t: '✓ Corrigido' + (novo ? ' (foto nova ' + fmtD(r.data).slice(0, 5) + ')' : '') };
-    if (novo) return { s: 'conf', t: '📷 Foto nova ' + fmtD(r.data).slice(0, 5) + ' — conferir', r };
-    if (it.status_manual === 'sem_retorno') return { s: 'sr', t: '✕ Sem retorno' };
-    return { s: 'ab', t: '⏳ Aberto' + (resolvidos.length ? ' (' + resolvidos.length + ' de ' + it.problemas.length + ' resolvidos)' : '') };
+  function renderBusca() {
+    const box = $('#c-res'); box.replaceChildren();
+    const q = normT($('#c-q').value); if (!q) return;
+    const achou = baseFeishu.filter((l) => normT([l.canal, l.codigo, l.loja, l.cidade, l.uf].join(' ')).includes(q)).slice(0, 20);
+    if (!achou.length) { box.appendChild(el('p', 'note', 'Nenhuma loja encontrada. (Lojas dispensadas não aparecem.)')); return; }
+    const env = aprovadosPorLoja();
+    achou.forEach((l) => {
+      const c = el('div', 'nv'); c.style.gridTemplateColumns = '1fr';
+      const sit = l.situacao || '—', cor = sit === 'OK' ? 'st-ok' : sit === 'Pendente' ? 'st-sr' : 'st-ab';
+      const h = el('h3'); h.append(document.createTextNode(l.canal + ' ' + l.codigo + ' · ' + titulo(l.loja) + ' '), el('span', cor, '● ' + sit)); c.appendChild(h);
+      c.appendChild(el('span', 'note', [titulo(l.cidade), l.uf, l.regiao].filter(Boolean).join(' · ') + (respNome(l.uf) ? ' · responsável: ' + respNome(l.uf) : '')));
+      const ul = el('ul');
+      const aps = apsDe(l);
+      ul.appendChild(el('li', null, 'Última foto aprovada: ' + (l.ultima_foto ? fmtD10(l.ultima_foto) + (l.dias_sem_foto != null ? ' (há ' + l.dias_sem_foto + ' dias' + (l.dias_sem_foto >= 30 ? ' ⚠ vencida' : '') + ')' : '') : 'nenhuma')));
+      const li = el('li', null, 'Apontamentos: '); if (aps.length) aps.forEach((t) => li.appendChild(el('span', 'pb', t))); else li.appendChild(document.createTextNode('nenhum')); ul.appendChild(li);
+      if (l.observacao) ul.appendChild(el('li', null, 'Anotação: ' + l.observacao));
+      const evs = env.get(chaveL(l.canal, l.codigo)) || [];
+      if (evs.length) { const u = evs[0]; const li2 = el('li', null, 'Último envio do Forms: ' + fmtD(u.data) + ' por ' + (u.nome || '—') + ' · ' + stTxt[stOf(u)] + ' ');
+        const v = el('button', 'linkbtn', 'ver envio'); v.type = 'button'; v.addEventListener('click', () => { showTab('rev'); fStatus = 'all'; select(u.key); }); li2.appendChild(v); ul.appendChild(li2);
+        ul.appendChild(el('li', 'note', evs.length + ' envio(s) no total pelo Forms.')); }
+      else ul.appendChild(el('li', null, 'Nenhum envio pelo Forms encontrado para este código.'));
+      c.appendChild(ul); box.appendChild(c);
+    });
   }
-  const diaDe = (c) => Math.floor((Date.now() - new Date(c.inicio).getTime()) / 864e5);
-  let cobFiltro = { reg: '', canal: '', st: '' };
-  function renderCob() {
+  function relFiltrado() {
+    const g = $('#c-reg').value, cn = $('#c-canal').value, tp = $('#c-tipo').value;
+    return baseFeishu.filter((l) => apsDe(l).length && (!g || l.regiao === g) && (!cn || l.canal === cn) && (!tp || apsDe(l).includes(tp)));
+  }
+  function renderRel() {
+    const todas = baseFeishu.filter((l) => apsDe(l).length);
+    const enche = (sel, lab, vals) => { const cur = sel.value; sel.replaceChildren(new Option(lab, ''), ...vals.map(([v, t]) => new Option(t, v))); sel.value = vals.some(([v]) => v === cur) ? cur : ''; };
+    enche($('#c-reg'), 'Todas as regiões · 全部区域', [...new Set(todas.map((l) => l.regiao).filter(Boolean))].sort().map((g) => [g, g + ' (' + todas.filter((l) => l.regiao === g).length + ')']));
+    enche($('#c-canal'), 'Todos os canais · 全部渠道', [...new Set(todas.map((l) => l.canal))].sort().map((c) => [c, c + ' (' + todas.filter((l) => l.canal === c).length + ')']));
+    enche($('#c-tipo'), 'Todos os apontamentos', AP_TIPOS.map((t) => [t, t + ' (' + todas.filter((l) => apsDe(l).includes(t)).length + ')']));
     const box = $('#c-corpo'); box.replaceChildren();
-    const tn = $('#tab-cn');
-    if (!cobAtual) { tn.hidden = true; renderCobNova(box); renderCobHist(box); return; }
-    const ap = aprovadosPorLoja();
-    const itens = cobItens.map((it) => Object.assign(it, { st: statusItem(it, ap) }));
-    const nAb = itens.filter((x) => x.st.s === 'ab' || x.st.s === 'sr').length, nConf = itens.filter((x) => x.st.s === 'conf').length, nOk = itens.filter((x) => x.st.s === 'ok').length;
-    tn.hidden = !nConf; tn.textContent = nConf;
-    const dia = diaDe(cobAtual), prazo = new Date(cobAtual.prazo + 'T12:00:00');
-    const head = el('div'); head.style.cssText = 'display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end';
-    const h = el('div'); h.append(el('h2', null, (cobAtual.titulo || 'Cobrança') + ' · Dia ' + Math.min(dia, 15) + ' de 15'), el('span', 'note', 'Iniciada em ' + fmtEm(cobAtual.inicio) + ' por ' + (cobAtual.por_email || '—') + ' · prazo ' + prazo.toLocaleDateString('pt-BR') + (dia > 15 ? ' · ⚠ prazo vencido' : '')));
-    const fim = el('button', 'btn', 'Encerrar cobrança e baixar relatório'); fim.type = 'button';
-    fim.addEventListener('click', async () => { if (!confirmar(fim, 'Confirmar: encerrar?')) return; baixarCobCsv(itens, true); try { await api('/rest/v1/cobrancas?id=eq.' + cobAtual.id, { method: 'PATCH', body: { encerrada_em: new Date().toISOString() }, headers: { Prefer: 'return=minimal' } }); await loadCob(); } catch (e) { fim.textContent = errMsg(e); } });
-    head.append(h, fim); box.appendChild(head);
-    // plano
-    const pl = el('div', 'cob-plan'); const prox = PLANO.find((p) => p.d >= dia) || PLANO[PLANO.length - 1];
-    PLANO.forEach((p) => { const dd = new Date(new Date(cobAtual.inicio).getTime() + p.d * 864e5); const c = el('div', p === prox ? 'hoje' : (p.d < dia ? 'feito' : ''));
-      c.append(el('b', null, 'D+' + p.d + ' · ' + dd.toLocaleDateString('pt-BR').slice(0, 5)), el('strong', null, p.t), el('br'), el('span', null, p.a)); pl.appendChild(c); });
-    box.appendChild(pl);
-    // kpis
-    const k = el('div', 'counts'); [['Lojas cobradas', itens.length, ''], ['Corrigidas', nOk + ' (' + (itens.length ? Math.round(nOk * 100 / itens.length) : 0) + '%)', 'ap'], ['Foto nova p/ conferir', nConf, 'aw'], ['Em aberto', nAb, 'rp']]
-      .forEach(([t, v, c]) => { const d = el('div', 'count ' + c); d.append(el('b', null, String(v)), el('span', null, t)); k.appendChild(d); });
-    box.appendChild(k);
-    // progresso por região
-    const regs = [...new Set(itens.map((x) => x.regiao || '—'))].sort();
-    const pr = el('div', 'users'); pr.style.cssText = 'padding:10px 14px;margin:12px 0';
-    pr.appendChild(el('b', null, 'Progresso por região · 区域进度'));
-    regs.forEach((g) => { const its = itens.filter((x) => (x.regiao || '—') === g); const ok = its.filter((x) => x.st.s === 'ok').length, cf = its.filter((x) => x.st.s === 'conf').length;
-      const row = el('div', 'cob-reg'); const bar = el('div', 'cob-bar');
-      [[ok, 'var(--ok)'], [cf, '#7986cb'], [its.length - ok - cf, 'var(--warn-bg)']].forEach(([n, c]) => { const i = el('i'); i.style.width = (n * 100 / its.length) + '%'; i.style.background = c; bar.appendChild(i); });
-      const pct = Math.round(ok * 100 / its.length); const alerta = (dia >= 5 && pct < 30) || (dia >= 10 && pct < 60);
-      row.append(el('span', null, g), bar, el('span', alerta ? 'st-sr' : 'note', ok + '/' + its.length + ' (' + pct + '%)' + (alerta ? ' ⚠' : ''))); pr.appendChild(row); });
-    box.appendChild(pr);
-    // filtros
-    const bar = el('div', 'bar');
-    const mk = (id, lab, ops, val) => { const s0 = el('select'); s0.setAttribute('aria-label', lab); s0.appendChild(new Option(lab, '')); ops.forEach(([v, t]) => s0.appendChild(new Option(t, v))); s0.value = val; return s0; };
-    const sR = mk('r', 'Todas as regiões', regs.map((g) => [g, g]), cobFiltro.reg), sC = mk('c', 'Todos os canais', [...new Set(itens.map((x) => x.canal))].sort().map((c) => [c, c]), cobFiltro.canal),
-      sS = mk('s', 'Todos os status', [['ab', '⏳ Em aberto'], ['conf', '📷 Foto nova p/ conferir'], ['ok', '✓ Corrigidas']], cobFiltro.st);
-    [[sR, 'reg'], [sC, 'canal'], [sS, 'st']].forEach(([s0, k0]) => s0.addEventListener('change', () => { cobFiltro[k0] = s0.value; renderCob(); }));
-    const tipoMsg = mk('m', 'Mensagem', [], ''); tipoMsg.replaceChildren(...[['ini', 'Cobrança inicial'], ['lem', 'Lembrete'], ['ult', 'Último aviso']].map(([v, t]) => new Option(t, v)));
-    tipoMsg.value = dia >= 13 ? 'ult' : dia >= 7 ? 'lem' : 'ini';
-    const csv = el('button', 'btn', 'Baixar lista'); csv.type = 'button'; csv.addEventListener('click', () => baixarCobCsv(filtrados(), false));
-    bar.append(sR, sC, sS, el('span', 'note', 'Texto:'), tipoMsg, csv); box.appendChild(bar);
-    const filtrados = () => itens.filter((x) => (!cobFiltro.reg || (x.regiao || '—') === cobFiltro.reg) && (!cobFiltro.canal || x.canal === cobFiltro.canal) &&
-      (!cobFiltro.st || (cobFiltro.st === 'ab' ? (x.st.s === 'ab' || x.st.s === 'sr') : x.st.s === cobFiltro.st)));
-    const lst = filtrados();
-    const porReg = new Map(); lst.forEach((x) => { const g = x.regiao || '—'; if (!porReg.has(g)) porReg.set(g, []); porReg.get(g).push(x); });
-    if (!lst.length) box.appendChild(el('div', 'empty', 'Nenhuma loja com esses filtros.'));
+    const lst = relFiltrado();
+    if (!lst.length) { box.appendChild(el('div', 'empty', 'Nenhuma loja com apontamento nesses filtros.')); return; }
+    const porReg = new Map(); lst.forEach((l) => { const g = l.regiao || '—'; if (!porReg.has(g)) porReg.set(g, []); porReg.get(g).push(l); });
     [...porReg.keys()].sort().forEach((g) => {
-      const its = porReg.get(g).sort((a, b) => a.uf.localeCompare(b.uf) || a.canal.localeCompare(b.canal)), sec = el('div', 'users'); sec.style.marginBottom = '16px';
+      const its = porReg.get(g).sort((a, b) => (a.uf || '').localeCompare(b.uf || '') || a.canal.localeCompare(b.canal)), sec = el('div', 'users'); sec.style.marginBottom = '16px';
       const hh = el('div'); hh.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px';
       const nomes = [...new Set(its.map((x) => respNome(x.uf)).filter(Boolean))].join(', ');
-      hh.appendChild(el('b', null, 'Região ' + g + ' · ' + (nomes || 'sem responsável cadastrado') + ' — ' + its.length + ' loja(s)'));
-      const cp = el('button', 'btn', 'Copiar mensagem'); cp.type = 'button';
-      cp.addEventListener('click', async () => { const abertos = its.filter((x) => x.st.s !== 'ok'); try { await navigator.clipboard.writeText(msgCob(tipoMsg.value, g, tipoMsg.value === 'ini' ? its : abertos)); cp.textContent = 'Copiado ✓'; } catch (e) { cp.textContent = 'Não consegui copiar'; } setTimeout(() => { cp.textContent = 'Copiar mensagem'; }, 2500); });
+      hh.appendChild(el('b', null, 'Região ' + g + (nomes ? ' · ' + nomes : '') + ' — ' + its.length + ' loja(s)'));
+      const cp = el('button', 'btn', 'Copiar mensagem · 复制'); cp.type = 'button';
+      cp.addEventListener('click', async () => { try { await navigator.clipboard.writeText(msgApont(g, its)); cp.textContent = 'Copiado ✓'; } catch (e) { cp.textContent = 'Não consegui copiar'; } setTimeout(() => { cp.textContent = 'Copiar mensagem · 复制'; }, 2500); });
       hh.appendChild(cp); sec.appendChild(hh);
-      const t = el('table'); const th = el('thead'); const tr0 = el('tr'); ['Loja', 'UF', 'Problemas cobrados', 'Situação', ''].forEach((x) => tr0.appendChild(el('th', null, x))); th.appendChild(tr0); t.appendChild(th);
+      const t = el('table'); const th = el('thead'); const tr0 = el('tr'); ['Loja', 'Cidade / UF', 'Apontamentos', 'Anotação', 'Última foto'].forEach((x) => tr0.appendChild(el('th', null, x))); th.appendChild(tr0); t.appendChild(th);
       const tb = el('tbody');
-      its.forEach((x) => { const tr = el('tr');
-        tr.appendChild(el('td', null, x.canal + ' ' + x.codigo + ' · ' + titulo(x.loja)));
-        tr.appendChild(el('td', null, x.uf));
-        const tdp = el('td'); x.problemas.forEach((p) => tdp.appendChild(el('span', 'pb', p))); tr.appendChild(tdp);
-        const tds = el('td'); tds.appendChild(el('span', 'st-' + x.st.s, x.st.t)); if (x.obs) { tds.appendChild(el('br')); tds.appendChild(el('small', 'note', x.obs)); } tr.appendChild(tds);
-        const tda = el('td'); tda.style.whiteSpace = 'nowrap';
-        if (x.st.r) { const v = el('button', 'linkbtn', 'ver foto'); v.type = 'button'; v.addEventListener('click', () => { showTab('rev'); fStatus = 'all'; select(x.st.r.key); }); tda.appendChild(v); tda.appendChild(document.createTextNode(' '));}
-        const acao = (lab, val) => { const b = el('button', 'linkbtn', lab); b.type = 'button'; b.addEventListener('click', async () => { b.disabled = true;
-          try { await api('/rest/v1/cobranca_itens?id=eq.' + x.id, { method: 'PATCH', body: { status_manual: val, atualizado_em: new Date().toISOString(), atualizado_por: perfil.email || '' }, headers: { Prefer: 'return=minimal' } }); x.status_manual = val; renderCob(); } catch (e) { b.textContent = errMsg(e); } }); return b; };
-        if (x.status_manual) tda.appendChild(acao('reabrir', null));
-        else { tda.appendChild(acao('✓ corrigido', 'corrigido')); tda.appendChild(document.createTextNode(' ')); if (dia >= 7) tda.appendChild(acao('sem retorno', 'sem_retorno')); }
-        tr.appendChild(tda); tb.appendChild(tr); });
+      its.forEach((l) => { const tr = el('tr');
+        tr.appendChild(el('td', null, l.canal + ' ' + l.codigo + ' · ' + titulo(l.loja)));
+        tr.appendChild(el('td', null, [titulo(l.cidade), l.uf].filter(Boolean).join(' / ')));
+        const tdp = el('td'); apsDe(l).forEach((p) => tdp.appendChild(el('span', 'pb', p))); tr.appendChild(tdp);
+        const to = el('td', null, l.observacao || ''); to.style.maxWidth = '22rem'; to.style.fontSize = '.8rem'; tr.appendChild(to);
+        tr.appendChild(el('td', null, l.ultima_foto ? fmtD10(l.ultima_foto) : '—'));
+        tb.appendChild(tr); });
       t.appendChild(tb); sec.appendChild(t); box.appendChild(sec);
     });
-    renderCobHist(box);
   }
-  function confirmar(b, txt) { if (b.dataset.armado) return true; b.dataset.armado = '1'; const old = b.textContent; b.textContent = txt; setTimeout(() => { delete b.dataset.armado; b.textContent = old; }, 4000); return false; }
-  function renderCobNova(box) {
-    const lojas = baseFeishu.map((l) => ({ l, p: problemasDe(l) })).filter((x) => x.p.length);
-    const sel = new Set(PROB_TIPOS.filter((t) => t !== 'Foto com 30+ dias'));
-    const card = el('div', 'users'); card.style.padding = '14px';
-    card.appendChild(el('h2', null, 'Nova cobrança de 15 dias'));
-    card.appendChild(el('p', 'note', 'Escolha o que cobrar. A lista é tirada do painel agora (lojas dispensadas ficam de fora). Depois de iniciar, o sistema acompanha sozinho: foto nova aprovada ou apontamento retirado = corrigido.'));
-    const ops = el('div'); ops.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0';
-    const conta = el('div', 'note');
-    const filtroR = el('select'); filtroR.appendChild(new Option('Todas as regiões', '')); [...new Set(lojas.map((x) => x.l.regiao))].filter(Boolean).sort().forEach((g) => filtroR.appendChild(new Option(g, g)));
-    const filtroC = el('select'); filtroC.appendChild(new Option('Todos os canais', '')); [...new Set(lojas.map((x) => x.l.canal))].sort().forEach((c) => filtroC.appendChild(new Option(c, c)));
-    const escolhidas = () => lojas.filter((x) => (!filtroR.value || x.l.regiao === filtroR.value) && (!filtroC.value || x.l.canal === filtroC.value)).map((x) => ({ l: x.l, p: x.p.filter((t) => sel.has(t)) })).filter((x) => x.p.length);
-    const atual = () => { const e = escolhidas(); const pr = {}; e.forEach((x) => x.p.forEach((t) => { pr[t] = (pr[t] || 0) + 1; }));
-      conta.textContent = e.length + ' lojas serão cobradas · ' + Object.keys(pr).map((t) => t + ': ' + pr[t]).join(' · '); };
-    PROB_TIPOS.forEach((t) => { const n = lojas.filter((x) => x.p.includes(t)).length; const lab = el('label'); const c = el('input'); c.type = 'checkbox'; c.checked = sel.has(t);
-      c.addEventListener('change', () => { if (c.checked) sel.add(t); else sel.delete(t); atual(); }); lab.append(c, document.createTextNode(' ' + t + ' · ' + PROB_ZH[t] + ' (' + n + ')')); ops.appendChild(lab); });
-    [filtroR, filtroC].forEach((x) => x.addEventListener('change', atual));
-    const tit = el('input'); tit.placeholder = 'Nome (opcional), ex.: Cobrança novembro'; tit.style.cssText = 'font:inherit;padding:6px 8px;min-width:16rem';
-    const go = el('button', 'btn ok', 'Iniciar cobrança de 15 dias'); go.type = 'button';
-    const info = el('span', 'note'); info.setAttribute('role', 'status');
-    go.addEventListener('click', async () => {
-      const e = escolhidas(); if (!e.length) { info.textContent = 'Nada para cobrar com essas opções.'; return; }
-      if (!confirmar(go, 'Confirmar: cobrar ' + e.length + ' lojas?')) return;
-      go.disabled = true; info.textContent = 'Criando…';
-      try {
-        const prazo = new Date(Date.now() + 15 * 864e5); const pz = prazo.getFullYear() + '-' + String(prazo.getMonth() + 1).padStart(2, '0') + '-' + String(prazo.getDate()).padStart(2, '0');
-        const c = (await api('/rest/v1/cobrancas', { method: 'POST', body: [{ titulo: tit.value.trim() || 'Cobrança ' + new Date().toLocaleDateString('pt-BR'), prazo: pz, por_email: perfil.email || '' }], headers: { Prefer: 'return=representation' } }))[0];
-        const its = e.map((x) => ({ cobranca_id: c.id, chave: chaveL(x.l.canal, x.l.codigo), canal: x.l.canal, codigo: String(x.l.codigo || ''), loja: x.l.loja || '', uf: x.l.uf || '', regiao: x.l.regiao || '', problemas: x.p }));
-        const uniq = new Map(); its.forEach((x) => { if (!uniq.has(x.chave)) uniq.set(x.chave, x); });
-        const lista = [...uniq.values()];
-        for (let i = 0; i < lista.length; i += 200) await api('/rest/v1/cobranca_itens', { method: 'POST', body: lista.slice(i, i + 200), headers: { Prefer: 'return=minimal' } });
-        await loadCob();
-      } catch (er) { go.disabled = false; info.textContent = errMsg(er); }
-    });
-    const linha = el('div', 'bar'); linha.append(filtroR, filtroC);
-    const linha2 = el('div', 'bar'); linha2.append(tit, go, info);
-    card.append(ops, linha, conta, linha2);
-    const pl = el('div', 'cob-plan'); PLANO.forEach((p) => { const c = el('div'); c.append(el('b', null, 'D+' + p.d), el('strong', null, p.t), el('br'), el('span', null, p.a)); pl.appendChild(c); });
-    card.append(el('h3', null, 'Plano dos 15 dias · 15天计划'), pl);
-    box.appendChild(card); atual();
-  }
-  function renderCobHist(box) {
-    const fe = cobHist.filter((c) => c.encerrada_em); if (!fe.length) return;
-    const d = el('div'); d.style.marginTop = '24px'; d.appendChild(el('h2', null, 'Cobranças anteriores · 历史'));
-    fe.forEach((c) => { const p = el('p', 'note', (c.titulo || 'Cobrança') + ' · ' + fmtEm(c.inicio).slice(0, 10) + ' a ' + fmtEm(c.encerrada_em).slice(0, 10) + ' · por ' + (c.por_email || '—')); d.appendChild(p); });
-    box.appendChild(d);
-  }
-  function msgCob(tipo, reg, its) {
+  function msgApont(reg, its) {
     const nomes = [...new Set(its.map((x) => (respNome(x.uf) || '').split(/\s+/)[0]).filter(Boolean))];
-    const ola = nomes.length ? 'Olá ' + nomes.join(' e ') + '! ' : 'Olá! ';
-    const prazo = new Date(cobAtual.prazo + 'T12:00:00').toLocaleDateString('pt-BR');
-    const intro = tipo === 'ini' ? 'Segue a lista de correções de VM das mesas da região ' + reg + '. Prazo para corrigir e mandar foto nova pelo Forms: ' + prazo + '.'
-      : tipo === 'lem' ? 'Lembrete: estas lojas da região ' + reg + ' ainda estão com pendência. Prazo: ' + prazo + '.'
-      : '⚠️ Último aviso: o prazo termina em ' + prazo + '. Estas lojas da região ' + reg + ' ainda não corrigiram:';
-    const linhas = its.map((x) => '• ' + x.uf + ' — ' + x.canal + ' ' + x.codigo + ' ' + titulo(x.loja) + ': ' + x.problemas.join(', '));
-    return ola + intro + '\n\n' + linhas.join('\n') + '\n\nDepois de corrigir, o promotor manda a foto nova pelo Forms (com o código da loja). Obrigado!';
+    return (nomes.length ? 'Olá ' + nomes.join(' e ') + '! ' : 'Olá! ') + 'Seguem as lojas da região ' + reg + ' com apontamento de VM nas mesas. Pode pedir para corrigirem e mandarem foto nova pelo Forms?\n\n' +
+      its.map((l) => '• ' + (l.uf || '') + ' — ' + l.canal + ' ' + l.codigo + ' ' + titulo(l.loja) + ': ' + apsDe(l).join(', ')).join('\n') + '\n\nObrigado!';
   }
-  function baixarCobCsv(its, final) {
-    const linhas = [['Região', 'Estado', 'Canal', 'Código', 'Loja', 'Problemas cobrados', 'Situação', 'Responsável']].concat(its.map((x) => [x.regiao, x.uf, x.canal, x.codigo, x.loja, x.problemas.join(', '), x.st.t, respNome(x.uf) || '']));
-    const csv = '﻿' + linhas.map((l) => l.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = (final ? 'relatorio-cobranca-' : 'cobranca-') + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+  function baixarRel() {
+    const linhas = [['Região', 'Estado', 'Cidade', 'Canal', 'Código', 'Loja', 'Apontamentos', 'Anotação', 'Última foto', 'Responsável']].concat(relFiltrado().sort((a, b) => (a.regiao || '').localeCompare(b.regiao || '') || (a.uf || '').localeCompare(b.uf || ''))
+      .map((l) => [l.regiao || '', l.uf || '', l.cidade || '', l.canal, l.codigo, l.loja, apsDe(l).join(', '), l.observacao || '', l.ultima_foto ? fmtD10(l.ultima_foto) : '', respNome(l.uf) || '']));
+    const csv = '﻿' + linhas.map((x) => x.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'lojas-com-apontamento-' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
   }
 
   // ---------- render ----------
@@ -1550,6 +1452,7 @@ html,body{margin:0}
   ST.forEach(([s, lab]) => { const b = el('button', 'chip', lab); b.type = 'button'; b.dataset.s = s; b.addEventListener('click', () => { fStatus = s; render(); }); $('#st-chips').appendChild(b); });
   ['#f-form', '#f-canal', '#f-uf'].forEach((s) => $(s).addEventListener('change', render));
   $('#f-q').addEventListener('input', render);
+  $('#c-q').addEventListener('input', renderBusca); ['#c-reg', '#c-canal', '#c-tipo'].forEach((x) => $(x).addEventListener('change', renderRel)); $('#c-csv').addEventListener('click', baixarRel);
   $('#n-uf').addEventListener('change', renderNovas); $('#n-canal').addEventListener('change', renderNovas); $('#n-csv').addEventListener('click', baixarCsv);
   try { if (localStorage.getItem('vm-soultimo') === '0') $('#f-ultimo').checked = false; } catch (e) {}
   $('#f-ultimo').addEventListener('change', () => { try { localStorage.setItem('vm-soultimo', $('#f-ultimo').checked ? '1' : '0'); } catch (e) {} render(); });
