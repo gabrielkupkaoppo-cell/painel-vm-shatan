@@ -223,7 +223,7 @@ html,body{margin:0}
   <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
   <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Códigos errados · 编码错误<span class="n" id="tab-nn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 30/10 13:25</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 30/10 13:35</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -294,7 +294,7 @@ html,body{margin:0}
   <div class="head"><div><h1>Códigos de loja errados<span class="zh">门店编码错误</span></h1>
     <p class="note">Envios em que o promotor deixou o código da loja em branco ou digitou um código que <b>não existe na planilha do Feishu</b>. Use a lista para cobrar cada região (separada por região, como no painel): o promotor deve mandar o Forms de novo com o código certo. Quando o envio novo chegar com o código certo, a loja sai daqui sozinha.</p></div>
     <div><button class="btn" type="button" id="n-csv">Baixar lista (Excel/CSV) · 下载</button></div></div>
-  <div class="bar"><select id="n-uf" aria-label="Região"><option value="">Todas as regiões · 全部区域</option></select></div>
+  <div class="bar"><select id="n-uf" aria-label="Região"><option value="">Todas as regiões · 全部区域</option></select> <select id="n-canal" aria-label="Canal"><option value="">Todos os canais · 全部渠道</option></select></div>
   <div id="n-lista"></div>
 </div>
 </section>
@@ -809,9 +809,12 @@ html,body{margin:0}
     const box = $('#n-lista'); if (!box) return; box.replaceChildren();
     const todos = codigosErrados();
     const tn = $('#tab-nn'); tn.hidden = !todos.length; tn.textContent = todos.length;
-    const sel = $('#n-uf'); const cur = sel.value; const rgs = [...new Set(todos.map(regDe))].sort();
-    sel.replaceChildren(sel.options[0] || new Option('Todas as regiões · 全部区域', ''), ...rgs.map((g) => new Option(g + ' (' + todos.filter((r) => regDe(r) === g).length + ')', g))); sel.value = rgs.includes(cur) ? cur : '';
-    const lista = todos.filter((r) => !sel.value || regDe(r) === sel.value);
+    const sel = $('#n-uf'), sc = $('#n-canal'); const cur = sel.value, curC = sc.value;
+    const doCanal = todos.filter((r) => !curC || r.canal === curC), daReg = todos.filter((r) => !cur || regDe(r) === cur);
+    const rgs = [...new Set(todos.map(regDe))].sort(), cns = [...new Set(todos.map((r) => r.canal))].sort();
+    sel.replaceChildren(sel.options[0], ...rgs.map((g) => new Option(g + ' (' + doCanal.filter((r) => regDe(r) === g).length + ')', g))); sel.value = rgs.includes(cur) ? cur : '';
+    sc.replaceChildren(sc.options[0], ...cns.map((c) => new Option(c + ' (' + daReg.filter((r) => r.canal === c).length + ')', c))); sc.value = cns.includes(curC) ? curC : '';
+    const lista = todos.filter((r) => (!sel.value || regDe(r) === sel.value) && (!sc.value || r.canal === sc.value));
     if (!lista.length) { box.appendChild(el('div', 'empty', 'Nenhum código errado. · 暂无')); return; }
     const porUf = new Map(); lista.forEach((r) => { const u = regDe(r); if (!porUf.has(u)) porUf.set(u, []); porUf.get(u).push(r); });
     [...porUf.keys()].sort().forEach((u) => {
@@ -836,7 +839,8 @@ html,body{margin:0}
       itens.map((r) => '• ' + fmtD(r.data).slice(0, 10) + ' — ' + (r.uf ? r.uf + ' — ' : '') + r.canal + ' — código "' + (String(r.lojaRaw || '').trim() || 'em branco') + '" — ' + (r.nome || '—')).join('\n') + '\n\nObrigado!';
   }
   function baixarCsv() {
-    const linhas = [['Região', 'Estado', 'Responsável', 'Enviado em', 'Canal', 'Código digitado', 'Promotor', 'Telefone', 'Situação']].concat(codigosErrados().sort((a, b) => regDe(a).localeCompare(regDe(b)) || (a.uf || '').localeCompare(b.uf || '') || b.data - a.data)
+    const fr = $('#n-uf').value, fc = $('#n-canal').value;
+    const linhas = [['Região', 'Estado', 'Responsável', 'Enviado em', 'Canal', 'Código digitado', 'Promotor', 'Telefone', 'Situação']].concat(codigosErrados().filter((r) => (!fr || regDe(r) === fr) && (!fc || r.canal === fc)).sort((a, b) => regDe(a).localeCompare(regDe(b)) || (a.uf || '').localeCompare(b.uf || '') || b.data - a.data)
       .map((r) => [regDe(r), r.uf || '', respNome(r.uf) || '', fmtD(r.data), r.canal, String(r.lojaRaw || '').trim(), r.nome || '', r.tel || '', stTxt[stOf(r)]]));
     const csv = '﻿' + linhas.map((l) => l.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'codigos-errados-' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
@@ -1343,7 +1347,7 @@ html,body{margin:0}
   ST.forEach(([s, lab]) => { const b = el('button', 'chip', lab); b.type = 'button'; b.dataset.s = s; b.addEventListener('click', () => { fStatus = s; render(); }); $('#st-chips').appendChild(b); });
   ['#f-form', '#f-canal', '#f-uf'].forEach((s) => $(s).addEventListener('change', render));
   $('#f-q').addEventListener('input', render);
-  $('#n-uf').addEventListener('change', renderNovas); $('#n-csv').addEventListener('click', baixarCsv);
+  $('#n-uf').addEventListener('change', renderNovas); $('#n-canal').addEventListener('change', renderNovas); $('#n-csv').addEventListener('click', baixarCsv);
   try { if (localStorage.getItem('vm-soultimo') === '0') $('#f-ultimo').checked = false; } catch (e) {}
   $('#f-ultimo').addEventListener('change', () => { try { localStorage.setItem('vm-soultimo', $('#f-ultimo').checked ? '1' : '0'); } catch (e) {} render(); });
   $('#reload').addEventListener('click', () => { load(); });
