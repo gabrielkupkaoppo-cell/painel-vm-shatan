@@ -221,7 +221,7 @@ html,body{margin:0}
   <button class="tab" role="tab" id="tab-rev" aria-selected="false" aria-controls="pane-rev" type="button" hidden>Aprovações · 审核<span class="n" id="tab-n" hidden></span></button>
   <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 30/10 10:45</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 30/10 10:55</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -294,7 +294,7 @@ html,body{margin:0}
   <div class="msg" id="u-status" role="status" hidden></div>
   <div class="users"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Papel · 角色</th><th>Ativo · 启用</th><th>Pedido em</th><th></th></tr></thead><tbody id="u-body"></tbody></table></div>
   <div class="head" style="margin-top:28px"><div><h2 style="margin:0">Responsáveis por estado<span class="zh"> · 各州负责人</span></h2>
-    <p class="note">Quando você aprova ou reprova uma foto, o aviso vai para o responsável do estado da loja, não para o promotor. <b>Feishu</b>: chega sozinho em até 10 minutos (e-mail do Feishu ou celular com +55). <b>WhatsApp</b>: o botão abre seu WhatsApp com a mensagem pronta para ele.</p></div></div>
+    <p class="note">Quem responde por cada estado. Usado no ranking da aba Suspeitas. (Os avisos de aprovação/reprovação estão desligados.)</p></div></div>
   <div class="msg" id="r-status" role="status" hidden></div>
   <div class="users"><table><thead><tr><th>Estado</th><th>Responsável · 负责人</th><th>WhatsApp (DDD + número)</th><th>Feishu (e-mail ou celular)</th><th></th></tr></thead><tbody id="r-body"></tbody></table></div>
 </div>
@@ -918,7 +918,6 @@ html,body{margin:0}
       const t = el('div', 'last ' + (prev.status === 'Aprovado' ? 'ap' : 'rp'));
       t.textContent = 'Última decisão: ' + prev.status + (prev.motivo ? ' — ' + prev.motivo : '') + (prev.obs ? ' (' + prev.obs + ')' : '') + (prev.em ? ' · ' + prev.em : '') + '. Uma nova decisão substitui esta.';
       d.appendChild(t);
-      const wa = el('div', 'acts'); wa.appendChild(waBotao(r, prev)); d.appendChild(wa);
     }
 
     // foto aprovada anterior da mesma loja (para comparar antes × agora)
@@ -1032,7 +1031,6 @@ html,body{margin:0}
       const next = filtered().find((x) => x.key !== r.key && stOf(x) === 'aw');
       selKey = next ? next.key : r.key;
       render();
-      waUltima(r);
     } catch (e) { btns.forEach((b) => { b.disabled = false; }); info.textContent = errMsg(e); }
   }
 
