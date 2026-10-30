@@ -223,7 +223,7 @@ html,body{margin:0}
   <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
   <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Códigos errados · 编码错误<span class="n" id="tab-nn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 30/10 13:15</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 30/10 13:25</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -292,9 +292,9 @@ html,body{margin:0}
 <section id="pane-novas" role="tabpanel" aria-labelledby="tab-novas" hidden>
 <div class="wrap">
   <div class="head"><div><h1>Códigos de loja errados<span class="zh">门店编码错误</span></h1>
-    <p class="note">Envios em que o promotor deixou o código da loja em branco ou digitou um código que <b>não existe na planilha do Feishu</b>. Use a lista para cobrar cada região: o promotor deve mandar o Forms de novo com o código certo. Quando o envio novo chegar com o código certo, a loja sai daqui sozinha.</p></div>
+    <p class="note">Envios em que o promotor deixou o código da loja em branco ou digitou um código que <b>não existe na planilha do Feishu</b>. Use a lista para cobrar cada região (separada por região, como no painel): o promotor deve mandar o Forms de novo com o código certo. Quando o envio novo chegar com o código certo, a loja sai daqui sozinha.</p></div>
     <div><button class="btn" type="button" id="n-csv">Baixar lista (Excel/CSV) · 下载</button></div></div>
-  <div class="bar"><select id="n-uf" aria-label="Estado"><option value="">Todos os estados · 全部州</option></select></div>
+  <div class="bar"><select id="n-uf" aria-label="Região"><option value="">Todas as regiões · 全部区域</option></select></div>
   <div id="n-lista"></div>
 </div>
 </section>
@@ -803,39 +803,41 @@ html,body{margin:0}
     return out;
   }
   const respNome = (uf) => { const x = resp.get(uf); return x && String(x.nome || '').trim(); };
+  const regDe = (r) => REG[r.uf] || (r.uf ? 'Outros (' + r.uf + ')' : 'Sem estado');
+  const respRegiao = (rg, itens) => [...new Set(itens.map((r) => respNome(r.uf)).filter(Boolean))].join(', ');
   function renderNovas() {
     const box = $('#n-lista'); if (!box) return; box.replaceChildren();
     const todos = codigosErrados();
     const tn = $('#tab-nn'); tn.hidden = !todos.length; tn.textContent = todos.length;
-    const sel = $('#n-uf'); const cur = sel.value; const ufs = [...new Set(todos.map((r) => r.uf || '—'))].sort();
-    sel.replaceChildren(sel.options[0] || new Option('Todos os estados · 全部州', ''), ...ufs.map((u) => new Option(u + (respNome(u) ? ' · ' + respNome(u) : '') + ' (' + todos.filter((r) => (r.uf || '—') === u).length + ')', u))); sel.value = ufs.includes(cur) ? cur : '';
-    const lista = todos.filter((r) => !sel.value || (r.uf || '—') === sel.value);
+    const sel = $('#n-uf'); const cur = sel.value; const rgs = [...new Set(todos.map(regDe))].sort();
+    sel.replaceChildren(sel.options[0] || new Option('Todas as regiões · 全部区域', ''), ...rgs.map((g) => new Option(g + ' (' + todos.filter((r) => regDe(r) === g).length + ')', g))); sel.value = rgs.includes(cur) ? cur : '';
+    const lista = todos.filter((r) => !sel.value || regDe(r) === sel.value);
     if (!lista.length) { box.appendChild(el('div', 'empty', 'Nenhum código errado. · 暂无')); return; }
-    const porUf = new Map(); lista.forEach((r) => { const u = r.uf || '—'; if (!porUf.has(u)) porUf.set(u, []); porUf.get(u).push(r); });
+    const porUf = new Map(); lista.forEach((r) => { const u = regDe(r); if (!porUf.has(u)) porUf.set(u, []); porUf.get(u).push(r); });
     [...porUf.keys()].sort().forEach((u) => {
-      const itens = porUf.get(u), sec = el('div', 'users'); sec.style.marginBottom = '18px';
+      const itens = porUf.get(u).sort((a, b) => (a.uf || '').localeCompare(b.uf || '') || b.data - a.data), sec = el('div', 'users'); sec.style.marginBottom = '18px';
       const h = el('div'); h.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px';
-      h.appendChild(el('b', null, u + ' · ' + (respNome(u) || 'sem responsável cadastrado') + ' — ' + itens.length + ' envio(s)'));
+      h.appendChild(el('b', null, 'Região ' + u + ' · ' + (respRegiao(u, itens) || 'sem responsável cadastrado') + ' — ' + itens.length + ' envio(s)'));
       const cp = el('button', 'btn', 'Copiar mensagem · 复制'); cp.type = 'button';
       cp.addEventListener('click', async () => { try { await navigator.clipboard.writeText(msgCobranca(u, itens)); cp.textContent = 'Copiado ✓'; } catch (e) { cp.textContent = 'Não consegui copiar'; } setTimeout(() => { cp.textContent = 'Copiar mensagem · 复制'; }, 2500); });
       h.appendChild(cp); sec.appendChild(h);
-      const t = el('table'); const th = el('thead'); const trh = el('tr'); ['Enviado em', 'Canal', 'Código digitado', 'Promotor', 'Telefone', 'Situação', ''].forEach((x) => trh.appendChild(el('th', null, x))); th.appendChild(trh); t.appendChild(th);
+      const t = el('table'); const th = el('thead'); const trh = el('tr'); ['Enviado em', 'Estado', 'Canal', 'Código digitado', 'Promotor', 'Telefone', 'Situação', ''].forEach((x) => trh.appendChild(el('th', null, x))); th.appendChild(trh); t.appendChild(th);
       const tb = el('tbody');
       itens.forEach((r) => { const tr = el('tr');
-        tr.append(el('td', null, fmtD(r.data)), el('td', null, r.canal), el('td', null, String(r.lojaRaw || '').trim() || '(em branco)'), el('td', null, r.nome || '—'), el('td', null, r.tel || '—'), el('td', null, stTxt[stOf(r)]));
+        tr.append(el('td', null, fmtD(r.data)), el('td', null, r.uf || '—'), el('td', null, r.canal), el('td', null, String(r.lojaRaw || '').trim() || '(em branco)'), el('td', null, r.nome || '—'), el('td', null, r.tel || '—'), el('td', null, stTxt[stOf(r)]));
         const td = el('td'); const v = el('button', 'linkbtn', 'ver envio'); v.type = 'button'; v.addEventListener('click', () => { showTab('rev'); fStatus = 'all'; select(r.key); }); td.appendChild(v); tr.appendChild(td);
         tb.appendChild(tr); });
       t.appendChild(tb); sec.appendChild(t); box.appendChild(sec);
     });
   }
-  function msgCobranca(uf, itens) {
-    const nome = (respNome(uf) || '').split(/\s+/)[0];
-    return (nome ? 'Olá ' + nome + '! ' : 'Olá! ') + 'Estes envios do Forms das mesas (' + uf + ') vieram com o código da loja em branco ou errado. Pode pedir para cada promotor mandar de novo com o código certo da loja?\n\n' +
-      itens.map((r) => '• ' + fmtD(r.data).slice(0, 10) + ' — ' + r.canal + ' — código "' + (String(r.lojaRaw || '').trim() || 'em branco') + '" — ' + (r.nome || '—')).join('\n') + '\n\nObrigado!';
+  function msgCobranca(rg, itens) {
+    const nomes = [...new Set(itens.map((r) => (respNome(r.uf) || '').split(/\s+/)[0]).filter(Boolean))];
+    return (nomes.length ? 'Olá ' + nomes.join(' e ') + '! ' : 'Olá! ') + 'Estes envios do Forms das mesas (região ' + rg + ') vieram com o código da loja em branco ou errado. Pode pedir para cada promotor mandar de novo com o código certo da loja?\n\n' +
+      itens.map((r) => '• ' + fmtD(r.data).slice(0, 10) + ' — ' + (r.uf ? r.uf + ' — ' : '') + r.canal + ' — código "' + (String(r.lojaRaw || '').trim() || 'em branco') + '" — ' + (r.nome || '—')).join('\n') + '\n\nObrigado!';
   }
   function baixarCsv() {
-    const linhas = [['Estado', 'Responsável', 'Enviado em', 'Canal', 'Código digitado', 'Promotor', 'Telefone', 'Situação']].concat(codigosErrados().sort((a, b) => (a.uf || '').localeCompare(b.uf || '') || b.data - a.data)
-      .map((r) => [r.uf || '', respNome(r.uf) || '', fmtD(r.data), r.canal, String(r.lojaRaw || '').trim(), r.nome || '', r.tel || '', stTxt[stOf(r)]]));
+    const linhas = [['Região', 'Estado', 'Responsável', 'Enviado em', 'Canal', 'Código digitado', 'Promotor', 'Telefone', 'Situação']].concat(codigosErrados().sort((a, b) => regDe(a).localeCompare(regDe(b)) || (a.uf || '').localeCompare(b.uf || '') || b.data - a.data)
+      .map((r) => [regDe(r), r.uf || '', respNome(r.uf) || '', fmtD(r.data), r.canal, String(r.lojaRaw || '').trim(), r.nome || '', r.tel || '', stTxt[stOf(r)]]));
     const csv = '﻿' + linhas.map((l) => l.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'codigos-errados-' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
   }
