@@ -221,7 +221,7 @@ html,body{margin:0}
   <button class="tab" role="tab" id="tab-rev" aria-selected="false" aria-controls="pane-rev" type="button" hidden>Aprovações · 审核<span class="n" id="tab-n" hidden></span></button>
   <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 29/10 17:15</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 30/10 10:45</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -283,7 +283,7 @@ html,body{margin:0}
   </div>
   <div class="s-grid">
     <div id="s-lista" aria-live="polite"></div>
-    <aside class="s-rank"><h2>Por promotor · 按促销员</h2><p class="note">Casos em que o promotor aparece (abertos e confirmados primeiro).</p><table><thead><tr><th>Promotor</th><th>Abertos</th><th>Confirm.</th><th>Justif.</th></tr></thead><tbody id="s-rank"></tbody></table></aside>
+    <aside class="s-rank"><h2>Por responsável · 按负责人</h2><p class="note">Casos nas lojas de cada responsável de estado (abertos e confirmados primeiro). Cadastre os responsáveis em Usuários.</p><table><thead><tr><th>Responsável</th><th>Abertos</th><th>Confirm.</th><th>Justif.</th></tr></thead><tbody id="s-rank"></tbody></table></aside>
   </div>
 </div>
 </section>
@@ -1164,12 +1164,13 @@ html,body{margin:0}
     if (lista.length > 150) box.appendChild(el('p', 'note', 'Mostrando os 150 mais recentes. Use os filtros para achar os outros.'));
     // ranking
     const rk = new Map();
-    todos.forEach((c) => { new Set(c.membros.map((m) => promotorK(m.r.nome))).forEach((pk) => { if (!pk) return;
-      const nome = c.membros.find((m) => promotorK(m.r.nome) === pk).r.nome.trim();
-      const x = rk.get(pk) || { nome, aberto: 0, confirmado: 0, justificado: 0 }; x[c.estado]++; rk.set(pk, x); }); });
+    const donoDe = (uf) => { const sup = resp.get(uf); const n = sup && String(sup.nome || '').trim();
+      return n ? { k: promotorK(n), nome: n } : { k: 'sem|' + (uf || '—'), nome: 'Sem responsável · ' + (uf || 'sem estado') }; };
+    todos.forEach((c) => { const donos = new Map(); c.membros.forEach((m) => { const d = donoDe(m.r.uf); const x = donos.get(d.k) || { nome: d.nome, ufs: new Set() }; x.ufs.add(m.r.uf || '—'); donos.set(d.k, x); });
+      donos.forEach((d, k) => { const x = rk.get(k) || { nome: d.nome, ufs: new Set(), aberto: 0, confirmado: 0, justificado: 0 }; d.ufs.forEach((u) => x.ufs.add(u)); x[c.estado]++; rk.set(k, x); }); });
     const tb = $('#s-rank'); tb.replaceChildren();
     [...rk.values()].sort((a, b) => (b.confirmado + b.aberto) - (a.confirmado + a.aberto) || b.justificado - a.justificado).slice(0, 30).forEach((x) => {
-      const tr = el('tr'); tr.append(el('td', null, x.nome), el('td', null, String(x.aberto)), el('td', null, String(x.confirmado)), el('td', null, String(x.justificado))); tb.appendChild(tr); });
+      const tr = el('tr'); const td0 = el('td', null, x.nome); if (!/^Sem responsável/.test(x.nome)) { td0.appendChild(el('br')); td0.appendChild(el('small', 'note', [...x.ufs].sort().join(', '))); } tr.append(td0, el('td', null, String(x.aberto)), el('td', null, String(x.confirmado)), el('td', null, String(x.justificado))); tb.appendChild(tr); });
     if (!rk.size) { const tr = el('tr'); const td = el('td', null, 'Sem casos.'); td.colSpan = 4; tr.appendChild(td); tb.appendChild(tr); }
   }
   let sVisiveis = [];
