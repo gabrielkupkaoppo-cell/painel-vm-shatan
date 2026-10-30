@@ -25,13 +25,6 @@
   --skel:#e9edeb;
   color-scheme:light;
 }
-@media (prefers-color-scheme: dark){:root{
-  --color-bg:#111614; --color-panel:#19201d; --color-fg:#e8eeeb; --color-fg-muted:#9aa8a2; --color-border-line:#2b3531;
-  --color-ok:#4cc38a; --color-warn:#e3a33b; --color-bad:#f07a6b; --accent:#45b9a0;
-  --cds-chart-grid:#26302c; --cds-chart-axis:#3c4843; --cds-chart-reference:#8a9792; --cds-chart-muted:#3a4540;
-  --cds-surface-popover:#1f2723; --cds-border:#35403b; --cds-shadow-popover:0 6px 20px rgba(0,0,0,.45); --cds-text-secondary:#9aa8a2;
-  --skel:#232c28; color-scheme:dark;
-}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0}
@@ -52,6 +45,18 @@ body{background:var(--color-bg);color:var(--color-fg);font-family:var(--font-ant
 input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .dash-skeleton{color:transparent!important;background:var(--skel);border-radius:6px}
 #dash-root[hidden]{display:none}
+
+/* ===== Tema verde e branco ===== */
+:root{--color-bg:#ffffff;--color-panel:#ffffff;--accent:#0a7a4a;--color-ok:#0a7a4a;--color-border-line:#d6e9de;--cds-border:#cfe5d8;color-scheme:light}
+body{background:#fff}
+.vm-title{color:var(--accent)}
+.vm-card{border-color:var(--color-border-line);border-top:3px solid var(--accent);box-shadow:0 1px 3px rgba(10,122,74,.06)}
+.vm-card h2,.vm-card h3{color:var(--accent)}
+.vm-chip[aria-pressed="true"],.vm-chips button[aria-pressed="true"]{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important}
+.vm-btn{background:var(--accent);border-color:var(--accent);color:#fff}
+.vm-pri button[aria-pressed="true"]{border-color:var(--accent)}
+.vm-canais .vm-chip.pri[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+
 </style>
 <script src="d3.min.js"></script>
 <script>

@@ -17,14 +17,6 @@
   --r:10px;
   color-scheme:light;
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#111614; --panel:#19201d; --fg:#e7eeea; --muted:#9aa8a2; --line:#2b3531; --accent:#3fb59a; --accent-fg:#06231c;
-  --ok:#53c48d; --ok-bg:#16301f; --bad:#f07a6b; --bad-bg:#3a1c18; --warn:#e3a33b; --warn-bg:#352a13; --chip:#222b27; --sel:#1d2c27; color-scheme:dark;
-}}
-:root[data-theme="dark"]{
-  --bg:#111614; --panel:#19201d; --fg:#e7eeea; --muted:#9aa8a2; --line:#2b3531; --accent:#3fb59a; --accent-fg:#06231c;
-  --ok:#53c48d; --ok-bg:#16301f; --bad:#f07a6b; --bad-bg:#3a1c18; --warn:#e3a33b; --warn-bg:#352a13; --chip:#222b27; --sel:#1d2c27; color-scheme:dark;
-}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.4;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
@@ -172,6 +164,28 @@ html,body{margin:0}
 .users tr.novo td{background:var(--warn-bg)}
 .sw{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
 .sw input{width:1rem;height:1rem;accent-color:var(--ok)}
+
+/* ===== Tema verde e branco ===== */
+:root{--bg:#ffffff;--panel:#ffffff;--accent:#0a7a4a;--accent-2:#0d9a5d;--accent-soft:#e8f6ee;--line:#d6e9de;--chip:#eef7f1;--sel:#e3f4ea;--ok:#0a7a4a;--ok-bg:#e3f4ea;color-scheme:light}
+body{background:linear-gradient(#f3faf6,#ffffff 320px) no-repeat,#fff;padding-top:0}
+.tabs{background:var(--accent);border-bottom:none;box-shadow:0 0 0 100vmax var(--accent);clip-path:inset(0 -100vmax);padding:4px 0;margin-bottom:22px}
+.tabs .brand{color:#fff;opacity:.95}
+.tab{color:rgba(255,255,255,.78);border-bottom-color:transparent}
+.tab:hover{color:#fff}
+.tab[aria-selected="true"]{color:#fff;border-bottom:3px solid #fff}
+.tab .n{background:#fff;color:var(--accent)}
+.tabs .who{color:rgba(255,255,255,.85)} .tabs .who .linkbtn{color:#fff} .tabs .ver{color:rgba(255,255,255,.7)} .tabs .tag{background:rgba(255,255,255,.18);color:#fff}
+h1{color:var(--accent)} h2{color:var(--accent)}
+.users,.count,.nv,.card,.item{border-color:var(--line)}
+.count{border-left:4px solid var(--accent);box-shadow:0 1px 3px rgba(10,122,74,.06)}
+.users{box-shadow:0 1px 3px rgba(10,122,74,.06)}
+.users thead th,.users table th{background:var(--accent-soft);color:var(--accent)}
+.btn{border-color:var(--accent);color:var(--accent)} .btn:hover{background:var(--accent-soft)}
+.btn.ok{background:var(--accent);border-color:var(--accent);color:#fff} .btn.ok:hover{background:var(--accent-2)}
+.chip[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+.card{border-top:5px solid var(--accent);box-shadow:0 8px 30px rgba(10,122,74,.12)}
+.linkbtn{color:var(--accent)}
+.item.sel,.item[aria-current]{background:var(--sel);border-left:3px solid var(--accent)}
 </style>
 <script src="crypto.js"></script>
 </head>
@@ -231,7 +245,7 @@ html,body{margin:0}
   <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Códigos errados · 编码错误<span class="n" id="tab-nn" hidden></span></button>
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 30/10 16:30</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 30/10 16:45</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
