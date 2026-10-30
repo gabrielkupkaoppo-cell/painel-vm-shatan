@@ -244,7 +244,7 @@ function limparFotos_(envios, inicio, detalhado) {
   const manter = {}; Object.keys(ref).forEach((k) => { manter[ref[k].key] = true; });
   envios.forEach((e) => {
     const r = rev[e.key];
-    if (!r && agora - new Date(e.data).getTime() < DIAS_AGUARDANDO * dia) manter[e.key] = true;          // aguardando revisão
+    if (!r) manter[e.key] = true;                                                                         // aguardando revisão: guarda sempre (precisa ver a foto para decidir)
     if (r && r.status === 'Aprovado' && !r.feishu_em) manter[e.key] = true;                              // ainda vai para o Feishu
     if (r && agora - new Date(r.revisado_em).getTime() < DIAS_CARENCIA * dia) manter[e.key] = true;       // revisado há pouco
   });
