@@ -10,7 +10,8 @@
  *
  * Teste primeiro na planilha de teste (testecloude). Depois, se quiser na oficial, troque FEISHU_PLANILHA e rode de novo.
  */
-var GAZIN_MODELO = 'Bemol';
+var GAZIN_MODELO = 'Bemol';          // aba copiada como modelo (tem mesas OPPO 1.2M/1.6M/0.8M, para o futuro)
+var GAZIN_MULTIMARCAS = true;        // cria a coluna "Multimarcas" (caixa marcada quando o promotor escolhe Mesa Multimarcas)
 
 function criarAbaGazin() { criarAbaCanal_('Gazin', GAZIN_MODELO); }
 
@@ -34,7 +35,22 @@ function criarAbaCanal_(canal, modelo) {
   const sid = cp.replies[0].copySheet.properties.sheetId;
   abas = feishu_(tk, 'GET', '/sheets/v3/spreadsheets/' + planilha + '/sheets/query').sheets || [];
   const nova = abas.find((a) => a.sheet_id === sid) || {};
-  const nCol = Math.min((nova.grid_properties && nova.grid_properties.column_count) || 40, 60);
+  let nCol = Math.min((nova.grid_properties && nova.grid_properties.column_count) || 40, 60);
+  // 2b) coluna "Multimarcas" logo depois das colunas de tamanho de mesa (herda a caixa de seleção da vizinha)
+  if (GAZIN_MULTIMARCAS) {
+    const cab0 = valores_(tk, planilha, sid + '!A1:' + letra_(nCol) + '6');
+    let hdr0 = 0; for (let r = 0; r < cab0.length && !hdr0; r++) if ((cab0[r] || []).some((v) => texto_(v).indexOf('Store Name') >= 0)) hdr0 = r + 1;
+    if (!hdr0) hdr0 = 2;
+    let ultMesa = 0, jaTem = false;
+    for (let r = 0; r < hdr0; r++) (cab0[r] || []).forEach((v, c) => { const t = texto_(v); if (/[018][.,][268]\s*M/i.test(t) && t.indexOf('体验台') >= 0 || /^[018][.,][268]\s*M/i.test(t)) ultMesa = Math.max(ultMesa, c + 1); if (/multimarca/i.test(t)) jaTem = true; });
+    if (!jaTem) {
+      const depois = ultMesa || nCol;
+      feishu_(tk, 'POST', base + '/insert_dimension_range', { dimension: { sheetId: sid, majorDimension: 'COLUMNS', startIndex: depois, endIndex: depois + 1 }, inheritStyle: 'BEFORE' });
+      nCol = Math.min(nCol + 1, 60);
+      feishu_(tk, 'POST', base + '/values_batch_update', { valueRanges: [{ range: sid + '!' + letra_(depois + 1) + hdr0 + ':' + letra_(depois + 1) + hdr0, values: [['Multimarcas']] }] });
+      console.log('Coluna "Multimarcas" criada na coluna ' + letra_(depois + 1) + (ultMesa ? ' (depois das mesas 1.2M/1.6M/0.8M).' : ' (no final).'));
+    }
+  }
   const nLin = (nova.grid_properties && nova.grid_properties.row_count) || 500;
   const L = letra_(nCol);
   console.log('Aba "' + canal + '" criada como cópia de "' + modelo + '" (' + nCol + ' colunas).');
