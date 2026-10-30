@@ -223,7 +223,7 @@ html,body{margin:0}
   <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
   <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Códigos errados · 编码错误<span class="n" id="tab-nn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 30/10 13:35</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 30/10 13:40</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -319,8 +319,8 @@ html,body{margin:0}
   const KEY = 'sb_publishable_KVETLbMDkF3wX87LI_knEA_56gY4T0E';
   const SKEY = 'vm-sb-sessao';
   const FORMS = [{ nome: 'Controle de Mesas' }, { nome: 'Checklist Fast/Operadoras' }];
-  const MOTIVOS = ['Sem tag verde / preço', 'Telas apagadas (demo)', 'Faltando aparelho', 'Canvas errado ou antigo', 'Foto ruim ou incompleta', 'Outro'];
-  const MOTZH = { 'Sem tag verde / preço': '缺绿色价签', 'Telas apagadas (demo)': '未开演示', 'Faltando aparelho': '缺样机', 'Canvas errado ou antigo': '画面错误/旧', 'Foto ruim ou incompleta': '照片不合格', 'Outro': '其他' };
+  const MOTIVOS = ['Sem tag verde / preço', 'Telas apagadas (demo)', 'Faltando aparelho', 'Canvas errado ou antigo', 'Foto ruim ou incompleta', 'Sem mesa OPPO', 'Outro'];
+  const MOTZH = { 'Sem tag verde / preço': '缺绿色价签', 'Telas apagadas (demo)': '未开演示', 'Faltando aparelho': '缺样机', 'Canvas errado ou antigo': '画面错误/旧', 'Foto ruim ou incompleta': '照片不合格', 'Sem mesa OPPO': '无OPPO体验台', 'Outro': '其他' };
   const ST = [['aw', 'Aguardando · 待审核'], ['rp', 'Reprovados · 不通过'], ['ap', 'Aprovados · 通过'], ['sb', 'Substituídos · 已替换'], ['all', 'Todos · 全部']];
   const $ = (s) => document.querySelector(s);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
