@@ -29,7 +29,7 @@ function feishuRecomecar() {
 function sincronizarFeishu() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) return;
-  try { enviarFeishu_(FEISHU_LOTE, false); } finally { lock.releaseLock(); }
+  try { criarLojasNovas_(); enviarFeishu_(FEISHU_LOTE, false); } finally { lock.releaseLock(); }
 }
 
 function enviarFeishu_(limite, detalhado) {
@@ -107,7 +107,8 @@ function enviarFeishu_(limite, detalhado) {
 
 // ---------- loja nova: abas em que o script pode criar a linha sozinho ----------
 var FEISHU_NOVAS_LOJAS = ['Gazin'];
-function novaLinhaLoja_(tk, planilha, aba, A, e) {
+function novaLinhaLoja_(tk, planilha, aba, A, e, extra) {
+  extra = extra || {};
   const base = '/sheets/v2/spreadsheets/' + planilha;
   const col = A.dados[A.colCod] || A.dados[A.colNome] || [];
   let ult = 0; for (let r = 0; r < col.length; r++) if (String(col[r] || '').trim()) ult = r + 1;   // última linha com loja
@@ -120,18 +121,47 @@ function novaLinhaLoja_(tk, planilha, aba, A, e) {
   const cab = valores_(tk, planilha, aba.sheet_id + '!A1:' + L + '4');
   const H = {}; cab.forEach((row) => (row || []).forEach((v, c) => { const t = texto_(v); if (t) H[c + 1] = (H[c + 1] ? H[c + 1] + ' ' : '') + t; }));
   const colEst = Object.keys(H).map(Number).find((c) => /\bstate\b|estado/i.test(H[c]) && !/currently/i.test(H[c]));
-  let cod = chaves_(e.loja_raw)[1]; if (cod.length < 3) cod = ('000' + cod).slice(-3);
+  const colCid = Object.keys(H).map(Number).find((c) => /\bcity\b|cidade/i.test(H[c]));
+  let cod = extra.codigo || chaves_(e.loja_raw)[1]; if (!extra.codigo && cod.length < 3) cod = ('000' + cod).slice(-3);
   const vr = [];
   const put = (c, v) => { if (c) vr.push({ range: aba.sheet_id + '!' + letra_(c) + nova + ':' + letra_(c) + nova, values: [[v]] }); };
   put(A.colCod, cod);
-  put(A.colNome, aba.title.toUpperCase() + ' FILIAL ' + cod);
-  put(colEst, String(e.uf || '').toUpperCase());
+  put(A.colNome, extra.nome || (aba.title.toUpperCase() + ' FILIAL ' + cod));
+  put(colEst, String(extra.uf || e.uf || '').toUpperCase());
+  if (extra.cidade) put(colCid, extra.cidade);
   (tplF[0] || []).forEach((v, i) => {
     const f = v && typeof v === 'object' && v.type === 'formula' ? v.text : (typeof v === 'string' && v.charAt(0) === '=' ? v : null);
     if (f) put(i + 1, { type: 'formula', text: f.replace(/(\$?)([A-Z]{1,3})(\$?)(\d+)/g, (m, d1, c, d2, n) => (d2 === '' && +n === ult ? d1 + c + nova : m)) });
   });
   feishu_(tk, 'POST', base + '/values_batch_update', { valueRanges: vr });
   return nova;
+}
+// lojas novas aprovadas no site (aba "Lojas novas") → cria a linha na aba do canal
+function criarLojasNovas() { criarLojasNovas_(true); }
+function criarLojasNovas_(detalhado) {
+  const lista = supa_('GET', '/rest/v1/lojas_novas?select=*&status=eq.aprovada&order=em.asc&limit=30') || [];
+  if (!lista.length) { if (detalhado) console.log('Nenhuma loja nova para criar.'); return 0; }
+  const planilha = String(PropertiesService.getScriptProperties().getProperty('FEISHU_PLANILHA') || '').trim();
+  const tk = feishuToken_();
+  const abas = feishu_(tk, 'GET', '/sheets/v3/spreadsheets/' + planilha + '/sheets/query').sheets || [];
+  let criadas = 0;
+  lista.forEach((x) => {
+    const marca = (status, info) => supa_('PATCH', '/rest/v1/lojas_novas?id=eq.' + x.id, { status: status, info: info }, { Prefer: 'return=minimal' });
+    try {
+      const canal = canalFeishu_(x.canal);
+      const aba = abas.find((a) => semAcento_(a.title) === semAcento_(canal));
+      if (!aba) { marca('erro', 'aba "' + canal + '" não existe no Feishu'); return; }
+      const A = lerAba_(tk, planilha, aba);
+      const ja = acharLinha_(A, x.codigo);
+      if (ja) { marca('criada', 'já existia na aba ' + aba.title + ', linha ' + ja); criadas++; return; }
+      const linha = novaLinhaLoja_(tk, planilha, aba, A, { loja_raw: x.codigo, uf: x.uf }, { codigo: x.codigo, nome: x.nome, cidade: x.cidade, uf: x.uf });
+      if (!linha) { marca('erro', 'não consegui criar a linha na aba ' + aba.title); return; }
+      marca('criada', 'criada na aba ' + aba.title + ', linha ' + linha); criadas++;
+      console.log('Loja nova ' + canal + ' ' + x.codigo + ' criada na linha ' + linha + '.');
+    } catch (err) { marca('erro', String(err.message || err).slice(0, 300)); console.warn('Loja nova ' + x.canal + ' ' + x.codigo + ': ' + err); }
+  });
+  if (criadas) supa_('PATCH', '/rest/v1/revisoes?feishu_info=like.' + encodeURIComponent('*não encontrada na aba*'), { feishu_em: null, feishu_info: null }, { Prefer: 'return=minimal' });
+  return criadas;
 }
 // aprovações que não acharam a loja na aba → tentar de novo (ex.: depois de criar a linha à mão)
 function feishuReenviarLojasNaoEncontradas() {

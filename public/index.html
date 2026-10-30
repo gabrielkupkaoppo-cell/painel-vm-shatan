@@ -62,6 +62,7 @@ input[type=search]{min-width:min(100%,14rem)}
 .detail{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .dt{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline}
 .dt h2{margin:0;font-size:1.2rem;font-weight:600}
+.nv{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0;background:#fff;display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:12px} .nv h3{margin:0 0 4px;font-size:1rem} .nv ul{margin:6px 0;padding-left:18px;font-size:.86rem} .nv .th{width:180px;height:135px;border-radius:8px;background:var(--chip);display:flex;align-items:center;justify-content:center;font-size:.75rem;color:var(--muted);overflow:hidden;text-align:center} .nv .th img{width:100%;height:100%;object-fit:cover;cursor:zoom-in} .nv .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px} .nv form{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px} .nv input{font:inherit;font-size:.85rem;padding:5px 8px} .nv .tag-real{color:var(--ok);font-weight:600} .nv .tag-erro{color:var(--warn);font-weight:600} @media (max-width:640px){.nv{grid-template-columns:1fr}}
 .lj{margin:12px 0;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:.88rem;display:flex;flex-direction:column;gap:8px} .lj.ok{background:var(--ok-bg)} .lj.warn{background:var(--warn-bg)} .lj .sug{display:flex;flex-wrap:wrap;gap:6px} .lj .sug button{font:inherit;font-size:.82rem;padding:5px 10px;border-radius:16px;border:1px solid var(--line);background:#fff;cursor:pointer;text-align:left} .lj .sug button:hover{border-color:var(--ok)} .lj .sug small{color:var(--muted)} .lj .man{display:flex;gap:6px;flex-wrap:wrap;align-items:center} .lj input,.lj select{font:inherit;font-size:.85rem;padding:4px 8px}
 .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:8px 16px}
 .facts div{display:flex;flex-direction:column;gap:1px;min-width:0}
@@ -220,8 +221,9 @@ html,body{margin:0}
   <button class="tab" role="tab" id="tab-painel" aria-selected="true" aria-controls="pane-painel" type="button">Painel · 看板</button>
   <button class="tab" role="tab" id="tab-rev" aria-selected="false" aria-controls="pane-rev" type="button" hidden>Aprovações · 审核<span class="n" id="tab-n" hidden></span></button>
   <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
+  <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Lojas novas · 新门店<span class="n" id="tab-nn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 30/10 11:10</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 30/10 13:00</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -285,6 +287,15 @@ html,body{margin:0}
     <div id="s-lista" aria-live="polite"></div>
     <aside class="s-rank"><h2>Por responsável · 按负责人</h2><p class="note">Casos nas lojas de cada responsável de estado (abertos e confirmados primeiro). Cadastre os responsáveis em Usuários.</p><table><thead><tr><th>Responsável</th><th>Abertos</th><th>Confirm.</th><th>Justif.</th></tr></thead><tbody id="s-rank"></tbody></table></aside>
   </div>
+</div>
+</section>
+<section id="pane-novas" role="tabpanel" aria-labelledby="tab-novas" hidden>
+<div class="wrap">
+  <div class="head"><div><h1>Lojas novas<span class="zh">新门店申请</span></h1>
+    <p class="note">Códigos de loja que chegaram pelo Forms e <b>não estão na planilha do Feishu</b>. Para cada um, decida: é uma <b>loja nova</b> (adicione: o sistema cria a linha na aba do canal em até 10 min) ou foi <b>erro de digitação</b> (ignore aqui e corrija o código no envio, em Aprovações).</p></div></div>
+  <div id="n-lista"></div>
+  <h2 style="margin-top:28px">Pedidos feitos · 已处理</h2>
+  <div id="n-feitas"></div>
 </div>
 </section>
 <section id="pane-users" role="tabpanel" aria-labelledby="tab-users" hidden>
@@ -412,7 +423,7 @@ html,body{margin:0}
     showView('v-app');
     $('#who').textContent = perfil.nome || perfil.email;
     $('#who-role').textContent = isAdmin() ? 'Administrador · 管理员' : 'Leitor · 查看';
-    $('#tab-rev').hidden = !isAdmin(); $('#tab-users').hidden = !isAdmin(); $('#tab-susp').hidden = !isAdmin();
+    $('#tab-rev').hidden = !isAdmin(); $('#tab-users').hidden = !isAdmin(); $('#tab-susp').hidden = !isAdmin(); $('#tab-novas').hidden = !isAdmin();
     $('#imp').hidden = true; // importação do Excel desativada: o painel vem do Feishu
     ligarAdminPainel();
     let t = 'painel'; try { t = localStorage.getItem('vm-tab') || 'painel'; } catch (e) {}
@@ -622,8 +633,8 @@ html,body{margin:0}
     $('#reload').disabled = true;
     setStatus('Carregando os envios… · 加载中');
     try {
-      const [env, rev, sd, rp, bl] = await Promise.all([getAll('/rest/v1/envios?select=*&order=data.desc'), getAll('/rest/v1/revisoes?select=*'), getAll('/rest/v1/suspeitas_decisoes?select=*').catch(() => []), getAll('/rest/v1/responsaveis?select=*').catch(() => []), api('/rest/v1/painel_dados?id=eq.atual&select=lojas:dados->lojas').catch(() => null)]);
-      baseLojas = (bl && bl[0] && bl[0].lojas) || (painelAtual && painelAtual.lojas) || [];
+      const [env, rev, sd, rp, bl, ln] = await Promise.all([getAll('/rest/v1/envios?select=*&order=data.desc'), getAll('/rest/v1/revisoes?select=*'), getAll('/rest/v1/suspeitas_decisoes?select=*').catch(() => []), getAll('/rest/v1/responsaveis?select=*').catch(() => []), api('/rest/v1/painel_dados?id=eq.atual&select=lojas:dados->lojas').catch(() => null), getAll('/rest/v1/lojas_novas?select=*&order=em.desc').catch(() => [])]);
+      baseFeishu = (bl && bl[0] && bl[0].lojas) || (painelAtual && painelAtual.lojas) || []; lojasNovas = ln || []; montarBase();
       resp = new Map((rp || []).map((x) => [x.uf, x]));
       decisoesSusp = new Map((sd || []).map((x) => [x.caso, x]));
       rows = shapeEnvios(env); reviews = shapeRevs(rev); corr.clear();
@@ -632,7 +643,7 @@ html,body{margin:0}
       calcRepetidas();
       fillFilters(); $('#work').hidden = false;
       setStatus(rows.length ? '' : 'Ainda não chegou nenhum envio. Os Forms são copiados a cada 10 minutos pelo script da planilha.');
-      render(); renderSusp();
+      render(); renderSusp(); renderNovas();
     } catch (e) { setStatus(errMsg(e), true); }
     finally { $('#reload').disabled = false; }
   }
@@ -646,7 +657,10 @@ html,body{margin:0}
   }
 
   // ---------- loja provável: acha a loja quando o promotor não põe o código ou digita errado ----------
-  let baseLojas = [];
+  let baseLojas = [], baseFeishu = [], lojasNovas = [];
+  // base = lojas da planilha do Feishu + lojas novas já aprovadas aqui (ainda sendo criadas)
+  function montarBase() { baseLojas = baseFeishu.concat(lojasNovas.filter((x) => x.status === 'aprovada' || x.status === 'criada').filter((x) => !baseFeishu.some((l) => l.canal === x.canal && codN(l.codigo) === codN(x.codigo)))
+    .map((x) => ({ canal: x.canal, codigo: x.codigo, loja: x.nome || (x.canal + ' ' + x.codigo), cidade: x.cidade, uf: x.uf, nova: true }))); }
   const corrMesa = new Map(); // tipo de mesa corrigido, grava junto com a decisão
   const MESAS_OPC = ['Mesa 0.8 Metros', 'Mesa 1.2 Metros', 'Mesa 1.6 Metros', 'Mesa Multimarcas', 'Não tenho mesa'];
   const corr = new Map(); // correção escolhida e ainda não gravada (grava junto com a decisão)
@@ -660,7 +674,11 @@ html,body{margin:0}
     const tok = String(raw || '').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean).map(codN).filter(Boolean).reverse();
     const all = codN(raw);
     for (const t of [all].concat(tok)) { const l = lst.find((x) => codN(x.codigo) === t); if (l) return l; }
-    return null;
+    // só os números, se não houver dúvida (ex.: "19" = F19 da Martinello)
+    const num = (String(raw || '').match(/\d+/g) || []).pop(); if (!num) return null;
+    const n = num.replace(/^0+/, ''); const dig = (c) => ((String(c || '').match(/\d+/g) || []).pop() || '').replace(/^0+/, '');
+    const cand = lst.filter((x) => dig(x.codigo) === n);
+    return cand.length === 1 ? cand[0] : null;
   }
   // compara o que foi escrito com o nome/cidade das lojas do canal
   function porNome(canal, raw) {
@@ -767,6 +785,83 @@ html,body{margin:0}
     } else if (lst.length) box.appendChild(el('span', 'note', 'Não encontrei uma loja provável. Confira pela foto e escolha abaixo.'));
     box.appendChild(mudar());
     return box;
+  }
+
+  // ---------- lojas novas: código que não está na planilha ----------
+  const ultimoNum = (raw) => { const m = String(raw || '').match(/\d+/g); return m ? m[m.length - 1] : ''; };
+  function candidatosNovas() {
+    const g = new Map();
+    rows.forEach((r) => {
+      const st = stOf(r); if (st === 'sb' || st === 'rp' || r.lojaOrig != null) return;
+      if (!lojasDoCanal(r.canal).length || lojaNaBase(r.canal, r.lojaRaw)) return;
+      const num = ultimoNum(r.lojaRaw); if (!num) return;
+      const k = r.canal + '|' + codN(num);
+      if (lojasNovas.some((x) => x.canal === r.canal && codN(x.codigo) === codN(num))) return;
+      const it = g.get(k) || { k, canal: r.canal, num, envios: [] }; it.envios.push(r); g.set(k, it);
+    });
+    return [...g.values()].map((it) => { it.envios.sort((a, b) => b.data - a.data); return it; }).sort((a, b) => b.envios.length - a.envios.length || b.envios[0].data - a.envios[0].data);
+  }
+  function renderNovas() {
+    const box = $('#n-lista'); if (!box) return; box.replaceChildren();
+    const cs = candidatosNovas();
+    const tn = $('#tab-nn'); tn.hidden = !cs.length; tn.textContent = cs.length;
+    if (!cs.length) box.appendChild(el('div', 'empty', 'Nenhum código desconhecido no momento. · 暂无'));
+    cs.forEach((c) => box.appendChild(cartaoNova(c)));
+    const fx = $('#n-feitas'); fx.replaceChildren();
+    if (!lojasNovas.length) fx.appendChild(el('p', 'note', 'Nenhum pedido ainda.'));
+    lojasNovas.forEach((x) => {
+      const d = el('div', 'nv'); d.style.gridTemplateColumns = '1fr auto';
+      const tx = { aprovada: '⏳ aguardando criação no Feishu (até 10 min)', criada: '✓ ' + (x.info || 'criada'), erro: '⚠ erro: ' + (x.info || ''), ignorada: '✕ ignorada (erro de digitação)' }[x.status] || x.status;
+      const a = el('div'); a.append(el('b', null, x.canal + ' ' + x.codigo + (x.nome ? ' · ' + x.nome : '') + (x.cidade ? ' (' + x.cidade + (x.uf ? '/' + x.uf : '') + ')' : '')), el('br'), el('span', 'note', tx + ' · ' + fmtEm(x.em) + (x.por_email ? ' · ' + x.por_email : '')));
+      const del = el('button', 'linkbtn', x.status === 'criada' ? 'tirar da lista' : 'desfazer'); del.type = 'button';
+      del.addEventListener('click', async () => { del.disabled = true; try { await api('/rest/v1/lojas_novas?id=eq.' + x.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); lojasNovas = lojasNovas.filter((y) => y.id !== x.id); montarBase(); renderNovas(); render(); } catch (e) { del.disabled = false; del.textContent = errMsg(e); } });
+      d.append(a, del); fx.appendChild(d);
+    });
+  }
+  function cartaoNova(c) {
+    const r0 = c.envios[0], card = el('div', 'nv'), esq = el('div');
+    const proms = new Set(c.envios.map((x) => promotorK(x.nome)).filter(Boolean));
+    const ufs = {}; c.envios.forEach((x) => { if (x.uf) ufs[x.uf] = (ufs[x.uf] || 0) + 1; }); const uf = Object.keys(ufs).sort((a, b) => ufs[b] - ufs[a])[0] || '';
+    esq.appendChild(el('h3', null, c.canal + ' · código ' + c.num + (uf ? ' · ' + uf : '')));
+    const datas = c.envios.map((x) => x.data).filter(Boolean);
+    esq.appendChild(el('span', 'note', c.envios.length + ' envio(s) · ' + proms.size + ' promotor(es) · ' + (datas.length ? fmtD(datas[datas.length - 1]).slice(0, 10) + (datas.length > 1 ? ' a ' + fmtD(datas[0]).slice(0, 10) : '') : '') + ' · digitado: "' + String(r0.lojaRaw).trim() + '"'));
+    const ul = el('ul');
+    const real = c.envios.length >= 3 || (c.envios.length >= 2 && proms.size >= 2);
+    const hist = historicoPromotor(r0); const sug = sugestoesLoja(r0).filter((x) => x.motivos.some((m) => /parecido|já mandou|única loja|mesmo dia|min antes/.test(m)));
+    if (real) { const li = el('li'); li.append(el('span', 'tag-real', 'Indício de loja real: '), document.createTextNode('o mesmo código veio em ' + c.envios.length + ' envios' + (proms.size > 1 ? ', de ' + proms.size + ' promotores diferentes' : '') + '.')); ul.appendChild(li); }
+    if (hist.size) { const li = el('li'); li.append(el('span', 'tag-erro', 'Pode ser erro de digitação: '), document.createTextNode('este promotor já mandou ' + [...hist.values()].slice(0, 3).map((h) => nomeLoja(h.l, h.cod) + ' (' + h.n + 'x)').join(', ') + '.')); ul.appendChild(li); }
+    else if (sug.length) { const li = el('li'); li.append(el('span', 'tag-erro', 'Código parecido na planilha: '), document.createTextNode(sug.slice(0, 2).map((x) => nomeLoja(x.l, x.cod)).join(' ou ') + '.')); ul.appendChild(li); }
+    if (!real && !hist.size && !sug.length) ul.appendChild(el('li', null, 'Sem pistas automáticas: confira pela foto da entrada da loja.'));
+    if (/gazin/i.test(c.canal)) ul.appendChild(el('li', null, 'Gazin: ao aprovar o envio a linha já é criada sozinha; aqui você pode adicionar já com nome e cidade.'));
+    esq.appendChild(ul);
+    const acts = el('div', 'acts');
+    const ver = el('button', 'btn', 'Ver envio · 查看'); ver.type = 'button'; ver.addEventListener('click', () => { showTab('rev'); fStatus = 'all'; select(r0.key); });
+    const add = el('button', 'btn ok', '+ É loja nova: adicionar'); add.type = 'button';
+    const ign = el('button', 'btn', 'É erro de digitação: ignorar'); ign.type = 'button';
+    const info = el('span', 'note'); info.setAttribute('role', 'status');
+    const grava = async (corpo) => { const body = [Object.assign({ canal: c.canal, codigo: c.num, uf, por_email: (perfil && perfil.email) || '' }, corpo)];
+      await api('/rest/v1/lojas_novas', { method: 'POST', body, headers: { Prefer: 'return=representation' } }).then((x) => { lojasNovas = (x || body).concat(lojasNovas); }); montarBase(); renderNovas(); render(); };
+    ign.addEventListener('click', async () => { ign.disabled = true; try { await grava({ status: 'ignorada', nome: '', cidade: '' }); } catch (e) { ign.disabled = false; info.textContent = errMsg(e); } });
+    add.addEventListener('click', () => {
+      if (esq.querySelector('form')) return;
+      const f = el('form'); const n = el('input'); n.placeholder = 'Nome da loja'; n.value = c.canal.toUpperCase() + ' ' + c.num; n.setAttribute('aria-label', 'Nome da loja'); n.style.minWidth = '14rem';
+      const ci = el('input'); ci.placeholder = 'Cidade'; ci.setAttribute('aria-label', 'Cidade');
+      const u = el('input'); u.placeholder = 'UF'; u.value = uf; u.maxLength = 2; u.size = 3; u.setAttribute('aria-label', 'Estado');
+      const cod = el('input'); cod.value = c.num; cod.size = 7; cod.setAttribute('aria-label', 'Código da loja'); cod.title = 'Código como vai na planilha';
+      const ok = el('button', 'btn ok', 'Salvar · 保存'); ok.type = 'submit';
+      f.append(el('span', 'note', 'Código:'), cod, n, ci, u, ok);
+      f.addEventListener('submit', async (ev) => { ev.preventDefault(); ok.disabled = true;
+        try { await grava({ status: 'aprovada', codigo: cod.value.trim() || c.num, nome: n.value.trim(), cidade: ci.value.trim(), uf: u.value.trim().toUpperCase() }); } catch (e) { ok.disabled = false; info.textContent = errMsg(e); } });
+      esq.appendChild(f); n.focus();
+    });
+    acts.append(add, ign, ver, info); esq.appendChild(acts);
+    const th = el('div', 'th', 'Sem foto');
+    const p = r0.photos.find((x) => /entrada/i.test(x.label)) || r0.photos[0];
+    if (p) { th.textContent = 'Carregando foto…';
+      loadPhoto(p).then((url) => { th.replaceChildren(); const img = el('img'); img.src = url; img.alt = p.label; img.addEventListener('click', () => lightbox(url)); th.appendChild(img); })
+        .catch(() => { th.replaceChildren(); const a = el('a', null, 'Foto da entrada no Drive'); a.href = 'https://drive.google.com/file/d/' + p.id + '/view'; a.target = '_blank'; a.rel = 'noopener'; th.appendChild(a); }); }
+    card.append(esq, th);
+    return card;
   }
 
   // ---------- render ----------
@@ -1261,10 +1356,10 @@ html,body{margin:0}
   // ---------- abas ----------
   function showTab(t) {
     if (!isAdmin()) t = 'painel';
-    ['painel', 'rev', 'susp', 'users'].forEach((x) => { $('#tab-' + x).setAttribute('aria-selected', String(x === t)); $('#pane-' + x).hidden = x !== t; });
+    ['painel', 'rev', 'susp', 'novas', 'users'].forEach((x) => { $('#tab-' + x).setAttribute('aria-selected', String(x === t)); $('#pane-' + x).hidden = x !== t; });
     try { localStorage.setItem('vm-tab', t); } catch (e) {}
   }
-  ['painel', 'rev', 'susp', 'users'].forEach((x) => $('#tab-' + x).addEventListener('click', () => { showTab(x); if (x === 'users') { loadUsers(); loadResp(); } if (x === 'susp') renderSusp(); }));
+  ['painel', 'rev', 'susp', 'novas', 'users'].forEach((x) => $('#tab-' + x).addEventListener('click', () => { showTab(x); if (x === 'users') { loadUsers(); loadResp(); } if (x === 'susp') renderSusp(); if (x === 'novas') renderNovas(); }));
 
   // ---------- controls ----------
   ST.forEach(([s, lab]) => { const b = el('button', 'chip', lab); b.type = 'button'; b.dataset.s = s; b.addEventListener('click', () => { fStatus = s; render(); }); $('#st-chips').appendChild(b); });
