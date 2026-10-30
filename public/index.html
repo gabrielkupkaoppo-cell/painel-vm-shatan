@@ -221,9 +221,9 @@ html,body{margin:0}
   <button class="tab" role="tab" id="tab-painel" aria-selected="true" aria-controls="pane-painel" type="button">Painel · 看板</button>
   <button class="tab" role="tab" id="tab-rev" aria-selected="false" aria-controls="pane-rev" type="button" hidden>Aprovações · 审核<span class="n" id="tab-n" hidden></span></button>
   <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
-  <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Lojas novas · 新门店<span class="n" id="tab-nn" hidden></span></button>
+  <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Códigos errados · 编码错误<span class="n" id="tab-nn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 30/10 13:00</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 30/10 13:15</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -291,11 +291,11 @@ html,body{margin:0}
 </section>
 <section id="pane-novas" role="tabpanel" aria-labelledby="tab-novas" hidden>
 <div class="wrap">
-  <div class="head"><div><h1>Lojas novas<span class="zh">新门店申请</span></h1>
-    <p class="note">Códigos de loja que chegaram pelo Forms e <b>não estão na planilha do Feishu</b>. Para cada um, decida: é uma <b>loja nova</b> (adicione: o sistema cria a linha na aba do canal em até 10 min) ou foi <b>erro de digitação</b> (ignore aqui e corrija o código no envio, em Aprovações).</p></div></div>
+  <div class="head"><div><h1>Códigos de loja errados<span class="zh">门店编码错误</span></h1>
+    <p class="note">Envios em que o promotor deixou o código da loja em branco ou digitou um código que <b>não existe na planilha do Feishu</b>. Use a lista para cobrar cada região: o promotor deve mandar o Forms de novo com o código certo. Quando o envio novo chegar com o código certo, a loja sai daqui sozinha.</p></div>
+    <div><button class="btn" type="button" id="n-csv">Baixar lista (Excel/CSV) · 下载</button></div></div>
+  <div class="bar"><select id="n-uf" aria-label="Estado"><option value="">Todos os estados · 全部州</option></select></div>
   <div id="n-lista"></div>
-  <h2 style="margin-top:28px">Pedidos feitos · 已处理</h2>
-  <div id="n-feitas"></div>
 </div>
 </section>
 <section id="pane-users" role="tabpanel" aria-labelledby="tab-users" hidden>
@@ -787,81 +787,57 @@ html,body{margin:0}
     return box;
   }
 
-  // ---------- lojas novas: código que não está na planilha ----------
+  // ---------- códigos de loja errados (para cobrar a região) ----------
   const ultimoNum = (raw) => { const m = String(raw || '').match(/\d+/g); return m ? m[m.length - 1] : ''; };
-  function candidatosNovas() {
-    const g = new Map();
-    rows.forEach((r) => {
-      const st = stOf(r); if (st === 'sb' || st === 'rp' || r.lojaOrig != null) return;
-      if (!lojasDoCanal(r.canal).length || lojaNaBase(r.canal, r.lojaRaw)) return;
-      const num = ultimoNum(r.lojaRaw); if (!num) return;
-      const k = r.canal + '|' + codN(num);
-      if (lojasNovas.some((x) => x.canal === r.canal && codN(x.codigo) === codN(num))) return;
-      const it = g.get(k) || { k, canal: r.canal, num, envios: [] }; it.envios.push(r); g.set(k, it);
+  function codigosErrados() {
+    // um por loja/promotor: o envio mais recente; some se depois chegou envio certo do mesmo promotor no mesmo canal
+    const lst = rows.filter((r) => { const st = stOf(r); if (st === 'sb' || st === 'rp' || r.lojaOrig != null) return false;
+      if (!lojasDoCanal(r.canal).length) return !String(r.lojaRaw || '').trim();   // canal sem base: só os sem código
+      return !lojaNaBase(r.canal, r.lojaRaw); });
+    const vistos = new Set(), out = [];
+    lst.sort((a, b) => b.data - a.data).forEach((r) => {
+      const k = r.canal + '|' + promotorK(r.nome) + '|' + (ultimoNum(r.lojaRaw) || normT(r.lojaRaw) || '∅'); if (vistos.has(k)) return; vistos.add(k);
+      const certoDepois = rows.some((x) => x.key !== r.key && x.canal === r.canal && mesmoPromotor(x, r) && x.data > r.data && lojaNaBase(x.canal, x.lojaRaw) && (ultimoNum(x.lojaRaw) === ultimoNum(r.lojaRaw) || !ultimoNum(r.lojaRaw)) && stOf(x) !== 'rp');
+      if (!certoDepois) out.push(r);
     });
-    return [...g.values()].map((it) => { it.envios.sort((a, b) => b.data - a.data); return it; }).sort((a, b) => b.envios.length - a.envios.length || b.envios[0].data - a.envios[0].data);
+    return out;
   }
+  const respNome = (uf) => { const x = resp.get(uf); return x && String(x.nome || '').trim(); };
   function renderNovas() {
     const box = $('#n-lista'); if (!box) return; box.replaceChildren();
-    const cs = candidatosNovas();
-    const tn = $('#tab-nn'); tn.hidden = !cs.length; tn.textContent = cs.length;
-    if (!cs.length) box.appendChild(el('div', 'empty', 'Nenhum código desconhecido no momento. · 暂无'));
-    cs.forEach((c) => box.appendChild(cartaoNova(c)));
-    const fx = $('#n-feitas'); fx.replaceChildren();
-    if (!lojasNovas.length) fx.appendChild(el('p', 'note', 'Nenhum pedido ainda.'));
-    lojasNovas.forEach((x) => {
-      const d = el('div', 'nv'); d.style.gridTemplateColumns = '1fr auto';
-      const tx = { aprovada: '⏳ aguardando criação no Feishu (até 10 min)', criada: '✓ ' + (x.info || 'criada'), erro: '⚠ erro: ' + (x.info || ''), ignorada: '✕ ignorada (erro de digitação)' }[x.status] || x.status;
-      const a = el('div'); a.append(el('b', null, x.canal + ' ' + x.codigo + (x.nome ? ' · ' + x.nome : '') + (x.cidade ? ' (' + x.cidade + (x.uf ? '/' + x.uf : '') + ')' : '')), el('br'), el('span', 'note', tx + ' · ' + fmtEm(x.em) + (x.por_email ? ' · ' + x.por_email : '')));
-      const del = el('button', 'linkbtn', x.status === 'criada' ? 'tirar da lista' : 'desfazer'); del.type = 'button';
-      del.addEventListener('click', async () => { del.disabled = true; try { await api('/rest/v1/lojas_novas?id=eq.' + x.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); lojasNovas = lojasNovas.filter((y) => y.id !== x.id); montarBase(); renderNovas(); render(); } catch (e) { del.disabled = false; del.textContent = errMsg(e); } });
-      d.append(a, del); fx.appendChild(d);
+    const todos = codigosErrados();
+    const tn = $('#tab-nn'); tn.hidden = !todos.length; tn.textContent = todos.length;
+    const sel = $('#n-uf'); const cur = sel.value; const ufs = [...new Set(todos.map((r) => r.uf || '—'))].sort();
+    sel.replaceChildren(sel.options[0] || new Option('Todos os estados · 全部州', ''), ...ufs.map((u) => new Option(u + (respNome(u) ? ' · ' + respNome(u) : '') + ' (' + todos.filter((r) => (r.uf || '—') === u).length + ')', u))); sel.value = ufs.includes(cur) ? cur : '';
+    const lista = todos.filter((r) => !sel.value || (r.uf || '—') === sel.value);
+    if (!lista.length) { box.appendChild(el('div', 'empty', 'Nenhum código errado. · 暂无')); return; }
+    const porUf = new Map(); lista.forEach((r) => { const u = r.uf || '—'; if (!porUf.has(u)) porUf.set(u, []); porUf.get(u).push(r); });
+    [...porUf.keys()].sort().forEach((u) => {
+      const itens = porUf.get(u), sec = el('div', 'users'); sec.style.marginBottom = '18px';
+      const h = el('div'); h.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px';
+      h.appendChild(el('b', null, u + ' · ' + (respNome(u) || 'sem responsável cadastrado') + ' — ' + itens.length + ' envio(s)'));
+      const cp = el('button', 'btn', 'Copiar mensagem · 复制'); cp.type = 'button';
+      cp.addEventListener('click', async () => { try { await navigator.clipboard.writeText(msgCobranca(u, itens)); cp.textContent = 'Copiado ✓'; } catch (e) { cp.textContent = 'Não consegui copiar'; } setTimeout(() => { cp.textContent = 'Copiar mensagem · 复制'; }, 2500); });
+      h.appendChild(cp); sec.appendChild(h);
+      const t = el('table'); const th = el('thead'); const trh = el('tr'); ['Enviado em', 'Canal', 'Código digitado', 'Promotor', 'Telefone', 'Situação', ''].forEach((x) => trh.appendChild(el('th', null, x))); th.appendChild(trh); t.appendChild(th);
+      const tb = el('tbody');
+      itens.forEach((r) => { const tr = el('tr');
+        tr.append(el('td', null, fmtD(r.data)), el('td', null, r.canal), el('td', null, String(r.lojaRaw || '').trim() || '(em branco)'), el('td', null, r.nome || '—'), el('td', null, r.tel || '—'), el('td', null, stTxt[stOf(r)]));
+        const td = el('td'); const v = el('button', 'linkbtn', 'ver envio'); v.type = 'button'; v.addEventListener('click', () => { showTab('rev'); fStatus = 'all'; select(r.key); }); td.appendChild(v); tr.appendChild(td);
+        tb.appendChild(tr); });
+      t.appendChild(tb); sec.appendChild(t); box.appendChild(sec);
     });
   }
-  function cartaoNova(c) {
-    const r0 = c.envios[0], card = el('div', 'nv'), esq = el('div');
-    const proms = new Set(c.envios.map((x) => promotorK(x.nome)).filter(Boolean));
-    const ufs = {}; c.envios.forEach((x) => { if (x.uf) ufs[x.uf] = (ufs[x.uf] || 0) + 1; }); const uf = Object.keys(ufs).sort((a, b) => ufs[b] - ufs[a])[0] || '';
-    esq.appendChild(el('h3', null, c.canal + ' · código ' + c.num + (uf ? ' · ' + uf : '')));
-    const datas = c.envios.map((x) => x.data).filter(Boolean);
-    esq.appendChild(el('span', 'note', c.envios.length + ' envio(s) · ' + proms.size + ' promotor(es) · ' + (datas.length ? fmtD(datas[datas.length - 1]).slice(0, 10) + (datas.length > 1 ? ' a ' + fmtD(datas[0]).slice(0, 10) : '') : '') + ' · digitado: "' + String(r0.lojaRaw).trim() + '"'));
-    const ul = el('ul');
-    const real = c.envios.length >= 3 || (c.envios.length >= 2 && proms.size >= 2);
-    const hist = historicoPromotor(r0); const sug = sugestoesLoja(r0).filter((x) => x.motivos.some((m) => /parecido|já mandou|única loja|mesmo dia|min antes/.test(m)));
-    if (real) { const li = el('li'); li.append(el('span', 'tag-real', 'Indício de loja real: '), document.createTextNode('o mesmo código veio em ' + c.envios.length + ' envios' + (proms.size > 1 ? ', de ' + proms.size + ' promotores diferentes' : '') + '.')); ul.appendChild(li); }
-    if (hist.size) { const li = el('li'); li.append(el('span', 'tag-erro', 'Pode ser erro de digitação: '), document.createTextNode('este promotor já mandou ' + [...hist.values()].slice(0, 3).map((h) => nomeLoja(h.l, h.cod) + ' (' + h.n + 'x)').join(', ') + '.')); ul.appendChild(li); }
-    else if (sug.length) { const li = el('li'); li.append(el('span', 'tag-erro', 'Código parecido na planilha: '), document.createTextNode(sug.slice(0, 2).map((x) => nomeLoja(x.l, x.cod)).join(' ou ') + '.')); ul.appendChild(li); }
-    if (!real && !hist.size && !sug.length) ul.appendChild(el('li', null, 'Sem pistas automáticas: confira pela foto da entrada da loja.'));
-    if (/gazin/i.test(c.canal)) ul.appendChild(el('li', null, 'Gazin: ao aprovar o envio a linha já é criada sozinha; aqui você pode adicionar já com nome e cidade.'));
-    esq.appendChild(ul);
-    const acts = el('div', 'acts');
-    const ver = el('button', 'btn', 'Ver envio · 查看'); ver.type = 'button'; ver.addEventListener('click', () => { showTab('rev'); fStatus = 'all'; select(r0.key); });
-    const add = el('button', 'btn ok', '+ É loja nova: adicionar'); add.type = 'button';
-    const ign = el('button', 'btn', 'É erro de digitação: ignorar'); ign.type = 'button';
-    const info = el('span', 'note'); info.setAttribute('role', 'status');
-    const grava = async (corpo) => { const body = [Object.assign({ canal: c.canal, codigo: c.num, uf, por_email: (perfil && perfil.email) || '' }, corpo)];
-      await api('/rest/v1/lojas_novas', { method: 'POST', body, headers: { Prefer: 'return=representation' } }).then((x) => { lojasNovas = (x || body).concat(lojasNovas); }); montarBase(); renderNovas(); render(); };
-    ign.addEventListener('click', async () => { ign.disabled = true; try { await grava({ status: 'ignorada', nome: '', cidade: '' }); } catch (e) { ign.disabled = false; info.textContent = errMsg(e); } });
-    add.addEventListener('click', () => {
-      if (esq.querySelector('form')) return;
-      const f = el('form'); const n = el('input'); n.placeholder = 'Nome da loja'; n.value = c.canal.toUpperCase() + ' ' + c.num; n.setAttribute('aria-label', 'Nome da loja'); n.style.minWidth = '14rem';
-      const ci = el('input'); ci.placeholder = 'Cidade'; ci.setAttribute('aria-label', 'Cidade');
-      const u = el('input'); u.placeholder = 'UF'; u.value = uf; u.maxLength = 2; u.size = 3; u.setAttribute('aria-label', 'Estado');
-      const cod = el('input'); cod.value = c.num; cod.size = 7; cod.setAttribute('aria-label', 'Código da loja'); cod.title = 'Código como vai na planilha';
-      const ok = el('button', 'btn ok', 'Salvar · 保存'); ok.type = 'submit';
-      f.append(el('span', 'note', 'Código:'), cod, n, ci, u, ok);
-      f.addEventListener('submit', async (ev) => { ev.preventDefault(); ok.disabled = true;
-        try { await grava({ status: 'aprovada', codigo: cod.value.trim() || c.num, nome: n.value.trim(), cidade: ci.value.trim(), uf: u.value.trim().toUpperCase() }); } catch (e) { ok.disabled = false; info.textContent = errMsg(e); } });
-      esq.appendChild(f); n.focus();
-    });
-    acts.append(add, ign, ver, info); esq.appendChild(acts);
-    const th = el('div', 'th', 'Sem foto');
-    const p = r0.photos.find((x) => /entrada/i.test(x.label)) || r0.photos[0];
-    if (p) { th.textContent = 'Carregando foto…';
-      loadPhoto(p).then((url) => { th.replaceChildren(); const img = el('img'); img.src = url; img.alt = p.label; img.addEventListener('click', () => lightbox(url)); th.appendChild(img); })
-        .catch(() => { th.replaceChildren(); const a = el('a', null, 'Foto da entrada no Drive'); a.href = 'https://drive.google.com/file/d/' + p.id + '/view'; a.target = '_blank'; a.rel = 'noopener'; th.appendChild(a); }); }
-    card.append(esq, th);
-    return card;
+  function msgCobranca(uf, itens) {
+    const nome = (respNome(uf) || '').split(/\s+/)[0];
+    return (nome ? 'Olá ' + nome + '! ' : 'Olá! ') + 'Estes envios do Forms das mesas (' + uf + ') vieram com o código da loja em branco ou errado. Pode pedir para cada promotor mandar de novo com o código certo da loja?\n\n' +
+      itens.map((r) => '• ' + fmtD(r.data).slice(0, 10) + ' — ' + r.canal + ' — código "' + (String(r.lojaRaw || '').trim() || 'em branco') + '" — ' + (r.nome || '—')).join('\n') + '\n\nObrigado!';
+  }
+  function baixarCsv() {
+    const linhas = [['Estado', 'Responsável', 'Enviado em', 'Canal', 'Código digitado', 'Promotor', 'Telefone', 'Situação']].concat(codigosErrados().sort((a, b) => (a.uf || '').localeCompare(b.uf || '') || b.data - a.data)
+      .map((r) => [r.uf || '', respNome(r.uf) || '', fmtD(r.data), r.canal, String(r.lojaRaw || '').trim(), r.nome || '', r.tel || '', stTxt[stOf(r)]]));
+    const csv = '﻿' + linhas.map((l) => l.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'codigos-errados-' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
   }
 
   // ---------- render ----------
@@ -1365,6 +1341,7 @@ html,body{margin:0}
   ST.forEach(([s, lab]) => { const b = el('button', 'chip', lab); b.type = 'button'; b.dataset.s = s; b.addEventListener('click', () => { fStatus = s; render(); }); $('#st-chips').appendChild(b); });
   ['#f-form', '#f-canal', '#f-uf'].forEach((s) => $(s).addEventListener('change', render));
   $('#f-q').addEventListener('input', render);
+  $('#n-uf').addEventListener('change', renderNovas); $('#n-csv').addEventListener('click', baixarCsv);
   try { if (localStorage.getItem('vm-soultimo') === '0') $('#f-ultimo').checked = false; } catch (e) {}
   $('#f-ultimo').addEventListener('change', () => { try { localStorage.setItem('vm-soultimo', $('#f-ultimo').checked ? '1' : '0'); } catch (e) {} render(); });
   $('#reload').addEventListener('click', () => { load(); });
