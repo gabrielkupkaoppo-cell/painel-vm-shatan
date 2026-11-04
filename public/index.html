@@ -280,7 +280,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 04/11 15:00</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 04/11 15:20</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -385,7 +385,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 <section id="pane-inst" role="tabpanel" aria-labelledby="tab-inst" hidden>
 <div class="wrap">
   <div class="head"><div><h1>Instalações de lojas novas<span class="zh">新店安装跟进</span></h1>
-    <p class="note">Cadastre a loja nova e acompanhe cada etapa: envio da mesa pela matriz, entrega, instalação, material de VM e foto aprovada. Só administradores veem.</p></div>
+    <p class="note">Cadastre a loja nova e acompanhe pela timeline: cada vez que tiver novidade, escreva uma atualização. A mais recente aparece na lista. Só administradores veem.</p></div>
     <div><button class="btn ok" type="button" id="i-nova">+ Cadastrar loja nova · 新增门店</button></div></div>
   <div class="msg" id="i-msg" role="status" hidden></div>
   <div id="i-form"></div>
@@ -1145,20 +1145,20 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     return e;
   }
   const hojeISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const notasDe = (x) => (instNotas.get(x.id) || []).slice().sort((a, b) => new Date(b.em) - new Date(a.em));
   function situacaoInst(x) {
     if (x.status === 'cancelada') return { k: 'can', t: 'Cancelada' };
-    const e = etapasDe(x); const feitas = ETAPAS.filter(([k]) => e[k]).length;
-    if (feitas === ETAPAS.length || x.status === 'concluida') return { k: 'ok', t: 'Concluída', feitas };
-    const prox = ETAPAS.find(([k]) => !e[k]);
+    if (x.status === 'concluida') return { k: 'ok', t: 'Concluída' };
     const atras = x.previsao && x.previsao < hojeISO();
-    return { k: atras ? 'atr' : 'and', t: (atras ? '⚠ Atrasada · ' : '') + 'Próxima: ' + prox[1], feitas };
+    return { k: atras ? 'atr' : 'and', t: atras ? 'Atrasada' : 'Em andamento' };
   }
   function renderInst() {
     const sts = inst.map((x) => ({ x, s: situacaoInst(x) }));
     const n = { and: 0, atr: 0, ok: 0 }; sts.forEach(({ s }) => { if (s.k === 'and') n.and++; else if (s.k === 'atr') n.atr++; else if (s.k === 'ok') n.ok++; });
     const tn = $('#tab-in'); tn.hidden = !(n.and + n.atr); tn.textContent = n.and + n.atr;
     const k = $('#i-kpis'); k.replaceChildren();
-    [['Em andamento', n.and + n.atr, 'aw'], ['Atrasadas (passou da previsão)', n.atr, 'rp'], ['Concluídas', n.ok, 'ap']].forEach(([t, v, c]) => { const d = el('div', 'count ' + c); d.append(el('b', null, String(v)), el('span', null, t)); k.appendChild(d); });
+    const parado = sts.filter(({ x, s }) => (s.k === 'and' || s.k === 'atr') && (Date.now() - new Date((notasDe(x)[0] || x).em || x.criada_em)) > 7 * 864e5).length;
+    [['Em andamento', n.and + n.atr, 'aw'], ['Atrasadas (passou da previsão)', n.atr, 'rp'], ['Sem atualização há 7+ dias', parado, 'rp'], ['Concluídas', n.ok, 'ap']].forEach(([t, v, c]) => { const d = el('div', 'count ' + c); d.append(el('b', null, String(v)), el('span', null, t)); k.appendChild(d); });
     const chips = $('#i-st'); if (!chips.children.length) [['and', 'Pendentes · 进行中'], ['atr', 'Atrasadas · 逾期'], ['ok', 'Concluídas · 已完成'], ['all', 'Todas · 全部']].forEach(([v, t]) => { const b = el('button', 'chip', t); b.type = 'button'; b.dataset.s = v; b.addEventListener('click', () => { instSt = v; renderInst(); }); chips.appendChild(b); });
     chips.querySelectorAll('.chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.s === instSt)));
     const enche = (sel, lab, vals) => { const cur = sel.value; sel.replaceChildren(new Option(lab, ''), ...vals.map((v) => new Option(v, v))); sel.value = vals.includes(cur) ? cur : ''; };
@@ -1173,9 +1173,11 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       const b = el('button', 'item' + (x.id === instSel ? ' sel' : '')); b.type = 'button';
       b.appendChild(el('span', 't', x.canal + ' · ' + (x.codigo || 's/ código') + (x.nome ? ' · ' + titulo(x.nome) : '')));
       b.appendChild(el('span', 'pill ' + (s.k === 'ok' ? 'ap' : s.k === 'atr' ? 'rp' : s.k === 'can' ? 'sb' : 'aw'), s.k === 'ok' ? 'Concluída' : s.k === 'can' ? 'Cancelada' : s.k === 'atr' ? 'Atrasada' : 'Em andamento'));
-      const dots = el('span', 'dots'); const e = etapasDe(x); ETAPAS.forEach(([kk]) => dots.appendChild(el('i', e[kk] ? 'on' : ''))); 
-      const sub = el('span', 's'); sub.append(dots, document.createTextNode(' ' + [titulo(x.cidade), x.uf].filter(Boolean).join('/') + ' · ' + s.t.replace(/^⚠ Atrasada · /, '') + (x.previsao ? ' · previsão ' + fmtD10(x.previsao) : '')));
-      b.appendChild(sub); b.addEventListener('click', () => { instSel = x.id; renderInst(); }); box.appendChild(b);
+      const ult = notasDe(x)[0];
+      b.appendChild(el('span', 's', [titulo(x.cidade), x.uf].filter(Boolean).join('/') + (x.previsao ? ' · previsão ' + fmtD10(x.previsao) : '')));
+      const u0 = el('span', 's'); u0.style.color = 'var(--fg)';
+      u0.textContent = ult ? '🕓 ' + fmtEm(ult.em).slice(0, 10) + ' — ' + (ult.texto.length > 90 ? ult.texto.slice(0, 90) + '…' : ult.texto) : '🕓 Sem atualização ainda';
+      b.appendChild(u0); b.addEventListener('click', () => { instSel = x.id; renderInst(); }); box.appendChild(b);
     });
     renderInstDet();
   }
@@ -1241,39 +1243,41 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const ln = lojasNovas.find((y) => y.canal === x.canal && codN(y.codigo) === codN(x.codigo));
     const naBase = lojaNaBase(x.canal, x.codigo);
     d.appendChild(el('p', 'note', naBase && !naBase.nova ? '✓ A loja já está na planilha do Feishu (aba ' + x.canal + ').' : ln ? (ln.status === 'criada' ? '✓ Linha criada no Feishu: ' + (ln.info || '') : ln.status === 'erro' ? '⚠ Feishu: ' + (ln.info || 'erro ao criar a linha') : '⏳ Linha no Feishu será criada no próximo ciclo (até 10 min).') : 'A loja ainda não está na planilha do Feishu.'));
-    // timeline
+    // timeline = as atualizações, da mais nova para a mais antiga
     d.appendChild(el('h3', null, 'Timeline · 进度'));
-    const ul = el('ul', 'tl'); const prox = ETAPAS.find(([k0]) => !e[k0]);
-    ETAPAS.forEach(([k0, t, zh], i) => {
-      const li = el('li', e[k0] ? 'feito' : (prox && prox[0] === k0 && x.status !== 'cancelada' ? 'atual' : ''));
-      li.appendChild(el('b', null, (i + 1) + '. ' + t + ' · ' + zh));
-      if (e[k0]) {
-        li.appendChild(el('span', 'note', '✓ ' + fmtEm(e[k0].em).slice(0, 10) + (e[k0].por ? ' · ' + e[k0].por : '') + (e[k0].obs ? ' — ' + e[k0].obs : '')));
-        if (e[k0].key) { const v = el('button', 'linkbtn', 'ver o envio aprovado'); v.type = 'button'; v.addEventListener('click', () => { showTab('rev'); fStatus = 'all'; select(e[k0].key); }); li.appendChild(v); }
-        else if (k0 !== 'cadastro' && x.etapas && x.etapas[k0]) { const u = el('button', 'linkbtn', 'desfazer'); u.type = 'button'; u.addEventListener('click', () => salvarEtapa(x, k0, null)); li.appendChild(u); }
-      } else if (x.status !== 'cancelada') {
-        const a = el('div', 'acao'); const dt = el('input'); dt.type = 'date'; dt.value = hojeISO(); dt.setAttribute('aria-label', 'Data de ' + t);
-        const ob = el('input'); ob.placeholder = 'detalhe (opcional)'; ob.setAttribute('aria-label', 'Detalhe de ' + t);
-        const b = el('button', 'btn', '✓ Marcar como feito'); b.type = 'button'; b.addEventListener('click', () => salvarEtapa(x, k0, { em: new Date(dt.value + 'T12:00:00').toISOString(), por: perfil.email || '', obs: ob.value.trim() }));
-        a.append(dt, ob, b); li.appendChild(a);
-        if (k0 === 'foto') li.appendChild(el('span', 'note', 'Fica feito sozinho quando você aprovar um envio do Forms desta loja.'));
-      }
-      ul.appendChild(li);
-    });
+    if (x.status !== 'cancelada' && x.status !== 'concluida') {
+      const nv = el('div'); nv.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-bottom:8px';
+      const ta = el('textarea'); ta.placeholder = 'Nova atualização (ex.: mesa saiu do CD, chegou na loja, instalada, faltou o totem…)'; ta.rows = 2; ta.style.cssText = 'width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:6px';
+      const ln = el('div'); ln.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+      const dt = el('input'); dt.type = 'date'; dt.value = hojeISO(); dt.setAttribute('aria-label', 'Data da atualização'); dt.style.cssText = 'font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:6px';
+      const add = el('button', 'btn ok', 'Adicionar à timeline · 添加'); add.type = 'button';
+      add.addEventListener('click', async () => { const t = ta.value.trim(); if (!t) { ta.focus(); return; } add.disabled = true;
+        const em = dt.value === hojeISO() ? new Date().toISOString() : new Date(dt.value + 'T12:00:00').toISOString();
+        try { await api('/rest/v1/instalacao_notas', { method: 'POST', body: [{ instalacao_id: x.id, texto: t, por_email: perfil.email || '', em }], headers: { Prefer: 'return=minimal' } });
+          await api('/rest/v1/instalacoes?id=eq.' + x.id, { method: 'PATCH', body: { atualizado_em: new Date().toISOString() }, headers: { Prefer: 'return=minimal' } }); await loadInst(); }
+        catch (er) { add.disabled = false; add.textContent = errMsg(er); } });
+      ln.append(el('span', 'note', 'Data:'), dt, add); nv.append(ta, ln); d.appendChild(nv);
+    }
+    const itens = notasDe(x).map((n0) => ({ em: n0.em, por: n0.por_email, t: n0.texto, id: n0.id }));
+    const f = fotoDaInst(x); if (f) itens.push({ em: f.data.toISOString(), por: 'automático', t: '📷 Foto aprovada no Forms (envio de ' + (f.nome || '—') + ')', key: f.key });
+    itens.push({ em: x.criada_em, por: x.por_email, t: '🏬 Loja cadastrada' });
+    itens.sort((a, b) => new Date(b.em) - new Date(a.em));
+    const ul = el('ul', 'tl');
+    itens.forEach((it, i) => { const li = el('li', i === 0 ? 'atual' : 'feito');
+      li.appendChild(el('span', 'note', fmtEm(it.em).slice(0, 10) + (it.por ? ' · ' + it.por : '')));
+      const tx = el('div', null, it.t); tx.style.whiteSpace = 'pre-wrap'; li.appendChild(tx);
+      if (it.key) { const v = el('button', 'linkbtn', 'ver o envio'); v.type = 'button'; v.addEventListener('click', () => { showTab('rev'); fStatus = 'all'; select(it.key); }); li.appendChild(v); }
+      if (it.id && it.por === perfil.email) { const del = el('button', 'linkbtn', 'apagar'); del.type = 'button'; del.style.marginLeft = '8px';
+        del.addEventListener('click', async () => { if (!confirmar(del, 'confirmar?')) return; try { await api('/rest/v1/instalacao_notas?id=eq.' + it.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); await loadInst(); } catch (er) { del.textContent = errMsg(er); } }); li.appendChild(del); }
+      ul.appendChild(li); });
     d.appendChild(ul);
-    // observações
-    d.appendChild(el('h3', null, 'Observações · 备注'));
-    (instNotas.get(x.id) || []).forEach((n0) => { const c = el('div', 'nota'); c.append(el('small', 'note', fmtEm(n0.em) + ' · ' + (n0.por_email || '')), el('br'), document.createTextNode(n0.texto)); d.appendChild(c); });
-    const ta = el('textarea'); ta.placeholder = 'Escreva uma observação (ex.: mesa chegou com avaria, loja pediu reagendamento…)'; ta.rows = 2; ta.style.cssText = 'width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:6px';
-    const add = el('button', 'btn ok', 'Adicionar observação'); add.type = 'button';
-    add.addEventListener('click', async () => { const t = ta.value.trim(); if (!t) return; add.disabled = true;
-      try { await api('/rest/v1/instalacao_notas', { method: 'POST', body: [{ instalacao_id: x.id, texto: t, por_email: perfil.email || '' }], headers: { Prefer: 'return=minimal' } }); await loadInst(); } catch (er) { add.disabled = false; add.textContent = errMsg(er); } });
-    d.append(ta, add);
     const acts = el('div', 'acts'); acts.style.marginTop = '16px';
     const ed = el('button', 'btn', 'Editar dados da loja'); ed.type = 'button'; ed.addEventListener('click', () => formInst(x));
-    const cn = el('button', 'btn', x.status === 'cancelada' ? 'Reabrir' : 'Cancelar instalação'); cn.type = 'button';
+    const cc = el('button', 'btn ok', x.status === 'concluida' ? 'Reabrir' : '✓ Marcar como concluída'); cc.type = 'button'; cc.hidden = x.status === 'cancelada';
+    cc.addEventListener('click', async () => { try { await api('/rest/v1/instalacoes?id=eq.' + x.id, { method: 'PATCH', body: { status: x.status === 'concluida' ? 'andamento' : 'concluida', atualizado_em: new Date().toISOString() }, headers: { Prefer: 'return=minimal' } }); await loadInst(); } catch (er) { cc.textContent = errMsg(er); } });
+    const cn = el('button', 'btn', x.status === 'cancelada' ? 'Reabrir' : 'Cancelar instalação'); cn.type = 'button'; cn.hidden = x.status === 'concluida';
     cn.addEventListener('click', async () => { if (x.status !== 'cancelada' && !confirmar(cn, 'Confirmar cancelamento?')) return; try { await api('/rest/v1/instalacoes?id=eq.' + x.id, { method: 'PATCH', body: { status: x.status === 'cancelada' ? 'andamento' : 'cancelada', atualizado_em: new Date().toISOString() }, headers: { Prefer: 'return=minimal' } }); await loadInst(); } catch (er) { cn.textContent = errMsg(er); } });
-    acts.append(ed, cn); d.appendChild(acts);
+    acts.append(cc, ed, cn); d.appendChild(acts);
   }
   function confirmar(b, txt) { if (b.dataset.armado) return true; b.dataset.armado = '1'; const old = b.textContent; b.textContent = txt; setTimeout(() => { delete b.dataset.armado; b.textContent = old; }, 4000); return false; }
   async function salvarEtapa(x, k0, val) {
