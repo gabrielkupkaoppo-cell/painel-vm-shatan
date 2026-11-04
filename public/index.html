@@ -241,13 +241,13 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 <nav class="tabs" role="tablist" aria-label="Painel">
   <span class="brand">OPPO · Sha Tan</span>
   <button class="tab" role="tab" id="tab-painel" aria-selected="true" aria-controls="pane-painel" type="button">Painel · 看板</button>
-  <button class="tab" role="tab" id="tab-resumo" aria-selected="false" aria-controls="pane-resumo" type="button" hidden>Resumo da região · 区域摘要</button>
+  <button class="tab" role="tab" id="tab-resumo" aria-selected="false" aria-controls="pane-resumo" type="button" hidden>Resumo · 摘要</button>
   <button class="tab" role="tab" id="tab-rev" aria-selected="false" aria-controls="pane-rev" type="button" hidden>Aprovações · 审核<span class="n" id="tab-n" hidden></span></button>
   <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
   <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Códigos errados · 编码错误<span class="n" id="tab-nn" hidden></span></button>
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 04/11 13:15</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 04/11 13:30</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -340,11 +340,11 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 </section>
 <section id="pane-resumo" role="tabpanel" aria-labelledby="tab-resumo" hidden>
 <div class="wrap">
-  <div class="head"><div><h1>Resumo da região<span class="zh">区域摘要</span></h1>
+  <div class="head"><div><h1>Resumo por estado<span class="zh">各州摘要</span></h1>
     <p class="note" id="r-sub">Lojas que precisam de ação: fotos reprovadas, lojas com apontamento de VM e lojas sem foto atualizada há mais de 35 dias.</p></div>
     <div><button class="btn" type="button" id="r-csv">Baixar lista · 下载</button></div></div>
   <div class="msg" id="r-msg" role="status" hidden></div>
-  <div class="bar"><select id="r-reg" aria-label="Região" hidden></select> <select id="r-canal" aria-label="Canal"></select> <span class="note" id="r-upd"></span></div>
+  <div class="bar"><select id="r-reg" aria-label="Estado" hidden></select> <select id="r-canal" aria-label="Canal"></select> <span class="note" id="r-upd"></span></div>
   <div class="counts" id="r-kpis"></div>
   <div id="r-corpo"></div>
 </div>
@@ -354,7 +354,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <div class="head"><div><h1>Usuários<span class="zh">用户管理</span></h1>
     <p class="note">Quem pede acesso aparece aqui. Ligue "Ativo" para liberar e escolha o papel: Leitor vê o painel; Administrador também aprova fotos e libera usuários.</p></div></div>
   <div class="msg" id="u-status" role="status" hidden></div>
-  <div class="users"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Papel · 角色</th><th>Ativo · 启用</th><th>Região que vê (leitor) · 可见区域</th><th>Pedido em</th><th></th></tr></thead><tbody id="u-body"></tbody></table></div>
+  <div class="users"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Papel · 角色</th><th>Ativo · 启用</th><th>Estados que vê (leitor) · 可见州</th><th>Pedido em</th><th></th></tr></thead><tbody id="u-body"></tbody></table></div>
   <div class="head" style="margin-top:28px"><div><h2 style="margin:0">Responsáveis por estado<span class="zh"> · 各州负责人</span></h2>
     <p class="note">Quem responde por cada estado. Usado no ranking da aba Suspeitas. (Os avisos de aprovação/reprovação estão desligados.)</p></div></div>
   <div class="msg" id="r-status" role="status" hidden></div>
@@ -465,7 +465,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 
   // ---------- depois do login ----------
   const isAdmin = () => perfil && perfil.ativo && perfil.papel === 'admin';
-  const isRegional = () => !isAdmin() && perfil && Array.isArray(perfil.regioes) && perfil.regioes.length > 0;
+  const isRegional = () => !isAdmin() && perfil && Array.isArray(perfil.estados) && perfil.estados.length > 0;
+  const UF_LISTA = ['AM', 'AC', 'RR', 'RO', 'CE', 'PI', 'DF', 'GO', 'MA', 'TO', 'MT', 'MS', 'PA', 'AP'];
   const REG_LISTA = ['AM/AC/RR/RO', 'CE/PI', 'DF/GO', 'MA/TO', 'MT/MS', 'PA/AP'];
   async function start() {
     const uid = (sess.user && sess.user.id) || (await authCall('user', undefined, await token())).id;
@@ -475,7 +476,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     if (!perfil || !perfil.ativo) { showView('v-wait'); $('#w-text').textContent = 'Seu cadastro foi recebido. Assim que o administrador liberar, clique em "Já fui liberado". · 管理员开通后即可登录。'; return; }
     showView('v-app');
     $('#who').textContent = perfil.nome || perfil.email;
-    $('#who-role').textContent = isAdmin() ? 'Administrador · 管理员' : (isRegional() ? 'Leitor · ' + perfil.regioes.join(', ') : 'Leitor · 查看');
+    $('#who-role').textContent = isAdmin() ? 'Administrador · 管理员' : (isRegional() ? 'Leitor · ' + perfil.estados.join(', ') : 'Leitor · 查看');
     $('#tab-resumo').hidden = false; $('#tab-painel').hidden = isRegional();
     $('#tab-rev').hidden = !isAdmin(); $('#tab-users').hidden = !isAdmin(); $('#tab-susp').hidden = !isAdmin(); $('#tab-novas').hidden = !isAdmin(); $('#tab-cob').hidden = !isAdmin();
     $('#imp').hidden = true; // importação do Excel desativada: o painel vem do Feishu
@@ -992,11 +993,15 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const msg = $('#r-msg'); const n = ++resumoReq;
     const sel = $('#r-reg');
     if (!sel.options.length) {
-      if (!isRegional()) { sel.replaceChildren(new Option('Todas as regiões · 全部区域', ''), ...REG_LISTA.map((g) => new Option(g, g))); sel.hidden = false; }
-      else if (perfil.regioes.length > 1) { sel.replaceChildren(new Option('Minhas regiões (' + perfil.regioes.join(' + ') + ')', ''), ...perfil.regioes.map((g) => new Option(g, g))); sel.hidden = false; }
+      if (!isRegional()) {
+        sel.replaceChildren(new Option('Todos os estados · 全部州', ''));
+        REG_LISTA.forEach((g) => { const og = el('optgroup'); og.label = g; og.appendChild(new Option('Região ' + g + ' (todos)', 'R:' + g)); g.split('/').forEach((uf) => og.appendChild(new Option(uf, uf))); sel.appendChild(og); });
+        sel.hidden = false;
+      } else if (perfil.estados.length > 1) { sel.replaceChildren(new Option('Meus estados (' + perfil.estados.join(' + ') + ')', ''), ...perfil.estados.map((g) => new Option(g, g))); sel.hidden = false; }
     }
     try {
-      const body = { p_regioes: sel.value ? [sel.value] : null };
+      const v = sel.value;
+      const body = { p_estados: !v ? null : v.startsWith('R:') ? v.slice(2).split('/') : [v] };
       const r = await api('/rest/v1/rpc/resumo_regional', { method: 'POST', body });
       if (n !== resumoReq) return;
       resumo = r; msg.hidden = true; renderResumo();
@@ -1005,8 +1010,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   function renderResumo() {
     if (!resumo) return;
     const lojas = resumo.lojas || [];
-    const regTxt = (resumo.regioes && resumo.regioes.length) ? resumo.regioes.join(', ') : 'todas as regiões';
-    $('#r-sub').textContent = 'Região: ' + regTxt + '. Lojas que precisam de ação: fotos reprovadas (aguardando foto nova), lojas com apontamento de VM e lojas sem foto atualizada há mais de 35 dias.';
+    const regTxt = (resumo.estados && resumo.estados.length) ? resumo.estados.join(', ') : 'todos';
+    $('#r-sub').textContent = 'Estados: ' + regTxt + '. Lojas que precisam de ação: fotos reprovadas (aguardando foto nova), lojas com apontamento de VM e lojas sem foto atualizada há mais de 35 dias.';
     $('#r-upd').textContent = resumo.atualizado_em ? 'Dados de ' + fmtEm(resumo.atualizado_em) : '';
     const lojaDe = (canal, raw) => { const c = canalNorm(canal), n = numDe(raw); if (!n) return null; const cand = lojas.filter((l) => l.canal === c && (codN(l.codigo) === codN(raw) || digL(l.codigo) === n)); return cand.length === 1 ? cand[0] : (cand.find((l) => codN(l.codigo) === n) || null); };
     // reprovadas que ainda não tiveram foto nova aprovada
@@ -1386,19 +1391,21 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       const td1 = el('td'); td1.appendChild(sel); tr.appendChild(td1);
       const lab = el('label', 'sw'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = u.ativo; cb.disabled = me; lab.append(cb, document.createTextNode(u.ativo ? 'Ativo' : 'Aguardando'));
       const td2 = el('td'); td2.appendChild(lab); tr.appendChild(td2);
-      const tdr = el('td'); const regSel = new Set(u.regioes || []);
-      const regBox = el('div'); regBox.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px 10px;font-size:.78rem;max-width:20rem';
-      REG_LISTA.forEach((g) => { const l = el('label'); const c = el('input'); c.type = 'checkbox'; c.checked = regSel.has(g); c.disabled = me;
-        c.addEventListener('change', () => { if (c.checked) regSel.add(g); else regSel.delete(g); dirty(); }); l.append(c, document.createTextNode(' ' + g)); regBox.appendChild(l); });
-      tdr.appendChild(regBox); tdr.appendChild(el('small', 'note', 'Nenhuma marcada = vê tudo.')); tr.appendChild(tdr);
-      const regMudou = () => [...regSel].sort().join('|') !== [...(u.regioes || [])].sort().join('|');
+      const tdr = el('td'); const regSel = new Set(u.estados || []);
+      const regBox = el('div'); regBox.style.cssText = 'display:flex;flex-direction:column;gap:2px;font-size:.78rem';
+      REG_LISTA.forEach((g) => { const linha = el('div'); linha.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap'; linha.appendChild(el('span', 'note', g.replace(/\//g, ' · ') + ':'));
+        g.split('/').forEach((uf) => { const l = el('label'); const c = el('input'); c.type = 'checkbox'; c.checked = regSel.has(uf); c.disabled = me;
+          c.addEventListener('change', () => { if (c.checked) regSel.add(uf); else regSel.delete(uf); dirty(); }); l.append(c, document.createTextNode(' ' + uf)); linha.appendChild(l); });
+        regBox.appendChild(linha); });
+      tdr.appendChild(regBox); tdr.appendChild(el('small', 'note', 'Nenhum marcado = vê tudo.')); tr.appendChild(tdr);
+      const regMudou = () => [...regSel].sort().join('|') !== [...(u.estados || [])].sort().join('|');
       tr.appendChild(el('td', null, fmtEm(u.criado_em)));
       const td3 = el('td'); const sv = el('button', 'btn', me ? 'Você' : 'Salvar · 保存'); sv.type = 'button'; sv.disabled = true; td3.appendChild(sv); tr.appendChild(td3);
       const dirty = () => { sv.disabled = me || (sel.value === u.papel && cb.checked === u.ativo && !regMudou()); };
       sel.addEventListener('change', dirty); cb.addEventListener('change', dirty);
       sv.addEventListener('click', async () => {
         sv.disabled = true; sv.textContent = 'Salvando…';
-        try { await api('/rest/v1/perfis?id=eq.' + u.id, { method: 'PATCH', body: { papel: sel.value, ativo: cb.checked, regioes: [...regSel].sort() }, headers: { Prefer: 'return=minimal' } }); u.papel = sel.value; u.ativo = cb.checked; u.regioes = [...regSel].sort(); renderUsers(); }
+        try { await api('/rest/v1/perfis?id=eq.' + u.id, { method: 'PATCH', body: { papel: sel.value, ativo: cb.checked, estados: [...regSel].sort() }, headers: { Prefer: 'return=minimal' } }); u.papel = sel.value; u.ativo = cb.checked; u.estados = [...regSel].sort(); renderUsers(); }
         catch (e) { sv.textContent = 'Erro — tentar de novo'; sv.disabled = false; $('#u-status').hidden = false; $('#u-status').textContent = errMsg(e); }
       });
       tb.appendChild(tr);
