@@ -51,7 +51,7 @@ input[type=search]{min-width:min(100%,14rem)}
 .item .t{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .item .s{font-size:.76rem;color:var(--muted);grid-column:1/-1}
 .pill{display:inline-block;font-size:.72rem;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap;align-self:start}
-.pill.aw{background:var(--warn-bg);color:var(--warn)} .pill.ap{background:var(--ok-bg);color:var(--ok)} .pill.rp{background:var(--bad-bg);color:var(--bad)} .pill.sb{background:#eee;color:#666} .pill.mais{background:#eef2ff;color:#3949ab}
+.pill.aw{background:var(--warn-bg);color:var(--warn)} .pill.ap{background:var(--ok-bg);color:var(--ok)} .pill.rp{background:var(--bad-bg);color:var(--bad)} .pill.sb,.pill.ds{background:#eee;color:#666} .pill.mais{background:#eef2ff;color:#3949ab}
 .detail{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .dt{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline}
 .dt h2{margin:0;font-size:1.2rem;font-weight:600}
@@ -280,7 +280,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 04/11 15:20</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 04/11 15:35</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -419,7 +419,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   const FORMS = [{ nome: 'Controle de Mesas' }, { nome: 'Checklist Fast/Operadoras' }];
   const MOTIVOS = ['Sem tag verde / preço', 'Telas apagadas (demo)', 'Faltando aparelho', 'Canvas errado ou antigo', 'Foto ruim ou incompleta', 'Sem mesa OPPO', 'Outro'];
   const MOTZH = { 'Sem tag verde / preço': '缺绿色价签', 'Telas apagadas (demo)': '未开演示', 'Faltando aparelho': '缺样机', 'Canvas errado ou antigo': '画面错误/旧', 'Foto ruim ou incompleta': '照片不合格', 'Sem mesa OPPO': '无OPPO体验台', 'Outro': '其他' };
-  const ST = [['aw', 'Aguardando · 待审核'], ['rp', 'Reprovados · 不通过'], ['ap', 'Aprovados · 通过'], ['sb', 'Substituídos · 已替换'], ['all', 'Todos · 全部']];
+  const ST = [['aw', 'Aguardando · 待审核'], ['rp', 'Reprovados · 不通过'], ['ap', 'Aprovados · 通过'], ['sb', 'Substituídos · 已替换'], ['ds', 'Descartados · 已删除'], ['all', 'Todos · 全部']];
   const $ = (s) => document.querySelector(s);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
@@ -728,8 +728,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       bulkArmed = false; render();
     } catch (e) { b.disabled = false; bulkArmed = false; info.textContent = errMsg(e); }
   }
-  const stOf = (r) => { const x = reviews.get(r.key); return !x ? 'aw' : (x.status === 'Aprovado' ? 'ap' : x.status === 'Reprovado' ? 'rp' : x.status === 'Substituído' ? 'sb' : 'aw'); };
-  const stTxt = { aw: 'Aguardando', ap: 'Aprovado', rp: 'Reprovado', sb: 'Substituído' };
+  const stOf = (r) => { const x = reviews.get(r.key); return !x ? 'aw' : (x.status === 'Aprovado' ? 'ap' : x.status === 'Reprovado' ? 'rp' : x.status === 'Substituído' ? 'sb' : x.status === 'Descartado' ? 'ds' : 'aw'); };
+  const stTxt = { aw: 'Aguardando', ap: 'Aprovado', rp: 'Reprovado', sb: 'Substituído', ds: 'Descartado' };
 
 
   // ---------- carregar envios ----------
@@ -895,7 +895,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   const ultimoNum = (raw) => { const m = String(raw || '').match(/\d+/g); return m ? m[m.length - 1] : ''; };
   function codigosErrados() {
     // um por loja/promotor: o envio mais recente; some se depois chegou envio certo do mesmo promotor no mesmo canal
-    const lst = rows.filter((r) => { const st = stOf(r); if (st === 'sb' || st === 'rp' || r.lojaOrig != null) return false;
+    const lst = rows.filter((r) => { const st = stOf(r); if (st === 'sb' || st === 'rp' || st === 'ds' || r.lojaOrig != null) return false;
       if (!lojasDoCanal(r.canal).length) return !String(r.lojaRaw || '').trim();   // canal sem base: só os sem código
       return !lojaNaBase(r.canal, r.lojaRaw); });
     const vistos = new Set(), out = [];
@@ -927,15 +927,31 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       h.appendChild(el('b', null, 'Região ' + u + ' · ' + (respRegiao(u, itens) || 'sem responsável cadastrado') + ' — ' + itens.length + ' envio(s)'));
       const cp = el('button', 'btn', 'Copiar mensagem · 复制'); cp.type = 'button';
       cp.addEventListener('click', async () => { try { await navigator.clipboard.writeText(msgCobranca(u, itens)); cp.textContent = 'Copiado ✓'; } catch (e) { cp.textContent = 'Não consegui copiar'; } setTimeout(() => { cp.textContent = 'Copiar mensagem · 复制'; }, 2500); });
-      h.appendChild(cp); sec.appendChild(h);
+      const bx = el('div'); bx.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+      const delAll = el('button', 'btn', 'Excluir todos desta região'); delAll.type = 'button';
+      delAll.addEventListener('click', () => { if (!confirmar(delAll, 'Confirmar: excluir ' + itens.length + ' envio(s)?')) return; descartar(itens, delAll); });
+      bx.append(cp, delAll); h.appendChild(bx); sec.appendChild(h);
       const t = el('table'); const th = el('thead'); const trh = el('tr'); ['Enviado em', 'Estado', 'Canal', 'Código digitado', 'Promotor', 'Telefone', 'Situação', ''].forEach((x) => trh.appendChild(el('th', null, x))); th.appendChild(trh); t.appendChild(th);
       const tb = el('tbody');
       itens.forEach((r) => { const tr = el('tr');
         tr.append(el('td', null, fmtD(r.data)), el('td', null, r.uf || '—'), el('td', null, r.canal), el('td', null, String(r.lojaRaw || '').trim() || '(em branco)'), el('td', null, r.nome || '—'), el('td', null, r.tel || '—'), el('td', null, stTxt[stOf(r)]));
-        const td = el('td'); const v = el('button', 'linkbtn', 'ver envio'); v.type = 'button'; v.addEventListener('click', () => { showTab('rev'); fStatus = 'all'; select(r.key); }); td.appendChild(v); tr.appendChild(td);
+        const td = el('td'); td.style.whiteSpace = 'nowrap'; const v = el('button', 'linkbtn', 'ver envio'); v.type = 'button'; v.addEventListener('click', () => { showTab('rev'); fStatus = 'all'; select(r.key); }); td.appendChild(v);
+        const dl = el('button', 'linkbtn', 'excluir'); dl.type = 'button'; dl.style.marginLeft = '10px'; dl.style.color = 'var(--bad)'; dl.title = 'Tira este envio das listas. A loja continua pendente até chegar um envio com o código certo.';
+        dl.addEventListener('click', () => { if (!confirmar(dl, 'confirmar?')) return; descartar([r], dl); }); td.appendChild(dl); tr.appendChild(td);
         tb.appendChild(tr); });
       t.appendChild(tb); sec.appendChild(t); box.appendChild(sec);
     });
+  }
+  // envio com código errado: sai das listas (status Descartado). Não conta como foto da loja: a loja segue pendente.
+  async function descartar(itens, btn) {
+    btn.disabled = true;
+    try {
+      const obs = 'Código de loja errado — excluído da lista';
+      await saveRevs(itens.map((r) => ({ key: r.key, status: 'Descartado', motivos: 'Código de loja errado', obs })));
+      const em = fmtEm(new Date().toISOString()) + ' · ' + (perfil.email || '');
+      itens.forEach((r) => reviews.set(r.key, { status: 'Descartado', motivo: 'Código de loja errado', obs, em }));
+      renderNovas(); render();
+    } catch (e) { btn.disabled = false; btn.textContent = errMsg(e); }
   }
   function msgCobranca(rg, itens) {
     const nomes = [...new Set(itens.map((r) => (respNome(r.uf) || '').split(/\s+/)[0]).filter(Boolean))];
@@ -1395,7 +1411,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const top = el('div', 'dt');
     const h = el('h2', null, r.canal + ' · loja ' + (r.loja || 'sem código'));
     top.appendChild(h);
-    const s = stOf(r); top.appendChild(el('span', 'pill ' + s, s === 'aw' ? 'Aguardando · 待审核' : s === 'ap' ? 'Aprovado · 通过' : s === 'sb' ? 'Substituído · 已被替换' : 'Reprovado · 不通过'));
+    const s = stOf(r); top.appendChild(el('span', 'pill ' + s, s === 'aw' ? 'Aguardando · 待审核' : s === 'ap' ? 'Aprovado · 通过' : s === 'sb' ? 'Substituído · 已被替换' : s === 'ds' ? 'Descartado · 已删除' : 'Reprovado · 不通过'));
     d.appendChild(top);
     { const ant = s === 'aw' ? anterioresAguardando(r) : [];
       if (ant.length) {
