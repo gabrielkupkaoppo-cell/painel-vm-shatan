@@ -247,7 +247,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Códigos errados · 编码错误<span class="n" id="tab-nn" hidden></span></button>
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 04/11 13:00</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 04/11 13:15</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -991,9 +991,12 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   async function loadResumo() {
     const msg = $('#r-msg'); const n = ++resumoReq;
     const sel = $('#r-reg');
-    if (!isRegional() && !sel.options.length) { sel.replaceChildren(new Option('Todas as regiões · 全部区域', ''), ...REG_LISTA.map((g) => new Option(g, g))); sel.hidden = false; }
+    if (!sel.options.length) {
+      if (!isRegional()) { sel.replaceChildren(new Option('Todas as regiões · 全部区域', ''), ...REG_LISTA.map((g) => new Option(g, g))); sel.hidden = false; }
+      else if (perfil.regioes.length > 1) { sel.replaceChildren(new Option('Minhas regiões (' + perfil.regioes.join(' + ') + ')', ''), ...perfil.regioes.map((g) => new Option(g, g))); sel.hidden = false; }
+    }
     try {
-      const body = { p_regioes: !isRegional() && sel.value ? [sel.value] : null };
+      const body = { p_regioes: sel.value ? [sel.value] : null };
       const r = await api('/rest/v1/rpc/resumo_regional', { method: 'POST', body });
       if (n !== resumoReq) return;
       resumo = r; msg.hidden = true; renderResumo();
