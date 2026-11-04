@@ -247,7 +247,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Códigos errados · 编码错误<span class="n" id="tab-nn" hidden></span></button>
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 04/11 13:45</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 04/11 14:00</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -352,11 +352,11 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 <section id="pane-users" role="tabpanel" aria-labelledby="tab-users" hidden>
 <div class="wrap">
   <div class="head"><div><h1>Usuários<span class="zh">用户管理</span></h1>
-    <p class="note">Quem pede acesso aparece aqui. Ligue "Ativo" para liberar e escolha o papel: Leitor vê o painel; Administrador também aprova fotos e libera usuários.</p></div></div>
+    <p class="note">Quem pede acesso aparece aqui. Ligue "Ativo" para liberar e escolha o papel: Leitor vê só o Resumo dos estados ligados a ele (tabela abaixo); Administrador vê tudo, aprova fotos e libera usuários.</p></div></div>
   <div class="msg" id="u-status" role="status" hidden></div>
   <div class="users"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Papel · 角色</th><th>Ativo · 启用</th><th>Estados que vê · 可见州</th><th>Pedido em</th><th></th></tr></thead><tbody id="u-body"></tbody></table></div>
   <div class="head" style="margin-top:28px"><div><h2 style="margin:0">Responsáveis por estado<span class="zh"> · 各州负责人</span></h2>
-    <p class="note">Quem responde por cada estado. <b>A pessoa escolhida em "Usuário do site" vê no Resumo só os estados em que aparece aqui.</b> Se não escolher, vale quem tiver no login o mesmo e-mail da coluna Feishu. Estado sem usuário ligado: ninguém de fora vê.</p></div></div>
+    <p class="note">Quem responde por cada estado. <b>A pessoa escolhida em "Usuário do site" vê no Resumo só os estados em que aparece aqui.</b> Se não escolher, vale quem tiver no login o mesmo e-mail da coluna Feishu. Leitor que não aparece em nenhum estado não vê nada.</p></div></div>
   <div class="msg" id="r-status" role="status" hidden></div>
   <div class="users"><table><thead><tr><th>Estado</th><th>Responsável · 负责人</th><th>WhatsApp (DDD + número)</th><th>Feishu (e-mail ou celular)</th><th>Usuário do site (vê o Resumo destes estados)</th><th></th></tr></thead><tbody id="r-body"></tbody></table></div>
 </div>
@@ -465,7 +465,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 
   // ---------- depois do login ----------
   const isAdmin = () => perfil && perfil.ativo && perfil.papel === 'admin';
-  const isRegional = () => !isAdmin() && perfil && Array.isArray(perfil.estados) && perfil.estados.length > 0;
+  const isRegional = () => !isAdmin() && !!perfil;   // leitor: só o Resumo dos estados ligados a ele
   const UF_LISTA = ['AM', 'AC', 'RR', 'RO', 'CE', 'PI', 'DF', 'GO', 'MA', 'TO', 'MT', 'MS', 'PA', 'AP'];
   const REG_LISTA = ['AM/AC/RR/RO', 'CE/PI', 'DF/GO', 'MA/TO', 'MT/MS', 'PA/AP'];
   async function start() {
@@ -477,7 +477,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     if (!perfil || !perfil.ativo) { showView('v-wait'); $('#w-text').textContent = 'Seu cadastro foi recebido. Assim que o administrador liberar, clique em "Já fui liberado". · 管理员开通后即可登录。'; return; }
     showView('v-app');
     $('#who').textContent = perfil.nome || perfil.email;
-    $('#who-role').textContent = isAdmin() ? 'Administrador · 管理员' : (isRegional() ? 'Leitor · ' + perfil.estados.join(', ') : 'Leitor · 查看');
+    $('#who-role').textContent = isAdmin() ? 'Administrador · 管理员' : ('Leitor · ' + ((perfil.estados || []).join(', ') || 'sem estado'));
     $('#tab-resumo').hidden = false; $('#tab-painel').hidden = isRegional();
     $('#tab-rev').hidden = !isAdmin(); $('#tab-users').hidden = !isAdmin(); $('#tab-susp').hidden = !isAdmin(); $('#tab-novas').hidden = !isAdmin(); $('#tab-cob').hidden = !isAdmin();
     $('#imp').hidden = true; // importação do Excel desativada: o painel vem do Feishu
@@ -998,7 +998,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
         sel.replaceChildren(new Option('Todos os estados · 全部州', ''));
         REG_LISTA.forEach((g) => { const og = el('optgroup'); og.label = g; og.appendChild(new Option('Região ' + g + ' (todos)', 'R:' + g)); g.split('/').forEach((uf) => og.appendChild(new Option(uf, uf))); sel.appendChild(og); });
         sel.hidden = false;
-      } else if (perfil.estados.length > 1) { sel.replaceChildren(new Option('Meus estados (' + perfil.estados.join(' + ') + ')', ''), ...perfil.estados.map((g) => new Option(g, g))); sel.hidden = false; }
+      } else if ((perfil.estados || []).length > 1) { sel.replaceChildren(new Option('Meus estados (' + perfil.estados.join(' + ') + ')', ''), ...perfil.estados.map((g) => new Option(g, g))); sel.hidden = false; }
     }
     try {
       const v = sel.value;
@@ -1010,6 +1010,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   }
   function renderResumo() {
     if (!resumo) return;
+    if (isRegional() && !(resumo.meus || []).length) { $('#r-kpis').replaceChildren(); $('#r-corpo').replaceChildren(el('div', 'empty', 'Você ainda não está ligado a nenhum estado. Peça ao administrador para colocar você em "Responsáveis por estado". · 请联系管理员'));
+      $('#r-sub').textContent = ''; return; }
     const lojas = resumo.lojas || [];
     const regTxt = (resumo.estados && resumo.estados.length) ? resumo.estados.join(', ') : 'todos';
     $('#r-sub').textContent = 'Estados: ' + regTxt + '. Lojas que precisam de ação: fotos reprovadas (aguardando foto nova), lojas com apontamento de VM e lojas sem foto atualizada há mais de 35 dias.';
