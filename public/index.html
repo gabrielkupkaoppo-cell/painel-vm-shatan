@@ -187,6 +187,27 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 .card{border-top:5px solid var(--accent);box-shadow:0 8px 30px rgba(10,122,74,.12)}
 .linkbtn{color:var(--accent)}
 .item.sel,.item[aria-current]{background:var(--sel);border-left:3px solid var(--accent)}
+
+/* ===== Menu lateral (telas largas) ===== */
+@media (min-width: 900px){
+  #v-app{padding-left:232px}
+  .tabs{position:fixed;top:0;left:0;bottom:0;width:216px;max-width:none;margin:0;padding:20px 10px 14px;flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:2px;
+    box-shadow:2px 0 12px rgba(10,122,74,.15);clip-path:none;overflow-y:auto;z-index:50;background:var(--accent)}
+  .tabs .brand{padding:4px 12px 18px;margin:0;font-size:.85rem;border-bottom:1px solid rgba(255,255,255,.18);margin-bottom:10px}
+  .tab{display:flex;justify-content:space-between;align-items:center;text-align:left;width:100%;padding:10px 12px;margin:0;border:none!important;border-radius:8px;font-size:.9rem;line-height:1.25}
+  .tab:hover{background:rgba(255,255,255,.10)}
+  .tab[aria-selected="true"]{background:#fff;color:var(--accent)}
+  .tab[aria-selected="true"] .n{background:var(--accent);color:#fff}
+  .tabs .who{margin:auto 0 0;padding:14px 12px 4px;flex-direction:column;align-items:flex-start;gap:6px;border-top:1px solid rgba(255,255,255,.18)}
+  #pane-painel iframe{height:calc(100vh - 40px)}
+  #v-app > section{padding-top:22px}
+}
+@media (max-width: 899px){
+  .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab,.tabs .brand{white-space:nowrap;flex:0 0 auto}
+  .tabs .who{flex:0 0 auto;white-space:nowrap}
+}
 </style>
 <script src="crypto.js"></script>
 </head>
@@ -247,7 +268,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Códigos errados · 编码错误<span class="n" id="tab-nn" hidden></span></button>
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 04/11 14:00</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 04/11 14:15</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
