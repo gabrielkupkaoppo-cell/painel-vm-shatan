@@ -63,6 +63,17 @@ input[type=search]{min-width:min(100%,14rem)}
 .cob-reg{display:grid;grid-template-columns:minmax(110px,160px) 1fr auto;gap:10px;align-items:center;font-size:.85rem;padding:4px 0}
 .pb{display:inline-block;font-size:.72rem;padding:1px 7px;border-radius:9px;background:var(--warn-bg);color:var(--warn);margin:1px 3px 1px 0;white-space:nowrap}
 .st-ok{color:var(--ok);font-weight:600} .st-conf{color:#3949ab;font-weight:600} .st-ab{color:var(--warn);font-weight:600} .st-sr{color:var(--bad);font-weight:600}
+.tl{list-style:none;margin:10px 0;padding:0 0 0 6px;border-left:3px solid var(--line)}
+.tl li{position:relative;padding:4px 0 14px 18px}
+.tl li::before{content:'';position:absolute;left:-10px;top:6px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--line)}
+.tl li.feito::before{background:var(--accent);border-color:var(--accent)} .tl li.atual::before{border-color:var(--warn);background:var(--warn-bg)}
+.tl li b{display:block} .tl li .note{display:block}
+.tl .acao{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px} .tl .acao input{font:inherit;font-size:.82rem;padding:3px 6px}
+.dots{display:inline-flex;gap:3px;vertical-align:middle} .dots i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block} .dots i.on{background:var(--accent)}
+.iform{border:1px solid var(--line);border-top:4px solid var(--accent);border-radius:var(--r);background:#fff;padding:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px 14px}
+.iform label{display:flex;flex-direction:column;gap:3px;font-size:.78rem;color:var(--muted)} .iform input,.iform select,.iform textarea{font:inherit;font-size:.9rem;padding:6px 8px;border:1px solid var(--line);border-radius:6px;color:var(--fg)}
+.iform .full{grid-column:1/-1} .iform .mats{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.85rem;color:var(--fg)} .iform .mats label{flex-direction:row;gap:5px;align-items:center;color:var(--fg);font-size:.85rem}
+.nota{border-left:3px solid var(--accent);background:var(--accent-soft);padding:6px 10px;border-radius:0 6px 6px 0;margin:6px 0;font-size:.86rem;white-space:pre-wrap}
 .lj{margin:12px 0;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:.88rem;display:flex;flex-direction:column;gap:8px} .lj.ok{background:var(--ok-bg)} .lj.warn{background:var(--warn-bg)} .lj .sug{display:flex;flex-wrap:wrap;gap:6px} .lj .sug button{font:inherit;font-size:.82rem;padding:5px 10px;border-radius:16px;border:1px solid var(--line);background:#fff;cursor:pointer;text-align:left} .lj .sug button:hover{border-color:var(--ok)} .lj .sug small{color:var(--muted)} .lj .man{display:flex;gap:6px;flex-wrap:wrap;align-items:center} .lj input,.lj select{font:inherit;font-size:.85rem;padding:4px 8px}
 .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:8px 16px}
 .facts div{display:flex;flex-direction:column;gap:1px;min-width:0}
@@ -267,8 +278,9 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-susp" aria-selected="false" aria-controls="pane-susp" type="button" hidden>Suspeitas · 可疑<span class="n" id="tab-sn" hidden></span></button>
   <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Códigos errados · 编码错误<span class="n" id="tab-nn" hidden></span></button>
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
+  <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 04/11 14:15</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 04/11 15:00</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -368,6 +380,20 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <div class="bar"><select id="r-reg" aria-label="Estado" hidden></select> <select id="r-canal" aria-label="Canal"></select> <span class="note" id="r-upd"></span></div>
   <div class="counts" id="r-kpis"></div>
   <div id="r-corpo"></div>
+</div>
+</section>
+<section id="pane-inst" role="tabpanel" aria-labelledby="tab-inst" hidden>
+<div class="wrap">
+  <div class="head"><div><h1>Instalações de lojas novas<span class="zh">新店安装跟进</span></h1>
+    <p class="note">Cadastre a loja nova e acompanhe cada etapa: envio da mesa pela matriz, entrega, instalação, material de VM e foto aprovada. Só administradores veem.</p></div>
+    <div><button class="btn ok" type="button" id="i-nova">+ Cadastrar loja nova · 新增门店</button></div></div>
+  <div class="msg" id="i-msg" role="status" hidden></div>
+  <div id="i-form"></div>
+  <div class="counts" id="i-kpis"></div>
+  <div class="bar"><div class="bar" id="i-st" role="group" aria-label="Situação"></div>
+    <select id="i-canal" aria-label="Canal"></select> <select id="i-uf" aria-label="Estado"></select>
+    <input id="i-q" type="search" placeholder="Buscar loja, código ou cidade" aria-label="Buscar"></div>
+  <div class="work"><div class="list" id="i-lista"></div><section class="detail" id="i-det"></section></div>
 </div>
 </section>
 <section id="pane-users" role="tabpanel" aria-labelledby="tab-users" hidden>
@@ -500,14 +526,14 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     $('#who').textContent = perfil.nome || perfil.email;
     $('#who-role').textContent = isAdmin() ? 'Administrador · 管理员' : ('Leitor · ' + ((perfil.estados || []).join(', ') || 'sem estado'));
     $('#tab-resumo').hidden = false; $('#tab-painel').hidden = isRegional();
-    $('#tab-rev').hidden = !isAdmin(); $('#tab-users').hidden = !isAdmin(); $('#tab-susp').hidden = !isAdmin(); $('#tab-novas').hidden = !isAdmin(); $('#tab-cob').hidden = !isAdmin();
+    $('#tab-rev').hidden = !isAdmin(); $('#tab-users').hidden = !isAdmin(); $('#tab-susp').hidden = !isAdmin(); $('#tab-novas').hidden = !isAdmin(); $('#tab-cob').hidden = !isAdmin(); $('#tab-inst').hidden = !isAdmin();
     $('#imp').hidden = true; // importação do Excel desativada: o painel vem do Feishu
     ligarAdminPainel();
     let t = 'painel'; try { t = localStorage.getItem('vm-tab') || 'painel'; } catch (e) {}
     showTab(t);
     if (!isRegional()) loadPainel();
     loadResumo();
-    if (isAdmin()) { load(); loadUsers(); }
+    if (isAdmin()) { load(); loadUsers(); loadInst(); }
   }
 
   // ---------- painel: dados do banco (importados do Excel); se ainda não houver, usa os arquivos criptografados do site ----------
@@ -1091,6 +1117,171 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'resumo-regiao-' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
   }
 
+  // ---------- instalações de lojas novas ----------
+  const ETAPAS = [['cadastro', 'Loja cadastrada', '登记'], ['envio', 'Mesa enviada pela matriz', '总部发货'], ['entrega', 'Mesa entregue na loja', '已到店'], ['instalacao', 'Mesa instalada', '已安装'], ['vm', 'Material de VM colocado', '物料到位'], ['foto', 'Foto aprovada no Forms', '照片通过']];
+  const MATERIAIS = ['Mesa de experiência', 'Totem Marina Sena', 'Display Reno', 'Display A Series', 'Display A4', 'Logo de mesa', 'Luminoso OPPO', 'Canvas', 'Spec card'];
+  const MESAS_INST = ['Mesa 0.8 Metros', 'Mesa 1.2 Metros', 'Mesa 1.6 Metros', 'Mesa Multimarcas', 'Sem mesa (só displays)'];
+  let inst = [], instNotas = new Map(), instSel = null, instSt = 'and';
+  async function loadInst() {
+    const msg = $('#i-msg');
+    try {
+      const [a, n, ln] = await Promise.all([getAll('/rest/v1/instalacoes?select=*&order=criada_em.desc'), getAll('/rest/v1/instalacao_notas?select=*&order=em.asc'), getAll('/rest/v1/lojas_novas?select=*&order=em.desc').catch(() => null)]);
+      if (ln) { lojasNovas = ln; montarBase(); }
+      inst = a || []; instNotas = new Map(); (n || []).forEach((x) => { if (!instNotas.has(x.instalacao_id)) instNotas.set(x.instalacao_id, []); instNotas.get(x.instalacao_id).push(x); });
+      msg.hidden = true; renderInst();
+    } catch (e) { msg.hidden = false; msg.textContent = errMsg(e); }
+  }
+  // foto aprovada: envio aprovado da mesma loja depois do cadastro
+  function fotoDaInst(x) {
+    const n = (String(x.codigo).match(/\d+/g) || []).pop(); if (!n) return null; const nn = n.replace(/^0+/, '');
+    let best = null;
+    rows.forEach((r) => { if (stOf(r) !== 'ap' || r.canal !== x.canal) return; const rn = ((String(r.lojaRaw).match(/\d+/g) || []).pop() || '').replace(/^0+/, '');
+      if (rn !== nn || !(r.data > new Date(x.criada_em))) return; if (!best || r.data > best.data) best = r; });
+    return best;
+  }
+  function etapasDe(x) {
+    const e = Object.assign({}, x.etapas || {}); if (!e.cadastro) e.cadastro = { em: x.criada_em, por: x.por_email };
+    const f = fotoDaInst(x); if (f && !e.foto) e.foto = { em: f.data.toISOString(), por: 'automático (envio do Forms)', key: f.key };
+    return e;
+  }
+  const hojeISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  function situacaoInst(x) {
+    if (x.status === 'cancelada') return { k: 'can', t: 'Cancelada' };
+    const e = etapasDe(x); const feitas = ETAPAS.filter(([k]) => e[k]).length;
+    if (feitas === ETAPAS.length || x.status === 'concluida') return { k: 'ok', t: 'Concluída', feitas };
+    const prox = ETAPAS.find(([k]) => !e[k]);
+    const atras = x.previsao && x.previsao < hojeISO();
+    return { k: atras ? 'atr' : 'and', t: (atras ? '⚠ Atrasada · ' : '') + 'Próxima: ' + prox[1], feitas };
+  }
+  function renderInst() {
+    const sts = inst.map((x) => ({ x, s: situacaoInst(x) }));
+    const n = { and: 0, atr: 0, ok: 0 }; sts.forEach(({ s }) => { if (s.k === 'and') n.and++; else if (s.k === 'atr') n.atr++; else if (s.k === 'ok') n.ok++; });
+    const tn = $('#tab-in'); tn.hidden = !(n.and + n.atr); tn.textContent = n.and + n.atr;
+    const k = $('#i-kpis'); k.replaceChildren();
+    [['Em andamento', n.and + n.atr, 'aw'], ['Atrasadas (passou da previsão)', n.atr, 'rp'], ['Concluídas', n.ok, 'ap']].forEach(([t, v, c]) => { const d = el('div', 'count ' + c); d.append(el('b', null, String(v)), el('span', null, t)); k.appendChild(d); });
+    const chips = $('#i-st'); if (!chips.children.length) [['and', 'Pendentes · 进行中'], ['atr', 'Atrasadas · 逾期'], ['ok', 'Concluídas · 已完成'], ['all', 'Todas · 全部']].forEach(([v, t]) => { const b = el('button', 'chip', t); b.type = 'button'; b.dataset.s = v; b.addEventListener('click', () => { instSt = v; renderInst(); }); chips.appendChild(b); });
+    chips.querySelectorAll('.chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.s === instSt)));
+    const enche = (sel, lab, vals) => { const cur = sel.value; sel.replaceChildren(new Option(lab, ''), ...vals.map((v) => new Option(v, v))); sel.value = vals.includes(cur) ? cur : ''; };
+    enche($('#i-canal'), 'Todos os canais · 全部渠道', [...new Set(inst.map((x) => x.canal))].sort());
+    enche($('#i-uf'), 'Todos os estados · 全部州', [...new Set(inst.map((x) => x.uf).filter(Boolean))].sort());
+    const q = normT($('#i-q').value), fc = $('#i-canal').value, fu = $('#i-uf').value;
+    const lst = sts.filter(({ x, s }) => (instSt === 'all' || (instSt === 'and' ? (s.k === 'and' || s.k === 'atr') : s.k === instSt)) && (!fc || x.canal === fc) && (!fu || x.uf === fu) &&
+      (!q || normT([x.canal, x.codigo, x.nome, x.cidade, x.uf].join(' ')).includes(q)));
+    const box = $('#i-lista'); box.replaceChildren(el('div', 'list-h', lst.length + ' loja(s)'));
+    if (!lst.length) box.appendChild(el('div', 'empty', inst.length ? 'Nenhuma loja com esses filtros.' : 'Nenhuma loja cadastrada ainda. Clique em "+ Cadastrar loja nova".'));
+    lst.forEach(({ x, s }) => {
+      const b = el('button', 'item' + (x.id === instSel ? ' sel' : '')); b.type = 'button';
+      b.appendChild(el('span', 't', x.canal + ' · ' + (x.codigo || 's/ código') + (x.nome ? ' · ' + titulo(x.nome) : '')));
+      b.appendChild(el('span', 'pill ' + (s.k === 'ok' ? 'ap' : s.k === 'atr' ? 'rp' : s.k === 'can' ? 'sb' : 'aw'), s.k === 'ok' ? 'Concluída' : s.k === 'can' ? 'Cancelada' : s.k === 'atr' ? 'Atrasada' : 'Em andamento'));
+      const dots = el('span', 'dots'); const e = etapasDe(x); ETAPAS.forEach(([kk]) => dots.appendChild(el('i', e[kk] ? 'on' : ''))); 
+      const sub = el('span', 's'); sub.append(dots, document.createTextNode(' ' + [titulo(x.cidade), x.uf].filter(Boolean).join('/') + ' · ' + s.t.replace(/^⚠ Atrasada · /, '') + (x.previsao ? ' · previsão ' + fmtD10(x.previsao) : '')));
+      b.appendChild(sub); b.addEventListener('click', () => { instSel = x.id; renderInst(); }); box.appendChild(b);
+    });
+    renderInstDet();
+  }
+  function canaisConhecidos() { return [...new Set(baseFeishu.map((l) => l.canal).concat(['Gazin'], rows.map((r) => r.canal)).filter((c) => c && c !== '—'))].sort(); }
+  function formInst(x) {
+    const box = $('#i-form'); box.replaceChildren();
+    if (x === null) return;
+    const f = el('form', 'iform');
+    const campo = (lab, inp, full) => { const l = el('label', full ? 'full' : null); l.append(document.createTextNode(lab), inp); f.appendChild(l); return inp; };
+    const inp = (v, ph) => { const i = el('input'); i.value = v || ''; if (ph) i.placeholder = ph; return i; };
+    const sc = el('select'); canaisConhecidos().forEach((c) => sc.appendChild(new Option(c, c))); sc.appendChild(new Option('Outro…', '__outro')); sc.value = x.canal || canaisConhecidos()[0];
+    const outro = inp('', 'Nome do canal'); outro.hidden = true; sc.addEventListener('change', () => { outro.hidden = sc.value !== '__outro'; });
+    const cl = el('label'); cl.append(document.createTextNode('Canal · 渠道 *'), sc, outro); f.appendChild(cl);
+    const cod = campo('Código da loja · 门店编号 *', inp(x.codigo, 'ex.: 1242'));
+    const nome = campo('Nome da loja · 门店名称', inp(x.nome, 'ex.: Shopping Rio Anil'));
+    const cid = campo('Cidade · 城市', inp(x.cidade));
+    const uf = el('select'); uf.appendChild(new Option('—', '')); Object.keys(REG).sort().forEach((u) => uf.appendChild(new Option(u + ' · ' + REG[u], u))); uf.value = x.uf || ''; campo('Estado · 州 *', uf);
+    const mesa = el('select'); MESAS_INST.forEach((m) => mesa.appendChild(new Option(m, m))); mesa.value = x.mesa || MESAS_INST[1]; campo('Tipo de mesa · 体验台', mesa);
+    const prev = el('input'); prev.type = 'date'; prev.value = x.previsao || ''; campo('Previsão de conclusão · 预计完成', prev);
+    const rast = campo('Rastreio / nota fiscal do envio', inp(x.rastreio, 'opcional'));
+    const end = campo('Endereço · 地址', inp(x.endereco, 'opcional'), true);
+    const mats = el('div', 'mats'); const marc = new Set(x.materiais || ['Mesa de experiência']);
+    MATERIAIS.forEach((m) => { const l = el('label'); const c = el('input'); c.type = 'checkbox'; c.checked = marc.has(m); c.addEventListener('change', () => { if (c.checked) marc.add(m); else marc.delete(m); }); l.append(c, document.createTextNode(m)); mats.appendChild(l); });
+    const ml = el('label', 'full'); ml.append(document.createTextNode('Material de VM que vai para a loja · 物料'), mats); f.appendChild(ml);
+    let feishu = null;
+    if (!x.id) { const l = el('label', 'full'); l.style.flexDirection = 'row'; l.style.alignItems = 'center'; l.style.gap = '6px'; l.style.color = 'var(--fg)'; feishu = el('input'); feishu.type = 'checkbox'; feishu.checked = true;
+      l.append(feishu, document.createTextNode('Criar também a linha desta loja na planilha do Feishu (aba do canal), para ela entrar no painel')); f.appendChild(l); }
+    const obs = !x.id ? campo('Observação inicial (opcional)', el('textarea'), true) : null; if (obs) obs.rows = 2;
+    const acts = el('div', 'full acts'); acts.style.display = 'flex'; acts.style.gap = '8px';
+    const ok = el('button', 'btn ok', x.id ? 'Salvar alterações · 保存' : 'Cadastrar · 登记'); ok.type = 'submit';
+    const cancel = el('button', 'btn', 'Cancelar'); cancel.type = 'button'; cancel.addEventListener('click', () => formInst(null));
+    const info = el('span', 'note'); acts.append(ok, cancel, info); f.appendChild(acts);
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const canal = sc.value === '__outro' ? outro.value.trim() : sc.value;
+      if (!canal || !cod.value.trim() || !uf.value) { info.textContent = 'Preencha canal, código e estado.'; return; }
+      ok.disabled = true; info.textContent = 'Salvando…';
+      const body = { canal, codigo: cod.value.trim(), nome: nome.value.trim(), cidade: cid.value.trim(), uf: uf.value, endereco: end.value.trim(), mesa: mesa.value, materiais: [...marc], previsao: prev.value || null, rastreio: rast.value.trim(), atualizado_em: new Date().toISOString() };
+      try {
+        if (x.id) { await api('/rest/v1/instalacoes?id=eq.' + x.id, { method: 'PATCH', body, headers: { Prefer: 'return=minimal' } }); }
+        else {
+          const r = await api('/rest/v1/instalacoes', { method: 'POST', body: [Object.assign(body, { por_email: perfil.email || '', etapas: { cadastro: { em: new Date().toISOString(), por: perfil.email || '' } } })], headers: { Prefer: 'return=representation' } });
+          instSel = r && r[0] && r[0].id;
+          if (obs && obs.value.trim() && instSel) await api('/rest/v1/instalacao_notas', { method: 'POST', body: [{ instalacao_id: instSel, texto: obs.value.trim(), por_email: perfil.email || '' }], headers: { Prefer: 'return=minimal' } });
+          if (feishu && feishu.checked) await api('/rest/v1/lojas_novas?on_conflict=canal,codigo', { method: 'POST', body: [{ canal, codigo: body.codigo, nome: body.nome || (canal.toUpperCase() + ' ' + body.codigo), cidade: body.cidade, uf: body.uf, status: 'aprovada', por_email: perfil.email || '' }], headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' } }).catch(() => {});
+        }
+        formInst(null); await loadInst();
+      } catch (e) { ok.disabled = false; info.textContent = errMsg(e); }
+    });
+    box.appendChild(f); f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function renderInstDet() {
+    const d = $('#i-det'); d.replaceChildren();
+    const x = inst.find((y) => y.id === instSel);
+    if (!x) { d.appendChild(el('div', 'empty', 'Escolha uma loja na lista para ver a timeline.')); return; }
+    const s = situacaoInst(x), e = etapasDe(x);
+    const top = el('div', 'dt'); top.append(el('h2', null, x.canal + ' · ' + (x.codigo || 's/ código') + (x.nome ? ' · ' + titulo(x.nome) : '')), el('span', 'pill ' + (s.k === 'ok' ? 'ap' : s.k === 'atr' ? 'rp' : s.k === 'can' ? 'sb' : 'aw'), s.k === 'ok' ? 'Concluída · 已完成' : s.k === 'can' ? 'Cancelada' : s.k === 'atr' ? 'Atrasada · 逾期' : 'Em andamento · 进行中')); d.appendChild(top);
+    const facts = el('div', 'facts');
+    [['Cidade / UF', [titulo(x.cidade), x.uf].filter(Boolean).join(' / ') || '—'], ['Região', REG[x.uf] || '—'], ['Responsável', respNome(x.uf) || '—'], ['Tipo de mesa', x.mesa || '—'],
+      ['Previsão', x.previsao ? fmtD10(x.previsao) : '—'], ['Rastreio / NF', x.rastreio || '—'], ['Endereço', x.endereco || '—'], ['Material de VM', (x.materiais || []).join(', ') || '—']]
+      .forEach(([k0, v]) => { const c = el('div'); c.append(el('b', null, k0), el('span', null, v)); facts.appendChild(c); });
+    d.appendChild(facts);
+    const ln = lojasNovas.find((y) => y.canal === x.canal && codN(y.codigo) === codN(x.codigo));
+    const naBase = lojaNaBase(x.canal, x.codigo);
+    d.appendChild(el('p', 'note', naBase && !naBase.nova ? '✓ A loja já está na planilha do Feishu (aba ' + x.canal + ').' : ln ? (ln.status === 'criada' ? '✓ Linha criada no Feishu: ' + (ln.info || '') : ln.status === 'erro' ? '⚠ Feishu: ' + (ln.info || 'erro ao criar a linha') : '⏳ Linha no Feishu será criada no próximo ciclo (até 10 min).') : 'A loja ainda não está na planilha do Feishu.'));
+    // timeline
+    d.appendChild(el('h3', null, 'Timeline · 进度'));
+    const ul = el('ul', 'tl'); const prox = ETAPAS.find(([k0]) => !e[k0]);
+    ETAPAS.forEach(([k0, t, zh], i) => {
+      const li = el('li', e[k0] ? 'feito' : (prox && prox[0] === k0 && x.status !== 'cancelada' ? 'atual' : ''));
+      li.appendChild(el('b', null, (i + 1) + '. ' + t + ' · ' + zh));
+      if (e[k0]) {
+        li.appendChild(el('span', 'note', '✓ ' + fmtEm(e[k0].em).slice(0, 10) + (e[k0].por ? ' · ' + e[k0].por : '') + (e[k0].obs ? ' — ' + e[k0].obs : '')));
+        if (e[k0].key) { const v = el('button', 'linkbtn', 'ver o envio aprovado'); v.type = 'button'; v.addEventListener('click', () => { showTab('rev'); fStatus = 'all'; select(e[k0].key); }); li.appendChild(v); }
+        else if (k0 !== 'cadastro' && x.etapas && x.etapas[k0]) { const u = el('button', 'linkbtn', 'desfazer'); u.type = 'button'; u.addEventListener('click', () => salvarEtapa(x, k0, null)); li.appendChild(u); }
+      } else if (x.status !== 'cancelada') {
+        const a = el('div', 'acao'); const dt = el('input'); dt.type = 'date'; dt.value = hojeISO(); dt.setAttribute('aria-label', 'Data de ' + t);
+        const ob = el('input'); ob.placeholder = 'detalhe (opcional)'; ob.setAttribute('aria-label', 'Detalhe de ' + t);
+        const b = el('button', 'btn', '✓ Marcar como feito'); b.type = 'button'; b.addEventListener('click', () => salvarEtapa(x, k0, { em: new Date(dt.value + 'T12:00:00').toISOString(), por: perfil.email || '', obs: ob.value.trim() }));
+        a.append(dt, ob, b); li.appendChild(a);
+        if (k0 === 'foto') li.appendChild(el('span', 'note', 'Fica feito sozinho quando você aprovar um envio do Forms desta loja.'));
+      }
+      ul.appendChild(li);
+    });
+    d.appendChild(ul);
+    // observações
+    d.appendChild(el('h3', null, 'Observações · 备注'));
+    (instNotas.get(x.id) || []).forEach((n0) => { const c = el('div', 'nota'); c.append(el('small', 'note', fmtEm(n0.em) + ' · ' + (n0.por_email || '')), el('br'), document.createTextNode(n0.texto)); d.appendChild(c); });
+    const ta = el('textarea'); ta.placeholder = 'Escreva uma observação (ex.: mesa chegou com avaria, loja pediu reagendamento…)'; ta.rows = 2; ta.style.cssText = 'width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:6px';
+    const add = el('button', 'btn ok', 'Adicionar observação'); add.type = 'button';
+    add.addEventListener('click', async () => { const t = ta.value.trim(); if (!t) return; add.disabled = true;
+      try { await api('/rest/v1/instalacao_notas', { method: 'POST', body: [{ instalacao_id: x.id, texto: t, por_email: perfil.email || '' }], headers: { Prefer: 'return=minimal' } }); await loadInst(); } catch (er) { add.disabled = false; add.textContent = errMsg(er); } });
+    d.append(ta, add);
+    const acts = el('div', 'acts'); acts.style.marginTop = '16px';
+    const ed = el('button', 'btn', 'Editar dados da loja'); ed.type = 'button'; ed.addEventListener('click', () => formInst(x));
+    const cn = el('button', 'btn', x.status === 'cancelada' ? 'Reabrir' : 'Cancelar instalação'); cn.type = 'button';
+    cn.addEventListener('click', async () => { if (x.status !== 'cancelada' && !confirmar(cn, 'Confirmar cancelamento?')) return; try { await api('/rest/v1/instalacoes?id=eq.' + x.id, { method: 'PATCH', body: { status: x.status === 'cancelada' ? 'andamento' : 'cancelada', atualizado_em: new Date().toISOString() }, headers: { Prefer: 'return=minimal' } }); await loadInst(); } catch (er) { cn.textContent = errMsg(er); } });
+    acts.append(ed, cn); d.appendChild(acts);
+  }
+  function confirmar(b, txt) { if (b.dataset.armado) return true; b.dataset.armado = '1'; const old = b.textContent; b.textContent = txt; setTimeout(() => { delete b.dataset.armado; b.textContent = old; }, 4000); return false; }
+  async function salvarEtapa(x, k0, val) {
+    const et = Object.assign({}, x.etapas || {}); if (val) et[k0] = val; else delete et[k0];
+    try { await api('/rest/v1/instalacoes?id=eq.' + x.id, { method: 'PATCH', body: { etapas: et, atualizado_em: new Date().toISOString() }, headers: { Prefer: 'return=minimal' } }); x.etapas = et; renderInst(); }
+    catch (e) { const m = $('#i-msg'); m.hidden = false; m.textContent = errMsg(e); }
+  }
+
   // ---------- render ----------
   // mesma foto (mesmo arquivo, pela impressão digital md5 do Drive) usada em mais de um envio
   // identifica a loja pelo canal + número do código ("Filial 297", "Gazin 297" e "297" são a mesma loja)
@@ -1595,15 +1786,16 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   // ---------- abas ----------
   function showTab(t) {
     if (isRegional()) t = 'resumo'; else if (!isAdmin() && t !== 'resumo') t = 'painel';
-    ['painel', 'resumo', 'rev', 'susp', 'novas', 'cob', 'users'].forEach((x) => { $('#tab-' + x).setAttribute('aria-selected', String(x === t)); $('#pane-' + x).hidden = x !== t; });
+    ['painel', 'resumo', 'rev', 'susp', 'novas', 'cob', 'inst', 'users'].forEach((x) => { $('#tab-' + x).setAttribute('aria-selected', String(x === t)); $('#pane-' + x).hidden = x !== t; });
     try { localStorage.setItem('vm-tab', t); } catch (e) {}
   }
-  ['painel', 'resumo', 'rev', 'susp', 'novas', 'cob', 'users'].forEach((x) => $('#tab-' + x).addEventListener('click', () => { showTab(x); if (x === 'resumo') loadResumo(); if (x === 'users') { loadUsers(); loadResp(); } if (x === 'susp') renderSusp(); if (x === 'novas') renderNovas(); if (x === 'cob') loadCob(); }));
+  ['painel', 'resumo', 'rev', 'susp', 'novas', 'cob', 'inst', 'users'].forEach((x) => $('#tab-' + x).addEventListener('click', () => { showTab(x); if (x === 'inst') loadInst(); if (x === 'resumo') loadResumo(); if (x === 'users') { loadUsers(); loadResp(); } if (x === 'susp') renderSusp(); if (x === 'novas') renderNovas(); if (x === 'cob') loadCob(); }));
 
   // ---------- controls ----------
   ST.forEach(([s, lab]) => { const b = el('button', 'chip', lab); b.type = 'button'; b.dataset.s = s; b.addEventListener('click', () => { fStatus = s; render(); }); $('#st-chips').appendChild(b); });
   ['#f-form', '#f-canal', '#f-uf'].forEach((s) => $(s).addEventListener('change', render));
   $('#f-q').addEventListener('input', render);
+  $('#i-nova').addEventListener('click', () => formInst({})); ['#i-canal', '#i-uf'].forEach((x) => $(x).addEventListener('change', renderInst)); $('#i-q').addEventListener('input', renderInst);
   $('#r-reg').addEventListener('change', loadResumo); $('#r-canal').addEventListener('change', renderResumo); $('#r-csv').addEventListener('click', baixarResumo);
   $('#c-q').addEventListener('input', renderBusca); ['#c-reg', '#c-canal', '#c-tipo'].forEach((x) => $(x).addEventListener('change', renderRel)); $('#c-csv').addEventListener('click', baixarRel);
   $('#n-uf').addEventListener('change', renderNovas); $('#n-canal').addEventListener('change', renderNovas); $('#n-csv').addEventListener('click', baixarCsv);
