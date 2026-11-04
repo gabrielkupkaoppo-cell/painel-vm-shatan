@@ -247,7 +247,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-novas" aria-selected="false" aria-controls="pane-novas" type="button" hidden>Códigos errados · 编码错误<span class="n" id="tab-nn" hidden></span></button>
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 04/11 13:30</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 04/11 13:45</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -354,11 +354,11 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <div class="head"><div><h1>Usuários<span class="zh">用户管理</span></h1>
     <p class="note">Quem pede acesso aparece aqui. Ligue "Ativo" para liberar e escolha o papel: Leitor vê o painel; Administrador também aprova fotos e libera usuários.</p></div></div>
   <div class="msg" id="u-status" role="status" hidden></div>
-  <div class="users"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Papel · 角色</th><th>Ativo · 启用</th><th>Estados que vê (leitor) · 可见州</th><th>Pedido em</th><th></th></tr></thead><tbody id="u-body"></tbody></table></div>
+  <div class="users"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Papel · 角色</th><th>Ativo · 启用</th><th>Estados que vê · 可见州</th><th>Pedido em</th><th></th></tr></thead><tbody id="u-body"></tbody></table></div>
   <div class="head" style="margin-top:28px"><div><h2 style="margin:0">Responsáveis por estado<span class="zh"> · 各州负责人</span></h2>
-    <p class="note">Quem responde por cada estado. Usado no ranking da aba Suspeitas. (Os avisos de aprovação/reprovação estão desligados.)</p></div></div>
+    <p class="note">Quem responde por cada estado. <b>A pessoa escolhida em "Usuário do site" vê no Resumo só os estados em que aparece aqui.</b> Se não escolher, vale quem tiver no login o mesmo e-mail da coluna Feishu. Estado sem usuário ligado: ninguém de fora vê.</p></div></div>
   <div class="msg" id="r-status" role="status" hidden></div>
-  <div class="users"><table><thead><tr><th>Estado</th><th>Responsável · 负责人</th><th>WhatsApp (DDD + número)</th><th>Feishu (e-mail ou celular)</th><th></th></tr></thead><tbody id="r-body"></tbody></table></div>
+  <div class="users"><table><thead><tr><th>Estado</th><th>Responsável · 负责人</th><th>WhatsApp (DDD + número)</th><th>Feishu (e-mail ou celular)</th><th>Usuário do site (vê o Resumo destes estados)</th><th></th></tr></thead><tbody id="r-body"></tbody></table></div>
 </div>
 </section>
 </div>
@@ -473,6 +473,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     if (!sess.user) { sess.user = { id: uid }; saveSess(sess); }
     const p = await api('/rest/v1/perfis?id=eq.' + uid + '&select=*');
     perfil = p && p[0];
+    if (perfil && perfil.ativo && perfil.papel !== 'admin') { try { perfil.estados = (await api('/rest/v1/rpc/meus_estados', { method: 'POST', body: {} })) || []; } catch (e) { perfil.estados = []; } }
     if (!perfil || !perfil.ativo) { showView('v-wait'); $('#w-text').textContent = 'Seu cadastro foi recebido. Assim que o administrador liberar, clique em "Já fui liberado". · 管理员开通后即可登录。'; return; }
     showView('v-app');
     $('#who').textContent = perfil.nome || perfil.email;
@@ -1378,7 +1379,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   let users = [];
   async function loadUsers() {
     const st = $('#u-status');
-    try { users = await api('/rest/v1/perfis?select=*&order=criado_em.desc'); st.hidden = true; renderUsers(); }
+    try { users = await api('/rest/v1/perfis?select=*&order=criado_em.desc'); st.hidden = true; renderUsers(); renderResp(); }
     catch (e) { st.hidden = false; st.textContent = errMsg(e); }
   }
   function renderUsers() {
@@ -1391,21 +1392,17 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       const td1 = el('td'); td1.appendChild(sel); tr.appendChild(td1);
       const lab = el('label', 'sw'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = u.ativo; cb.disabled = me; lab.append(cb, document.createTextNode(u.ativo ? 'Ativo' : 'Aguardando'));
       const td2 = el('td'); td2.appendChild(lab); tr.appendChild(td2);
-      const tdr = el('td'); const regSel = new Set(u.estados || []);
-      const regBox = el('div'); regBox.style.cssText = 'display:flex;flex-direction:column;gap:2px;font-size:.78rem';
-      REG_LISTA.forEach((g) => { const linha = el('div'); linha.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap'; linha.appendChild(el('span', 'note', g.replace(/\//g, ' · ') + ':'));
-        g.split('/').forEach((uf) => { const l = el('label'); const c = el('input'); c.type = 'checkbox'; c.checked = regSel.has(uf); c.disabled = me;
-          c.addEventListener('change', () => { if (c.checked) regSel.add(uf); else regSel.delete(uf); dirty(); }); l.append(c, document.createTextNode(' ' + uf)); linha.appendChild(l); });
-        regBox.appendChild(linha); });
-      tdr.appendChild(regBox); tdr.appendChild(el('small', 'note', 'Nenhum marcado = vê tudo.')); tr.appendChild(tdr);
-      const regMudou = () => [...regSel].sort().join('|') !== [...(u.estados || [])].sort().join('|');
+      const tdr = el('td'); const ests = estadosDoUsuario(u);
+      tdr.appendChild(el('span', null, u.papel === 'admin' ? 'Tudo (admin)' : ests.length ? ests.join(', ') : 'Tudo'));
+      tdr.appendChild(el('br')); tdr.appendChild(el('small', 'note', 'Definido em "Responsáveis por estado", abaixo.')); tr.appendChild(tdr);
+      const regMudou = () => false;
       tr.appendChild(el('td', null, fmtEm(u.criado_em)));
       const td3 = el('td'); const sv = el('button', 'btn', me ? 'Você' : 'Salvar · 保存'); sv.type = 'button'; sv.disabled = true; td3.appendChild(sv); tr.appendChild(td3);
       const dirty = () => { sv.disabled = me || (sel.value === u.papel && cb.checked === u.ativo && !regMudou()); };
       sel.addEventListener('change', dirty); cb.addEventListener('change', dirty);
       sv.addEventListener('click', async () => {
         sv.disabled = true; sv.textContent = 'Salvando…';
-        try { await api('/rest/v1/perfis?id=eq.' + u.id, { method: 'PATCH', body: { papel: sel.value, ativo: cb.checked, estados: [...regSel].sort() }, headers: { Prefer: 'return=minimal' } }); u.papel = sel.value; u.ativo = cb.checked; u.estados = [...regSel].sort(); renderUsers(); }
+        try { await api('/rest/v1/perfis?id=eq.' + u.id, { method: 'PATCH', body: { papel: sel.value, ativo: cb.checked }, headers: { Prefer: 'return=minimal' } }); u.papel = sel.value; u.ativo = cb.checked; renderUsers(); }
         catch (e) { sv.textContent = 'Erro — tentar de novo'; sv.disabled = false; $('#u-status').hidden = false; $('#u-status').textContent = errMsg(e); }
       });
       tb.appendChild(tr);
@@ -1414,9 +1411,11 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 
   // ---------- responsáveis por estado ----------
   let resp = new Map();
+  // estados que o usuário vê = linhas de "Responsáveis por estado" ligadas a ele (escolhido ou mesmo e-mail do Feishu)
+  function estadosDoUsuario(u) { return [...resp.values()].filter((x) => x.usuario_id ? x.usuario_id === u.id : String(x.feishu || '').trim().toLowerCase() === String(u.email || '').toLowerCase()).map((x) => x.uf).sort(); }
   async function loadResp() {
     try { resp = new Map((await api('/rest/v1/responsaveis?select=*')).map((x) => [x.uf, x])); } catch (e) { const st = $('#r-status'); st.hidden = false; st.textContent = errMsg(e); }
-    renderResp();
+    renderResp(); if (users.length) renderUsers();
   }
   function renderResp() {
     const tb = $('#r-body'); if (!tb) return; tb.replaceChildren();
@@ -1427,13 +1426,19 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       tr.appendChild(el('td', null, uf + (REG[uf] ? ' · ' + REG[uf] : '')));
       const inp = (v, ph, lab) => { const i = el('input'); i.value = v || ''; i.placeholder = ph; i.setAttribute('aria-label', lab + ' ' + uf); i.style.width = '100%'; const td = el('td'); td.appendChild(i); tr.appendChild(td); return i; };
       const n = inp(x.nome, 'Nome', 'Responsável'), w = inp(x.whatsapp, '(91) 99999-8888', 'WhatsApp'), f = inp(x.feishu, 'email@... ou +5591...', 'Feishu');
+      const us = el('select'); us.setAttribute('aria-label', 'Usuário do site ' + uf); us.style.width = '100%';
+      us.appendChild(new Option('— automático (mesmo e-mail do Feishu) —', ''));
+      users.filter((u) => u.ativo && u.papel !== 'admin').forEach((u) => us.appendChild(new Option((u.nome || u.email) + ' · ' + u.email, u.id)));
+      us.value = x.usuario_id || '';
+      { const tdu = el('td'); tdu.appendChild(us); const auto = !x.usuario_id && x.feishu ? users.find((u) => String(u.email || '').toLowerCase() === String(x.feishu).trim().toLowerCase()) : null;
+        if (auto) tdu.appendChild(el('small', 'note', 'ligado a ' + (auto.nome || auto.email) + ' pelo e-mail')); tr.appendChild(tdu); }
       const td = el('td'); const sv = el('button', 'btn', 'Salvar · 保存'); sv.type = 'button'; sv.disabled = true; td.appendChild(sv); tr.appendChild(td);
-      const dirty = () => { sv.disabled = n.value.trim() === (x.nome || '') && w.value.trim() === (x.whatsapp || '') && f.value.trim() === (x.feishu || ''); sv.textContent = 'Salvar · 保存'; };
-      [n, w, f].forEach((i) => i.addEventListener('input', dirty));
+      const dirty = () => { sv.disabled = n.value.trim() === (x.nome || '') && w.value.trim() === (x.whatsapp || '') && f.value.trim() === (x.feishu || '') && us.value === (x.usuario_id || ''); sv.textContent = 'Salvar · 保存'; };
+      [n, w, f].forEach((i) => i.addEventListener('input', dirty)); us.addEventListener('change', dirty);
       sv.addEventListener('click', async () => {
         if (w.value.trim() && !waFone(w.value)) { sv.textContent = 'WhatsApp precisa de DDD + número'; return; }
         sv.disabled = true; sv.textContent = 'Salvando…';
-        const body = { uf, nome: n.value.trim(), whatsapp: w.value.trim(), feishu: f.value.trim(), atualizado_em: new Date().toISOString(), atualizado_por: (perfil && perfil.email) || '' };
+        const body = { uf, nome: n.value.trim(), whatsapp: w.value.trim(), feishu: f.value.trim(), usuario_id: us.value || null, atualizado_em: new Date().toISOString(), atualizado_por: (perfil && perfil.email) || '' };
         try { await api('/rest/v1/responsaveis?on_conflict=uf', { method: 'POST', body: [body], headers: { Prefer: 'resolution=merge-duplicates,return=minimal' } }); resp.set(uf, body); renderResp(); if (selKey) renderDetail(); }
         catch (e) { sv.disabled = false; sv.textContent = 'Erro — tentar de novo'; const st = $('#r-status'); st.hidden = false; st.textContent = errMsg(e); }
       });
