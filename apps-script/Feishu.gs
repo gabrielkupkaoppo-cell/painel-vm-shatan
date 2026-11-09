@@ -29,7 +29,10 @@ function feishuRecomecar() {
 function sincronizarFeishu() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) return;
-  try { criarLojasNovas_(); enviarFeishu_(FEISHU_LOTE, false); } finally { lock.releaseLock(); }
+  try {
+    criarLojasNovas_(); enviarFeishu_(FEISHU_LOTE, false);
+    try { atualizarVeiculacao_(false); } catch (e) { console.warn('Período de veiculação: ' + e); }
+  } finally { lock.releaseLock(); }
 }
 
 function enviarFeishu_(limite, detalhado) {
@@ -338,4 +341,51 @@ function feishuVerCaixas() {
       console.log(modo + ': ' + JSON.stringify((d.valueRange || {}).values).slice(0, 900));
     } catch (e) { console.log(modo + ': erro ' + e); }
   });
+}
+
+// ---------- Instalações: data da última atualização da timeline → coluna "período de veiculação" ----------
+// Rode atualizarVeiculacao() à mão para ver no registro o que faria/fez. No ciclo de 10 min roda sozinho.
+function atualizarVeiculacao() { return atualizarVeiculacao_(true); }
+function atualizarVeiculacao_(detalhado) {
+  const inst = supa_('GET', '/rest/v1/instalacoes?select=id,canal,codigo,status,etapas&status=neq.cancelada') || [];
+  if (!inst.length) { if (detalhado) console.log('Nenhuma instalação.'); return 0; }
+  const notas = supa_('GET', '/rest/v1/instalacao_notas?select=instalacao_id,em&order=em.desc&limit=5000') || [];
+  const ultima = {}; notas.forEach((n) => { if (!ultima[n.instalacao_id]) ultima[n.instalacao_id] = n.em; });
+  const fila = inst.map((x) => {
+    if (!ultima[x.id] || !x.codigo) return null;
+    const data = Utilities.formatDate(new Date(ultima[x.id]), 'America/Sao_Paulo', 'dd/MM/yyyy');
+    const ja = (x.etapas && x.etapas.veiculacao_feishu) || {};
+    return ja.data === data && ja.ok ? null : { x, data };
+  }).filter(Boolean);
+  if (!fila.length) { if (detalhado) console.log('Período de veiculação: nada novo.'); return 0; }
+  const planilha = String(PropertiesService.getScriptProperties().getProperty('FEISHU_PLANILHA') || '').trim();
+  const tk = feishuToken_();
+  const abas = feishu_(tk, 'GET', '/sheets/v3/spreadsheets/' + planilha + '/sheets/query').sheets || [];
+  const cache = {};
+  let feitos = 0;
+  fila.forEach(({ x, data }) => {
+    const marca = (ok, info) => supa_('PATCH', '/rest/v1/instalacoes?id=eq.' + x.id,
+      { etapas: Object.assign({}, x.etapas || {}, { veiculacao_feishu: { data: data, ok: ok, info: info, em: new Date().toISOString() } }) }, { Prefer: 'return=minimal' });
+    try {
+      const canal = canalFeishu_(x.canal);
+      const aba = abas.find((a) => semAcento_(a.title) === semAcento_(canal));
+      if (!aba) { marca(false, 'aba "' + canal + '" não existe no Feishu'); return; }
+      let c = cache[aba.sheet_id];
+      if (!c) {
+        const A = lerAba_(tk, planilha, aba);
+        const nCol = Math.min((aba.grid_properties && aba.grid_properties.column_count) || 40, 60);
+        const cab = valores_(tk, planilha, aba.sheet_id + '!A1:' + letra_(nCol) + '4');
+        let col = null; cab.forEach((row) => (row || []).forEach((v, i) => { if (!col && /veicula/i.test(semAcento_(texto_(v)))) col = i + 1; }));
+        c = cache[aba.sheet_id] = { A, col };
+      }
+      if (!c.col) { marca(false, 'coluna de veiculação não encontrada na aba ' + aba.title); return; }
+      const linha = acharLinha_(c.A, x.codigo);
+      if (!linha) { marca(false, 'loja ' + x.codigo + ' ainda não está na aba ' + aba.title); return; }   // tenta de novo no próximo ciclo
+      const cel = aba.sheet_id + '!' + letra_(c.col) + linha + ':' + letra_(c.col) + linha;
+      feishu_(tk, 'PUT', '/sheets/v2/spreadsheets/' + planilha + '/values', { valueRange: { range: cel, values: [[data]] } });
+      marca(true, aba.title + ' ' + letra_(c.col) + linha); feitos++;
+      console.log('Veiculação ' + x.canal + ' ' + x.codigo + ' → ' + data + ' (' + aba.title + ' ' + letra_(c.col) + linha + ')');
+    } catch (err) { console.warn('Veiculação ' + x.canal + ' ' + x.codigo + ': ' + err); try { marca(false, String(err.message || err).slice(0, 200)); } catch (e2) { /* segue */ } }
+  });
+  return feitos;
 }

@@ -1284,6 +1284,10 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const ln = lojasNovas.find((y) => y.canal === x.canal && codN(y.codigo) === codN(x.codigo));
     const naBase = lojaNaBase(x.canal, x.codigo);
     d.appendChild(el('p', 'note', naBase && !naBase.nova ? '✓ A loja já está na planilha do Feishu (aba ' + x.canal + ').' : ln ? (ln.status === 'criada' ? '✓ Linha criada no Feishu: ' + (ln.info || '') : ln.status === 'erro' ? '⚠ Feishu: ' + (ln.info || 'erro ao criar a linha') : '⏳ Linha no Feishu será criada no próximo ciclo (até 10 min).') : 'A loja ainda não está na planilha do Feishu.'));
+    { const vf = (x.etapas || {}).veiculacao_feishu, ult = notasDe(x)[0];
+      if (ult) { const dU = fmtD10(new Date(ult.em).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }));
+        d.appendChild(el('p', 'note', vf && vf.ok && vf.data === dU ? '✓ Período de veiculação no Feishu: ' + vf.data + ' (' + vf.info + ')'
+          : vf && !vf.ok && vf.data === dU ? '⚠ Período de veiculação (' + dU + '): ' + vf.info : '⏳ Período de veiculação no Feishu vai para ' + dU + ' no próximo ciclo (até 10 min).')); } }
     // timeline = as atualizações, da mais nova para a mais antiga
     d.appendChild(el('h3', null, 'Timeline · 进度'));
     if (x.status !== 'cancelada' && !concluidaInst(x)) {
