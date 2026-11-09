@@ -725,7 +725,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       const em = fmtEm(new Date().toISOString()) + ' · ' + (perfil.email || '');
       list.forEach((r) => reviews.set(r.key, { status: 'Aprovado', motivo: '', obs, em }));
       info.textContent = list.length + ' envios marcados como Aprovado.';
-      bulkArmed = false; render();
+      bulkArmed = false; render(); if (inst.length) renderInst();
     } catch (e) { b.disabled = false; bulkArmed = false; info.textContent = errMsg(e); }
   }
   const stOf = (r) => { const x = reviews.get(r.key); return !x ? 'aw' : (x.status === 'Aprovado' ? 'ap' : x.status === 'Reprovado' ? 'rp' : x.status === 'Substituído' ? 'sb' : x.status === 'Descartado' ? 'ds' : 'aw'); };
@@ -744,7 +744,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       rows = shapeEnvios(env); reviews = shapeRevs(rev); corr.clear();
       rows.forEach((r) => { const v = reviews.get(r.key); if (v && v.loja_corrigida) aplicarCorrecao(r, { canal: v.canal_corrigido || r.canal, codigo: v.loja_corrigida });
         if (v && v.mesa_corrigida) { r.mesaOrig = r.mesa; r.mesa = v.mesa_corrigida; } }); corrMesa.clear();
-      calcRepetidas();
+      calcRepetidas(); if (inst.length) renderInst();
       fillFilters(); $('#work').hidden = false;
       setStatus(rows.length ? '' : 'Ainda não chegou nenhum envio. Os Forms são copiados a cada 10 minutos pelo script da planilha.');
       render(); renderSusp(); renderNovas();
@@ -1162,9 +1162,17 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   }
   const hojeISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
   const notasDe = (x) => (instNotas.get(x.id) || []).slice().sort((a, b) => new Date(b.em) - new Date(a.em));
+  // concluída: marcada à mão OU foto da loja aprovada (a não ser que alguém tenha reaberto depois dessa foto)
+  function concluidaInst(x) {
+    if (x.status === 'cancelada') return false;
+    if (x.status === 'concluida') return true;
+    const f = fotoDaInst(x); if (!f) return false;
+    const re = x.etapas && x.etapas.reaberta;
+    return !(re && new Date(re.em) >= f.data);
+  }
   function situacaoInst(x) {
     if (x.status === 'cancelada') return { k: 'can', t: 'Cancelada' };
-    if (x.status === 'concluida') return { k: 'ok', t: 'Concluída' };
+    if (concluidaInst(x)) return { k: 'ok', t: 'Concluída' };
     const atras = x.previsao && x.previsao < hojeISO();
     return { k: atras ? 'atr' : 'and', t: atras ? 'Atrasada' : 'Em andamento' };
   }
@@ -1261,7 +1269,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     d.appendChild(el('p', 'note', naBase && !naBase.nova ? '✓ A loja já está na planilha do Feishu (aba ' + x.canal + ').' : ln ? (ln.status === 'criada' ? '✓ Linha criada no Feishu: ' + (ln.info || '') : ln.status === 'erro' ? '⚠ Feishu: ' + (ln.info || 'erro ao criar a linha') : '⏳ Linha no Feishu será criada no próximo ciclo (até 10 min).') : 'A loja ainda não está na planilha do Feishu.'));
     // timeline = as atualizações, da mais nova para a mais antiga
     d.appendChild(el('h3', null, 'Timeline · 进度'));
-    if (x.status !== 'cancelada' && x.status !== 'concluida') {
+    if (x.status !== 'cancelada' && !concluidaInst(x)) {
       const nv = el('div'); nv.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-bottom:8px';
       const ta = el('textarea'); ta.placeholder = 'Nova atualização (ex.: mesa saiu do CD, chegou na loja, instalada, faltou o totem…)'; ta.rows = 2; ta.style.cssText = 'width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:6px';
       const ln = el('div'); ln.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
@@ -1289,9 +1297,15 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     d.appendChild(ul);
     const acts = el('div', 'acts'); acts.style.marginTop = '16px';
     const ed = el('button', 'btn', 'Editar dados da loja'); ed.type = 'button'; ed.addEventListener('click', () => formInst(x));
-    const cc = el('button', 'btn ok', x.status === 'concluida' ? 'Reabrir' : '✓ Marcar como concluída'); cc.type = 'button'; cc.hidden = x.status === 'cancelada';
-    cc.addEventListener('click', async () => { try { await api('/rest/v1/instalacoes?id=eq.' + x.id, { method: 'PATCH', body: { status: x.status === 'concluida' ? 'andamento' : 'concluida', atualizado_em: new Date().toISOString() }, headers: { Prefer: 'return=minimal' } }); await loadInst(); } catch (er) { cc.textContent = errMsg(er); } });
-    const cn = el('button', 'btn', x.status === 'cancelada' ? 'Reabrir' : 'Cancelar instalação'); cn.type = 'button'; cn.hidden = x.status === 'concluida';
+    const fim = concluidaInst(x);
+    const cc = el('button', 'btn ok', fim ? 'Reabrir' : '✓ Marcar como concluída'); cc.type = 'button'; cc.hidden = x.status === 'cancelada';
+    cc.addEventListener('click', async () => {
+      // reabrir guarda a data: a foto que já chegou não conclui de novo, só uma foto aprovada mais nova
+      const body = { status: fim ? 'andamento' : 'concluida', atualizado_em: new Date().toISOString() };
+      if (fim) body.etapas = Object.assign({}, x.etapas || {}, { reaberta: { em: new Date().toISOString(), por: perfil.email || '' } });
+      try { await api('/rest/v1/instalacoes?id=eq.' + x.id, { method: 'PATCH', body, headers: { Prefer: 'return=minimal' } }); await loadInst(); } catch (er) { cc.textContent = errMsg(er); } });
+    if (fim && x.status !== 'concluida') d.appendChild(el('p', 'note', '✓ Concluída sozinha: a foto desta loja foi aprovada nas Aprovações.'));
+    const cn = el('button', 'btn', x.status === 'cancelada' ? 'Reabrir' : 'Cancelar instalação'); cn.type = 'button'; cn.hidden = fim;
     cn.addEventListener('click', async () => { if (x.status !== 'cancelada' && !confirmar(cn, 'Confirmar cancelamento?')) return; try { await api('/rest/v1/instalacoes?id=eq.' + x.id, { method: 'PATCH', body: { status: x.status === 'cancelada' ? 'andamento' : 'cancelada', atualizado_em: new Date().toISOString() }, headers: { Prefer: 'return=minimal' } }); await loadInst(); } catch (er) { cn.textContent = errMsg(er); } });
     acts.append(cc, ed, cn); d.appendChild(acts);
   }
@@ -1587,7 +1601,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       }
       const next = filtered().find((x) => x.key !== r.key && stOf(x) === 'aw');
       selKey = next ? next.key : r.key;
-      render();
+      render(); if (inst.length) renderInst();
     } catch (e) { btns.forEach((b) => { b.disabled = false; }); info.textContent = errMsg(e); }
   }
 
