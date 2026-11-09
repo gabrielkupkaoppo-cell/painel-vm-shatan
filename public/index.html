@@ -219,6 +219,14 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   .tab,.tabs .brand{white-space:nowrap;flex:0 0 auto}
   .tabs .who{flex:0 0 auto;white-space:nowrap}
 }
+.mc{position:relative;display:inline-block}
+.mc>button{font:inherit;padding:6px 28px 6px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--fg);cursor:pointer;text-align:left;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative}
+.mc>button::after{content:'▾';position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.mc>button.on{border-color:var(--accent);background:var(--accent-soft,#e8f6ee)}
+.mc .pop{position:absolute;z-index:50;top:calc(100% + 4px);left:0;min-width:230px;max-height:340px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:4px}
+.mc .pop .op{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:5px;cursor:pointer;white-space:nowrap}
+.mc .pop .op:hover{background:var(--sel,#e3f4ea)}
+.mc .pop .dica{font-size:11px;color:var(--muted);padding:6px 8px 4px;border-top:1px solid var(--line);margin-top:4px;white-space:normal}
 </style>
 <script src="crypto.js"></script>
 </head>
@@ -422,6 +430,35 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   const ST = [['aw', 'Aguardando · 待审核'], ['rp', 'Reprovados · 不通过'], ['ap', 'Aprovados · 通过'], ['sb', 'Substituídos · 已替换'], ['ds', 'Descartados · 已删除'], ['all', 'Todos · 全部']];
   const $ = (s) => document.querySelector(s);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  // ---- filtro de canal com vários canais: clique = só esse canal; Ctrl/⌘ + clique ou a caixinha = soma/tira ----
+  const MC = new Map(); // id do select -> Set de canais escolhidos (vazio = todos)
+  const canaisDe = (id) => { const st = MC.get(id); return st && st.size ? st : null; };
+  const okCanal = (set, c) => !set || set.has(c);
+  const nomeCanais = (id, todos) => { const st = canaisDe(id); return st ? [...st].join(' + ') : todos; };
+  function multiCanal(sel) {
+    MC.set(sel.id, new Set()); sel.hidden = true;
+    const box = el('span', 'mc'), bt = el('button'); bt.type = 'button'; bt.setAttribute('aria-haspopup', 'listbox'); bt.setAttribute('aria-label', 'Canal');
+    const todos = () => (sel.options[0] && sel.options[0].value === '' ? sel.options[0].textContent : 'Todos os canais · 全部渠道');
+    const rotulo = () => { const st = MC.get(sel.id); bt.textContent = st.size ? (st.size <= 3 ? [...st].join(' + ') : st.size + ' canais') : todos(); bt.classList.toggle('on', !!st.size); bt.title = st.size ? [...st].join(', ') : ''; };
+    let pop = null;
+    const fechar = () => { if (pop) { pop.remove(); pop = null; document.removeEventListener('mousedown', fora, true); } };
+    const fora = (ev) => { if (!box.contains(ev.target)) fechar(); };
+    const mudou = () => { rotulo(); desenhar(); sel.dispatchEvent(new Event('change')); };
+    function desenhar() {
+      if (!pop) return; pop.replaceChildren(); const st = MC.get(sel.id);
+      const lin = (txt, marcado, onClick) => { const l = el('div', 'op'), cb = el('input'); cb.type = 'checkbox'; cb.checked = marcado; cb.tabIndex = -1; l.setAttribute('role', 'option'); l.setAttribute('aria-selected', String(marcado));
+        l.addEventListener('click', (ev) => { ev.preventDefault(); onClick(ev.target === cb || ev.ctrlKey || ev.metaKey || ev.shiftKey); }); l.append(cb, document.createTextNode(txt)); pop.appendChild(l); };
+      lin(todos(), !st.size, () => { st.clear(); mudou(); fechar(); });
+      [...sel.options].filter((o) => o.value !== '').forEach((o) => lin(o.textContent, st.has(o.value), (somar) => {
+        if (somar) { if (st.has(o.value)) st.delete(o.value); else st.add(o.value); mudou(); }
+        else { const so = st.size === 1 && st.has(o.value); st.clear(); if (!so) st.add(o.value); mudou(); fechar(); } }));
+      pop.appendChild(el('div', 'dica', 'Ctrl (⌘ no Mac) + clique ou a caixinha para escolher vários · 按Ctrl多选'));
+    }
+    bt.addEventListener('click', () => { if (pop) { fechar(); return; } pop = el('div', 'pop'); pop.setAttribute('role', 'listbox'); box.appendChild(pop); desenhar(); document.addEventListener('mousedown', fora, true); });
+    bt.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fechar(); });
+    new MutationObserver(() => { rotulo(); desenhar(); }).observe(sel, { childList: true });
+    box.appendChild(bt); sel.after(box); rotulo();
+  }
 
   let mcp = null, rows = [], header = [], reviews = new Map(), selKey = null;
   let fStatus = 'aw';
@@ -913,12 +950,12 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const box = $('#n-lista'); if (!box) return; box.replaceChildren();
     const todos = codigosErrados();
     const tn = $('#tab-nn'); tn.hidden = !todos.length; tn.textContent = todos.length;
-    const sel = $('#n-uf'), sc = $('#n-canal'); const cur = sel.value, curC = sc.value;
-    const doCanal = todos.filter((r) => !curC || r.canal === curC), daReg = todos.filter((r) => !cur || regDe(r) === cur);
+    const sel = $('#n-uf'), sc = $('#n-canal'); const cur = sel.value, curC = canaisDe('n-canal');
+    const doCanal = todos.filter((r) => okCanal(curC, r.canal)), daReg = todos.filter((r) => !cur || regDe(r) === cur);
     const rgs = [...new Set(todos.map(regDe))].sort(), cns = [...new Set(todos.map((r) => r.canal))].sort();
     sel.replaceChildren(sel.options[0], ...rgs.map((g) => new Option(g + ' (' + doCanal.filter((r) => regDe(r) === g).length + ')', g))); sel.value = rgs.includes(cur) ? cur : '';
-    sc.replaceChildren(sc.options[0], ...cns.map((c) => new Option(c + ' (' + daReg.filter((r) => r.canal === c).length + ')', c))); sc.value = cns.includes(curC) ? curC : '';
-    const lista = todos.filter((r) => (!sel.value || regDe(r) === sel.value) && (!sc.value || r.canal === sc.value));
+    sc.replaceChildren(sc.options[0], ...cns.map((c) => new Option(c + ' (' + daReg.filter((r) => r.canal === c).length + ')', c))); sc.value = '';
+    const lista = todos.filter((r) => (!sel.value || regDe(r) === sel.value) && okCanal(curC, r.canal));
     if (!lista.length) { box.appendChild(el('div', 'empty', 'Nenhum código errado. · 暂无')); return; }
     const porUf = new Map(); lista.forEach((r) => { const u = regDe(r); if (!porUf.has(u)) porUf.set(u, []); porUf.get(u).push(r); });
     [...porUf.keys()].sort().forEach((u) => {
@@ -959,8 +996,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       itens.map((r) => '• ' + fmtD(r.data).slice(0, 10) + ' — ' + (r.uf ? r.uf + ' — ' : '') + r.canal + ' — código "' + (String(r.lojaRaw || '').trim() || 'em branco') + '" — ' + (r.nome || '—')).join('\n') + '\n\nObrigado!';
   }
   function baixarCsv() {
-    const fr = $('#n-uf').value, fc = $('#n-canal').value;
-    const linhas = [['Região', 'Estado', 'Responsável', 'Enviado em', 'Canal', 'Código digitado', 'Promotor', 'Telefone', 'Situação']].concat(codigosErrados().filter((r) => (!fr || regDe(r) === fr) && (!fc || r.canal === fc)).sort((a, b) => regDe(a).localeCompare(regDe(b)) || (a.uf || '').localeCompare(b.uf || '') || b.data - a.data)
+    const fr = $('#n-uf').value, fc = canaisDe('n-canal');
+    const linhas = [['Região', 'Estado', 'Responsável', 'Enviado em', 'Canal', 'Código digitado', 'Promotor', 'Telefone', 'Situação']].concat(codigosErrados().filter((r) => (!fr || regDe(r) === fr) && okCanal(fc, r.canal)).sort((a, b) => regDe(a).localeCompare(regDe(b)) || (a.uf || '').localeCompare(b.uf || '') || b.data - a.data)
       .map((r) => [regDe(r), r.uf || '', respNome(r.uf) || '', fmtD(r.data), r.canal, String(r.lojaRaw || '').trim(), r.nome || '', r.tel || '', stTxt[stOf(r)]]));
     const csv = '﻿' + linhas.map((l) => l.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'codigos-errados-' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
@@ -1002,8 +1039,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     });
   }
   function relFiltrado() {
-    const g = $('#c-reg').value, cn = $('#c-canal').value, tp = $('#c-tipo').value;
-    return baseFeishu.filter((l) => apsDe(l).length && (!g || l.regiao === g) && (!cn || l.canal === cn) && (!tp || apsDe(l).includes(tp)));
+    const g = $('#c-reg').value, cn = canaisDe('c-canal'), tp = $('#c-tipo').value;
+    return baseFeishu.filter((l) => apsDe(l).length && (!g || l.regiao === g) && okCanal(cn, l.canal) && (!tp || apsDe(l).includes(tp)));
   }
   function renderRel() {
     const todas = baseFeishu.filter((l) => apsDe(l).length);
@@ -1093,8 +1130,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const sc = $('#r-canal'); const cur = sc.value;
     const cns = [...new Set(reprov.map((x) => x.c).concat(apont.map((l) => l.canal), velhas.map((l) => l.canal)))].sort();
     sc.replaceChildren(new Option('Todos os canais · 全部渠道', ''), ...cns.map((c) => new Option(c, c))); sc.value = cns.includes(cur) ? cur : '';
-    const fc = sc.value;
-    const R = reprov.filter((x) => !fc || x.c === fc), A = apont.filter((l) => !fc || l.canal === fc), V = velhas.filter((l) => !fc || l.canal === fc);
+    const fc = canaisDe('r-canal');
+    const R = reprov.filter((x) => okCanal(fc, x.c)), A = apont.filter((l) => okCanal(fc, l.canal)), V = velhas.filter((l) => okCanal(fc, l.canal));
     resumoVisivel = { R, A, V, lojaDe };
     const k = $('#r-kpis'); k.replaceChildren();
     [['Fotos reprovadas · 不通过', R.length, 'rp', 'r-sec-r'], ['Com apontamento · 有问题', A.length, 'aw', 'r-sec-a'], ['35+ dias sem foto nova · 超35天', V.length, 'aw', 'r-sec-v']].forEach(([t, v, c, id]) => {
@@ -1133,7 +1170,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     try { await navigator.clipboard.writeText(txt); b.textContent = 'Copiado ✓'; } catch (e) { b.textContent = 'Não consegui copiar'; }
     setTimeout(() => { b.textContent = old; }, 2000);
   }
-  function copiarResumo() { if (!resumoTextos.length) return; copiarTxt($('#r-copy'), ($('#r-sub').textContent.split('.')[0] + ' · ' + ($('#r-canal').value || 'todos os canais')) + '\n\n' + resumoTextos.join('\n\n')); }
+  function copiarResumo() { if (!resumoTextos.length) return; copiarTxt($('#r-copy'), ($('#r-sub').textContent.split('.')[0] + ' · ' + nomeCanais('r-canal', 'todos os canais')) + '\n\n' + resumoTextos.join('\n\n')); }
   function baixarResumo() {
     if (!resumoVisivel) return; const { R, A, V, lojaDe } = resumoVisivel;
     // Detalhe 1 = apontamento de VM (ou motivo da reprovação) · Detalhe 2 = dias sem foto nova
@@ -1205,8 +1242,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const enche = (sel, lab, vals) => { const cur = sel.value; sel.replaceChildren(new Option(lab, ''), ...vals.map((v) => new Option(v, v))); sel.value = vals.includes(cur) ? cur : ''; };
     enche($('#i-canal'), 'Todos os canais · 全部渠道', [...new Set(inst.map((x) => x.canal))].sort());
     enche($('#i-uf'), 'Todos os estados · 全部州', [...new Set(inst.map((x) => x.uf).filter(Boolean))].sort());
-    const q = normT($('#i-q').value), fc = $('#i-canal').value, fu = $('#i-uf').value;
-    const lst = sts.filter(({ x, s }) => (instSt === 'all' || (instSt === 'and' ? (s.k === 'and' || s.k === 'atr') : s.k === instSt)) && (!fc || x.canal === fc) && (!fu || x.uf === fu) &&
+    const q = normT($('#i-q').value), fc = canaisDe('i-canal'), fu = $('#i-uf').value;
+    const lst = sts.filter(({ x, s }) => (instSt === 'all' || (instSt === 'and' ? (s.k === 'and' || s.k === 'atr') : s.k === instSt)) && okCanal(fc, x.canal) && (!fu || x.uf === fu) &&
       (!q || normT([x.canal, x.codigo, x.nome, x.cidade, x.uf].join(' ')).includes(q)));
     const box = $('#i-lista'); box.replaceChildren(el('div', 'list-h', lst.length + ' loja(s)'));
     if (!lst.length) box.appendChild(el('div', 'empty', inst.length ? 'Nenhuma loja com esses filtros.' : 'Nenhuma loja cadastrada ainda. Clique em "+ Cadastrar loja nova".'));
@@ -1396,8 +1433,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     return list.filter((r) => stOf(r) !== 'aw' || melhor.get(grpK(r)) === r);
   }
   function filtered() {
-    const fm = $('#f-form').value, c = $('#f-canal').value, u = $('#f-uf').value, q = $('#f-q').value.trim().toLowerCase();
-    return rows.filter((r) => (fStatus === 'all' || (fStatus === 'dup' ? temRep(r) : stOf(r) === fStatus)) && (!fm || r.form === fm) && (!c || r.canal === c) && (!u || r.uf === u) &&
+    const fm = $('#f-form').value, c = canaisDe('f-canal'), u = $('#f-uf').value, q = $('#f-q').value.trim().toLowerCase();
+    return rows.filter((r) => (fStatus === 'all' || (fStatus === 'dup' ? temRep(r) : stOf(r) === fStatus)) && (!fm || r.form === fm) && okCanal(c, r.canal) && (!u || r.uf === u) &&
       (!q || [r.lojaRaw, r.nome, r.canal, r.uf].join(' ').toLowerCase().includes(q))).filter(((set) => (r) => !set || set.has(r))(soUltimo() ? new Set(colapsar(rows)) : null));
   }
   const fmtD = (d) => d ? d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -1755,8 +1792,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const cs = $('#s-canal'); const cur = cs.value; const canais = [...new Set(todos.flatMap((c) => c.membros.map((m) => m.r.canal)))].sort();
     cs.replaceChildren(cs.options[0] || new Option('Todos os canais · 全部渠道', ''), ...canais.map((c) => new Option(c, c))); cs.value = canais.includes(cur) ? cur : '';
     document.querySelectorAll('#s-st .chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.s === sStatus)));
-    const tipo = $('#s-tipo').value, canal = $('#s-canal').value, q = $('#s-q').value.trim().toLowerCase();
-    const lista = todos.filter((c) => (sStatus === 'todos' || c.estado === sStatus) && (!tipo || c.tipo === tipo) && (!canal || c.membros.some((m) => m.r.canal === canal)) &&
+    const tipo = $('#s-tipo').value, canal = canaisDe('s-canal'), q = $('#s-q').value.trim().toLowerCase();
+    const lista = todos.filter((c) => (sStatus === 'todos' || c.estado === sStatus) && (!tipo || c.tipo === tipo) && (!canal || c.membros.some((m) => canal.has(m.r.canal))) &&
       (!q || c.membros.some((m) => [m.r.lojaRaw, m.r.loja, m.r.nome, m.r.canal, m.r.uf].join(' ').toLowerCase().includes(q))));
     sVisiveis = lista;
     const box = $('#s-lista'); box.replaceChildren();
@@ -1829,6 +1866,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   }
   [['aberto', 'Abertos · 待处理'], ['confirmado', 'Confirmados · 确认'], ['justificado', 'Justificados · 合理'], ['todos', 'Todos · 全部']].forEach(([v, l]) => {
     const b = el('button', 'chip', l); b.type = 'button'; b.dataset.s = v; b.addEventListener('click', () => { sStatus = v; renderSusp(); }); $('#s-st').appendChild(b); });
+  ['f-canal', 's-canal', 'n-canal', 'c-canal', 'r-canal', 'i-canal'].forEach((id) => multiCanal(document.getElementById(id)));
   ['#s-tipo', '#s-canal'].forEach((x) => $(x).addEventListener('change', renderSusp));
   $('#s-q').addEventListener('input', renderSusp);
   $('#s-copiar').addEventListener('click', () => {
