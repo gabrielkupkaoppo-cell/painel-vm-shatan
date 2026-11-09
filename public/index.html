@@ -1136,10 +1136,16 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   function copiarResumo() { if (!resumoTextos.length) return; copiarTxt($('#r-copy'), ($('#r-sub').textContent.split('.')[0] + ' · ' + ($('#r-canal').value || 'todos os canais')) + '\n\n' + resumoTextos.join('\n\n')); }
   function baixarResumo() {
     if (!resumoVisivel) return; const { R, A, V, lojaDe } = resumoVisivel;
-    const linhas = [['Tipo', 'Região', 'UF', 'Canal', 'Código', 'Loja', 'Detalhe', 'Observação', 'Data']];
-    R.forEach((x) => { const l = lojaDe(x.canal, x.loja_raw); linhas.push(['Foto reprovada', l ? l.regiao : '', x.uf || '', x.c, l ? l.codigo : String(x.loja_raw || ''), l ? l.loja : '', x.motivos || '', x.obs || '', fmtD(x.d)]); });
-    A.forEach((l) => linhas.push(['Apontamento', l.regiao || '', l.uf || '', l.canal, l.codigo, l.loja, apsR(l).join(', '), l.observacao || '', l.ultima_foto ? fmtD10(l.ultima_foto) : '']));
-    V.forEach((l) => linhas.push(['35+ dias sem foto', l.regiao || '', l.uf || '', l.canal, l.codigo, l.loja, l.dias_sem_foto + ' dias', '', l.ultima_foto ? fmtD10(l.ultima_foto) : '']));
+    // Detalhe 1 = apontamento de VM (ou motivo da reprovação) · Detalhe 2 = dias sem foto nova
+    // loja que tem apontamento E está há 35+ dias sem foto vira UMA linha só
+    const linhas = [['Tipo', 'Região', 'UF', 'Canal', 'Código', 'Loja', 'Detalhe 1 (apontamento)', 'Detalhe 2 (dias sem foto)', 'Observação', 'Última foto']];
+    R.forEach((x) => { const l = lojaDe(x.canal, x.loja_raw); linhas.push(['Foto reprovada', l ? l.regiao : '', x.uf || '', x.c, l ? l.codigo : String(x.loja_raw || ''), l ? l.loja : '', x.motivos || '', '', x.obs || '', fmtD(x.d)]); });
+    const porLoja = new Map(), chave = (l) => l.canal + '|' + codN(l.codigo);
+    A.forEach((l) => porLoja.set(chave(l), { l, ap: true, v: false }));
+    V.forEach((l) => { const x = porLoja.get(chave(l)); if (x) x.v = true; else porLoja.set(chave(l), { l, ap: false, v: true }); });
+    [...porLoja.values()].sort((a, b) => String(a.l.uf || '').localeCompare(String(b.l.uf || '')) || String(a.l.canal).localeCompare(String(b.l.canal)) || (+codN(a.l.codigo) || 0) - (+codN(b.l.codigo) || 0))
+      .forEach(({ l, ap, v }) => linhas.push([ap && v ? 'Apontamento + 35+ dias sem foto' : ap ? 'Apontamento' : '35+ dias sem foto', l.regiao || '', l.uf || '', l.canal, l.codigo, l.loja,
+        ap ? apsR(l).join(', ') : '', l.dias_sem_foto != null && l.dias_sem_foto >= 35 ? l.dias_sem_foto + ' dias' : '', ap ? (l.observacao || '') : '', l.ultima_foto ? fmtD10(l.ultima_foto) : '']));
     const csv = '﻿' + linhas.map((x) => x.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'resumo-regiao-' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
   }
