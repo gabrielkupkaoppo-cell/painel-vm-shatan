@@ -375,7 +375,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 <div class="wrap">
   <div class="head"><div><h1>Resumo por estado<span class="zh">各州摘要</span></h1>
     <p class="note" id="r-sub">Lojas que precisam de ação: fotos reprovadas, lojas com apontamento de VM e lojas sem foto atualizada há mais de 35 dias.</p></div>
-    <div><button class="btn" type="button" id="r-csv">Baixar lista · 下载</button></div></div>
+    <div><button class="btn" type="button" id="r-copy">Copiar tudo · 复制</button> <button class="btn" type="button" id="r-csv">Baixar lista · 下载</button></div></div>
   <div class="msg" id="r-msg" role="status" hidden></div>
   <div class="bar"><select id="r-reg" aria-label="Estado" hidden></select> <select id="r-canal" aria-label="Canal"></select> <span class="note" id="r-upd"></span></div>
   <div class="counts" id="r-kpis"></div>
@@ -1100,10 +1100,15 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     [['Fotos reprovadas · 不通过', R.length, 'rp', 'r-sec-r'], ['Com apontamento · 有问题', A.length, 'aw', 'r-sec-a'], ['35+ dias sem foto nova · 超35天', V.length, 'aw', 'r-sec-v']].forEach(([t, v, c, id]) => {
       const d = el('button', 'count ' + c); d.type = 'button'; d.style.textAlign = 'left'; d.style.cursor = 'pointer'; d.append(el('b', null, String(v)), el('span', null, t));
       d.addEventListener('click', () => { const s0 = document.getElementById(id); if (s0) s0.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); k.appendChild(d); });
-    const box = $('#r-corpo'); box.replaceChildren();
+    const box = $('#r-corpo'); box.replaceChildren(); resumoTextos = [];
     const secao = (id, titulo, cols, linhas, vazio) => {
       const sec = el('div', 'users'); sec.id = id; sec.style.marginTop = '18px';
-      const h = el('div'); h.style.padding = '10px 12px'; h.appendChild(el('b', null, titulo + ' — ' + linhas.length)); sec.appendChild(h);
+      const h = el('div'); h.style.cssText = 'padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap'; h.appendChild(el('b', null, titulo + ' — ' + linhas.length)); sec.appendChild(h);
+      // texto para colar no WhatsApp / Feishu (lido antes de as etiquetas irem para a tabela)
+      const txtCel = (v) => (v instanceof Node ? [...v.childNodes].map((n) => n.textContent.trim()).filter(Boolean).join(', ') : String(v == null ? '' : v).trim());
+      const txt = '*' + titulo.split(' · ')[0] + ' — ' + linhas.length + '*' + (linhas.length ? '\n' + linhas.map((cells) => '• ' + cells.map((v, i) => { const t = txtCel(v); return !t || t === '—' ? '' : i < 2 ? t : cols[i] + ': ' + t; }).filter(Boolean).join(' — ')).join('\n') : '');
+      resumoTextos.push(txt);
+      if (linhas.length) { const cp = el('button', 'btn', 'Copiar lista · 复制'); cp.type = 'button'; cp.addEventListener('click', () => copiarTxt(cp, txt)); h.appendChild(cp); }
       if (!linhas.length) { sec.appendChild(el('p', 'note', vazio)); sec.lastChild.style.padding = '0 12px 12px'; box.appendChild(sec); return; }
       const t = el('table'); const th = el('thead'); const tr0 = el('tr'); cols.forEach((c) => tr0.appendChild(el('th', null, c))); th.appendChild(tr0); t.appendChild(th);
       const tb = el('tbody'); linhas.forEach((cells) => { const tr = el('tr'); cells.forEach((v) => { const td = el('td'); if (v instanceof Node) td.appendChild(v); else td.textContent = v == null ? '' : String(v); tr.appendChild(td); }); tb.appendChild(tr); });
@@ -1122,7 +1127,13 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       V.map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), l.ultima_foto ? fmtD10(l.ultima_foto) : '—', l.dias_sem_foto + ' dias']),
       'Nenhuma loja passou de 35 dias. 👏');
   }
-  let resumoVisivel = null;
+  let resumoVisivel = null, resumoTextos = [];
+  async function copiarTxt(b, txt) {
+    const old = b.textContent;
+    try { await navigator.clipboard.writeText(txt); b.textContent = 'Copiado ✓'; } catch (e) { b.textContent = 'Não consegui copiar'; }
+    setTimeout(() => { b.textContent = old; }, 2000);
+  }
+  function copiarResumo() { if (!resumoTextos.length) return; copiarTxt($('#r-copy'), ($('#r-sub').textContent.split('.')[0] + ' · ' + ($('#r-canal').value || 'todos os canais')) + '\n\n' + resumoTextos.join('\n\n')); }
   function baixarResumo() {
     if (!resumoVisivel) return; const { R, A, V, lojaDe } = resumoVisivel;
     const linhas = [['Tipo', 'Região', 'UF', 'Canal', 'Código', 'Loja', 'Detalhe', 'Observação', 'Data']];
@@ -1830,7 +1841,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   ['#f-form', '#f-canal', '#f-uf'].forEach((s) => $(s).addEventListener('change', render));
   $('#f-q').addEventListener('input', render);
   $('#i-nova').addEventListener('click', () => formInst({})); ['#i-canal', '#i-uf'].forEach((x) => $(x).addEventListener('change', renderInst)); $('#i-q').addEventListener('input', renderInst);
-  $('#r-reg').addEventListener('change', loadResumo); $('#r-canal').addEventListener('change', renderResumo); $('#r-csv').addEventListener('click', baixarResumo);
+  $('#r-reg').addEventListener('change', loadResumo); $('#r-canal').addEventListener('change', renderResumo); $('#r-csv').addEventListener('click', baixarResumo); $('#r-copy').addEventListener('click', copiarResumo);
   $('#c-q').addEventListener('input', renderBusca); ['#c-reg', '#c-canal', '#c-tipo'].forEach((x) => $(x).addEventListener('change', renderRel)); $('#c-csv').addEventListener('click', baixarRel);
   $('#n-uf').addEventListener('change', renderNovas); $('#n-canal').addEventListener('change', renderNovas); $('#n-csv').addEventListener('click', baixarCsv);
   try { if (localStorage.getItem('vm-soultimo') === '0') $('#f-ultimo').checked = false; } catch (e) {}
