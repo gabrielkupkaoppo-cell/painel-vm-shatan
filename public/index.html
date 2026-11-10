@@ -288,7 +288,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 10/11 09:30</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 10/11 11:00</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -1246,7 +1246,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     if (!lst.length) box.appendChild(el('div', 'empty', inst.length ? 'Nenhuma loja com esses filtros.' : 'Nenhuma loja cadastrada ainda. Clique em "+ Cadastrar loja nova".'));
     lst.forEach(({ x, s }) => {
       const b = el('button', 'item' + (x.id === instSel ? ' sel' : '')); b.type = 'button';
-      b.appendChild(el('span', 't', x.canal + ' · ' + (x.codigo || 's/ código') + (x.nome ? ' · ' + titulo(x.nome) : '')));
+      b.appendChild(el('span', 't', (x.tipo === 'transferencia' ? '🔁 ' : '') + x.canal + ' · ' + (x.codigo || 's/ código') + (x.nome ? ' · ' + titulo(x.nome) : '')));
       b.appendChild(el('span', 'pill ' + (s.k === 'ok' ? 'ap' : s.k === 'atr' ? 'rp' : s.k === 'can' ? 'sb' : 'aw'), s.k === 'ok' ? 'Concluída' : s.k === 'can' ? 'Cancelada' : s.k === 'atr' ? 'Atrasada' : 'Em andamento'));
       const ult = notasDe(x)[0];
       b.appendChild(el('span', 's', [titulo(x.cidade), x.uf].filter(Boolean).join('/') + (x.previsao ? ' · previsão ' + fmtD10(x.previsao) : '')));
@@ -1263,6 +1263,30 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const f = el('form', 'iform');
     const campo = (lab, inp, full) => { const l = el('label', full ? 'full' : null); l.append(document.createTextNode(lab), inp); f.appendChild(l); return inp; };
     const inp = (v, ph) => { const i = el('input'); i.value = v || ''; if (ph) i.placeholder = ph; return i; };
+    // tipo: instalação nova ou transferência de mesa de outra loja
+    let tipo = x.tipo || 'nova';
+    const tbox = el('div', 'full'); tbox.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+    tbox.appendChild(el('span', 'note', 'Tipo · 类型 *'));
+    const tb = {};
+    [['nova', '🆕 Instalação nova'], ['transferencia', '🔁 Transferência de mesa (de outra loja/canal)']].forEach(([v, t]) => { const b = el('button', 'chip', t); b.type = 'button'; tb[v] = b;
+      b.addEventListener('click', () => { tipo = v; atualizaTipo(); }); tbox.appendChild(b); });
+    f.appendChild(tbox);
+    const ob = el('div', 'full'); ob.style.cssText = 'border:1px dashed var(--accent);border-radius:8px;padding:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 14px';
+    ob.appendChild(el('b', null, 'De onde sai a mesa (loja de origem) · 原门店')); ob.lastChild.style.gridColumn = '1/-1';
+    const osc = el('select'); canaisConhecidos().forEach((c) => osc.appendChild(new Option(c, c))); osc.value = x.origem_canal || canaisConhecidos()[0];
+    const ocod = inp(x.origem_codigo, 'código ou nome da loja'); ocod.setAttribute('list', 'dl-origem');
+    const odl = el('datalist'); odl.id = 'dl-origem';
+    const encheO = () => odl.replaceChildren(...lojasDoCanal(osc.value).map((l) => { const o = el('option'); o.value = l.codigo + ' · ' + titulo(l.loja) + (l.uf ? ' (' + l.uf + ')' : ''); return o; }));
+    encheO(); osc.addEventListener('change', encheO);
+    const oInfo = el('span', 'note');
+    const confereO = () => { const l = lojaNaBase(osc.value, ocod.value.split(' · ')[0]); oInfo.textContent = l ? '✓ ' + l.codigo + ' · ' + titulo(l.loja) + (l.cidade ? ' — ' + titulo(l.cidade) : '') + (l.uf ? '/' + l.uf : '') : (ocod.value.trim() ? '⚠ loja não encontrada na planilha deste canal' : ''); };
+    ocod.addEventListener('input', confereO); osc.addEventListener('change', confereO);
+    const lab = (t, i) => { const l = el('label'); l.append(document.createTextNode(t), i); return l; };
+    ob.append(lab('Canal de origem', osc), lab('Loja de origem', ocod), odl, oInfo);
+    f.appendChild(ob);
+    const atualizaTipo = () => { Object.keys(tb).forEach((k) => tb[k].setAttribute('aria-pressed', String(k === tipo))); ob.hidden = tipo !== 'transferencia'; if (feishuTxt) feishuTxt.textContent = tipo === 'transferencia' ? 'Criar a linha da loja de destino no Feishu, se ainda não existir. A transferência é anotada sozinha nas duas lojas, na coluna de anotação.' : 'Criar também a linha desta loja na planilha do Feishu (aba do canal), para ela entrar no painel'; };
+    let feishuTxt = null;
+    f.appendChild(el('b', 'full', 'Loja de destino · 目标门店')); f.lastChild.style.marginTop = '4px';
     const sc = el('select'); canaisConhecidos().forEach((c) => sc.appendChild(new Option(c, c))); sc.appendChild(new Option('Outro…', '__outro')); sc.value = x.canal || canaisConhecidos()[0];
     const outro = inp('', 'Nome do canal'); outro.hidden = true; sc.addEventListener('change', () => { outro.hidden = sc.value !== '__outro'; });
     const cl = el('label'); cl.append(document.createTextNode('Canal · 渠道 *'), sc, outro); f.appendChild(cl);
@@ -1279,7 +1303,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const ml = el('label', 'full'); ml.append(document.createTextNode('Material de VM que vai para a loja · 物料'), mats); f.appendChild(ml);
     let feishu = null;
     if (!x.id) { const l = el('label', 'full'); l.style.flexDirection = 'row'; l.style.alignItems = 'center'; l.style.gap = '6px'; l.style.color = 'var(--fg)'; feishu = el('input'); feishu.type = 'checkbox'; feishu.checked = true;
-      l.append(feishu, document.createTextNode('Criar também a linha desta loja na planilha do Feishu (aba do canal), para ela entrar no painel')); f.appendChild(l); }
+      feishuTxt = el('span'); l.append(feishu, feishuTxt); f.appendChild(l); }
+    atualizaTipo();
     const obs = !x.id ? campo('Observação inicial (opcional)', el('textarea'), true) : null; if (obs) obs.rows = 2;
     const acts = el('div', 'full acts'); acts.style.display = 'flex'; acts.style.gap = '8px';
     const ok = el('button', 'btn ok', x.id ? 'Salvar alterações · 保存' : 'Cadastrar · 登记'); ok.type = 'submit';
@@ -1289,8 +1314,12 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       ev.preventDefault();
       const canal = sc.value === '__outro' ? outro.value.trim() : sc.value;
       if (!canal || !cod.value.trim() || !uf.value) { info.textContent = 'Preencha canal, código e estado.'; return; }
+      const oL = tipo === 'transferencia' ? lojaNaBase(osc.value, ocod.value.split(' · ')[0]) : null;
+      if (tipo === 'transferencia' && !ocod.value.trim()) { info.textContent = 'Informe a loja de origem da mesa.'; return; }
       ok.disabled = true; info.textContent = 'Salvando…';
-      const body = { canal, codigo: cod.value.trim(), nome: nome.value.trim(), cidade: cid.value.trim(), uf: uf.value, endereco: end.value.trim(), mesa: mesa.value, materiais: [...marc], previsao: prev.value || null, rastreio: rast.value.trim(), atualizado_em: new Date().toISOString() };
+      const body = { canal, codigo: cod.value.trim(), nome: nome.value.trim(), cidade: cid.value.trim(), uf: uf.value, endereco: end.value.trim(), mesa: mesa.value, materiais: [...marc], previsao: prev.value || null, rastreio: rast.value.trim(), atualizado_em: new Date().toISOString(),
+        tipo, origem_canal: tipo === 'transferencia' ? osc.value : '', origem_codigo: tipo === 'transferencia' ? (oL ? String(oL.codigo) : ocod.value.split(' · ')[0].trim()) : '',
+        origem_nome: tipo === 'transferencia' ? (oL ? oL.loja : '') : '', origem_uf: tipo === 'transferencia' ? (oL ? oL.uf || '' : '') : '' };
       try {
         if (x.id) { await api('/rest/v1/instalacoes?id=eq.' + x.id, { method: 'PATCH', body, headers: { Prefer: 'return=minimal' } }); }
         else {
@@ -1311,10 +1340,13 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const s = situacaoInst(x), e = etapasDe(x);
     const top = el('div', 'dt'); top.append(el('h2', null, x.canal + ' · ' + (x.codigo || 's/ código') + (x.nome ? ' · ' + titulo(x.nome) : '')), el('span', 'pill ' + (s.k === 'ok' ? 'ap' : s.k === 'atr' ? 'rp' : s.k === 'can' ? 'sb' : 'aw'), s.k === 'ok' ? 'Concluída · 已完成' : s.k === 'can' ? 'Cancelada' : s.k === 'atr' ? 'Atrasada · 逾期' : 'Em andamento · 进行中')); d.appendChild(top);
     const facts = el('div', 'facts');
-    [['Cidade / UF', [titulo(x.cidade), x.uf].filter(Boolean).join(' / ') || '—'], ['Região', REG[x.uf] || '—'], ['Responsável', respNome(x.uf) || '—'], ['Tipo de mesa', x.mesa || '—'],
+    [['Tipo', x.tipo === 'transferencia' ? '🔁 Transferência de mesa' : '🆕 Instalação nova'], ...(x.tipo === 'transferencia' ? [['Mesa veio de', x.origem_canal + ' ' + x.origem_codigo + (x.origem_nome ? ' · ' + titulo(x.origem_nome) : '') + (x.origem_uf ? ' (' + x.origem_uf + ')' : '')]] : []),
+      ['Cidade / UF', [titulo(x.cidade), x.uf].filter(Boolean).join(' / ') || '—'], ['Região', REG[x.uf] || '—'], ['Responsável', respNome(x.uf) || '—'], ['Tipo de mesa', x.mesa || '—'],
       ['Previsão', x.previsao ? fmtD10(x.previsao) : '—'], ['Rastreio / NF', x.rastreio || '—'], ['Endereço', x.endereco || '—'], ['Material de VM', (x.materiais || []).join(', ') || '—']]
       .forEach(([k0, v]) => { const c = el('div'); c.append(el('b', null, k0), el('span', null, v)); facts.appendChild(c); });
     d.appendChild(facts);
+    if (x.tipo === 'transferencia') { const t = (x.etapas && x.etapas.transf_feishu) || {};
+      d.appendChild(el('p', 'note', t.destino && t.origem ? '✓ Transferência anotada no Feishu nas duas lojas (coluna de anotação).' : '⏳ Anotação da transferência no Feishu: ' + (t.destino ? 'destino ✓' : 'destino pendente') + ' · ' + (t.origem ? 'origem ✓' : 'origem pendente') + ([t.erro_destino, t.erro_origem, t.erro].filter(Boolean).length ? ' — ' + [t.erro_destino, t.erro_origem, t.erro].filter(Boolean).join('; ') : ' (até 10 min)'))); }
     const ln = lojasNovas.find((y) => y.canal === x.canal && codN(y.codigo) === codN(x.codigo));
     const naBase = lojaNaBase(x.canal, x.codigo);
     d.appendChild(el('p', 'note', naBase && !naBase.nova ? '✓ A loja já está na planilha do Feishu (aba ' + x.canal + ').' : ln ? (ln.status === 'criada' ? '✓ Linha criada no Feishu: ' + (ln.info || '') : ln.status === 'erro' ? '⚠ Feishu: ' + (ln.info || 'erro ao criar a linha') : '⏳ Linha no Feishu será criada no próximo ciclo (até 10 min).') : 'A loja ainda não está na planilha do Feishu.'));
@@ -1339,7 +1371,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     }
     const itens = notasDe(x).map((n0) => ({ em: n0.em, por: n0.por_email, t: n0.texto, id: n0.id }));
     const f = fotoDaInst(x); if (f) itens.push({ em: f.data.toISOString(), por: 'automático', t: '📷 Foto aprovada no Forms (envio de ' + (f.nome || '—') + ')', key: f.key });
-    itens.push({ em: x.criada_em, por: x.por_email, t: '🏬 Loja cadastrada' });
+    itens.push({ em: x.criada_em, por: x.por_email, t: x.tipo === 'transferencia' ? '🔁 Transferência registrada: mesa vem de ' + x.origem_canal + ' ' + x.origem_codigo + (x.origem_nome ? ' · ' + titulo(x.origem_nome) : '') : '🏬 Loja cadastrada' });
     itens.sort((a, b) => new Date(b.em) - new Date(a.em));
     const ul = el('ul', 'tl');
     itens.forEach((it, i) => { const li = el('li', i === 0 ? 'atual' : 'feito');

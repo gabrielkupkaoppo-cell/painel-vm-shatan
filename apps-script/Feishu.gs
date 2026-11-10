@@ -32,6 +32,7 @@ function sincronizarFeishu() {
   try {
     criarLojasNovas_(); enviarFeishu_(FEISHU_LOTE, false);
     try { atualizarVeiculacao_(false); } catch (e) { console.warn('Período de veiculação: ' + e); }
+    try { anotarTransferencias_(false); } catch (e) { console.warn('Transferências: ' + e); }
   } finally { lock.releaseLock(); }
 }
 
@@ -389,3 +390,59 @@ function atualizarVeiculacao_(detalhado) {
   });
   return feitos;
 }
+
+// ---------- Instalações: transferência de mesa → anotação nas duas lojas no Feishu ----------
+// Na loja de destino: "Mesa recebida por transferência de <origem> em dd/mm/aaaa".
+// Na loja de origem:  "Mesa transferida para <destino> em dd/mm/aaaa".
+// O texto é acrescentado ao que já estiver na coluna de anotação (não apaga nada). Rode anotarTransferencias() à mão para ver o registro.
+function anotarTransferencias() { return anotarTransferencias_(true); }
+function anotarTransferencias_(detalhado) {
+  const lista = (supa_('GET', '/rest/v1/instalacoes?select=id,canal,codigo,nome,tipo,origem_canal,origem_codigo,origem_nome,criada_em,status,etapas&tipo=eq.transferencia&status=neq.cancelada') || [])
+    .filter((x) => { const t = (x.etapas && x.etapas.transf_feishu) || {}; return !(t.destino && t.origem); });
+  if (!lista.length) { if (detalhado) console.log('Transferências: nada novo para anotar.'); return 0; }
+  const planilha = String(PropertiesService.getScriptProperties().getProperty('FEISHU_PLANILHA') || '').trim();
+  const tk = feishuToken_();
+  const abas = feishu_(tk, 'GET', '/sheets/v3/spreadsheets/' + planilha + '/sheets/query').sheets || [];
+  const cache = {};
+  const abaInfo = (canal) => {
+    const aba = abas.find((a) => semAcento_(a.title) === semAcento_(canalFeishu_(canal)));
+    if (!aba) return null;
+    if (!cache[aba.sheet_id]) {
+      const A = lerAba_(tk, planilha, aba);
+      const nCol = Math.min((aba.grid_properties && aba.grid_properties.column_count) || 40, 60);
+      const cab = valores_(tk, planilha, aba.sheet_id + '!A1:' + letra_(nCol) + '4');
+      let col = null; cab.forEach((row) => (row || []).forEach((v, i) => { if (!col && /anota/i.test(semAcento_(texto_(v)))) col = i + 1; }));
+      cache[aba.sheet_id] = { aba, A, col };
+    }
+    return cache[aba.sheet_id];
+  };
+  // acrescenta o texto na célula de anotação da loja; devolve '' se deu certo ou o motivo
+  const anotar = (canal, codigo, texto) => {
+    const c = abaInfo(canal); if (!c) return 'aba "' + canalFeishu_(canal) + '" não existe';
+    if (!c.col) return 'coluna de anotação não encontrada na aba ' + c.aba.title;
+    const linha = acharLinha_(c.A, codigo); if (!linha) return 'loja ' + codigo + ' ainda não está na aba ' + c.aba.title;
+    const cel = c.aba.sheet_id + '!' + letra_(c.col) + linha + ':' + letra_(c.col) + linha;
+    const atual = texto_(((valores_(tk, planilha, cel) || [])[0] || [])[0]);
+    if (atual.indexOf(texto) >= 0) return '';
+    feishu_(tk, 'PUT', '/sheets/v2/spreadsheets/' + planilha + '/values', { valueRange: { range: cel, values: [[atual ? atual + ' | ' + texto : texto]] } });
+    return '';
+  };
+  let feitos = 0;
+  lista.forEach((x) => {
+    const t = Object.assign({}, (x.etapas && x.etapas.transf_feishu) || {});
+    const data = Utilities.formatDate(new Date(x.criada_em), 'America/Sao_Paulo', 'dd/MM/yyyy');
+    const dest = canalFeishu_(x.canal) + ' ' + x.codigo + (x.nome ? ' (' + x.nome + ')' : '');
+    const orig = canalFeishu_(x.origem_canal) + ' ' + x.origem_codigo + (x.origem_nome ? ' (' + x.origem_nome + ')' : '');
+    try {
+      if (!t.destino) { const e = anotar(x.canal, x.codigo, 'Mesa recebida por transferência de ' + orig + ' em ' + data); if (e) t.erro_destino = e; else { t.destino = true; delete t.erro_destino; } }
+      if (!t.origem && x.origem_codigo) { const e = anotar(x.origem_canal, x.origem_codigo, 'Mesa transferida para ' + dest + ' em ' + data); if (e) t.erro_origem = e; else { t.origem = true; delete t.erro_origem; } }
+      if (!x.origem_codigo) t.origem = true;
+    } catch (err) { t.erro = String(err.message || err).slice(0, 200); }
+    t.em = new Date().toISOString();
+    supa_('PATCH', '/rest/v1/instalacoes?id=eq.' + x.id, { etapas: Object.assign({}, x.etapas || {}, { transf_feishu: t }) }, { Prefer: 'return=minimal' });
+    if (t.destino && t.origem) feitos++;
+    console.log('Transferência ' + orig + ' → ' + dest + ': ' + (t.destino && t.origem ? 'anotada nas duas lojas' : 'pendente — ' + [t.erro_destino, t.erro_origem, t.erro].filter(Boolean).join('; ')));
+  });
+  return feitos;
+}
+
