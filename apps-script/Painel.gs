@@ -64,7 +64,7 @@ function atualizarPainel_(detalhado) {
     const txt = (r, c) => texto_(cel(r, c));
     // cabeçalho (mesma regra do importador)
     let hdr = null;
-    for (let r = 1; r < 6 && !hdr; r++) for (let c = 1; c <= nCol; c++) if (txt(r, c).indexOf('Store Name') >= 0) { hdr = r; break; }
+    for (let r = 1; r < 6 && !hdr; r++) for (let c = 1; c <= nCol; c++) if (txt(r, c).toLowerCase().indexOf('store name') >= 0) { hdr = r; break; }
     if (!hdr) hdr = 2;
     let hrows = []; for (let r = 1; r <= hdr; r++) hrows.push(r); if (ch === 'Claro') hrows.push(3);
     if (ch === 'Tim') { hdr = 3; hrows = [1, 2, 3]; }
@@ -72,8 +72,9 @@ function atualizarPainel_(detalhado) {
     hrows.forEach((r) => { for (let c = 1; c <= nCol; c++) { const v = txt(r, c); if (v) (H[c] = H[c] || []).push(v); } });
     const cols = Object.keys(H).map(Number).sort((a, b) => a - b);
     const find = (fn) => { for (const c of cols) if (H[c].some(fn)) return c; return null; };
-    const C = { code: find((v) => v.indexOf('Store Code') >= 0), name: find((v) => v.indexOf('Store Name') >= 0), city: find((v) => v.indexOf('City') >= 0),
-      state: find((v) => (v.indexOf('State') >= 0 || v === 'STATE') && v.indexOf('Currently') < 0), cls: find((v) => v.indexOf('Classification') >= 0),
+    const lo = (v) => String(v).toLowerCase();   // títulos sem diferenciar maiúscula (ex.: "STORE NAME" da Casas Bahia)
+    const C = { code: find((v) => lo(v).indexOf('store code') >= 0), name: find((v) => lo(v).indexOf('store name') >= 0), city: find((v) => lo(v).indexOf('city') >= 0),
+      state: find((v) => /\bstate\b/i.test(v) && lo(v).indexOf('currently') < 0), cls: find((v) => lo(v).indexOf('classification') >= 0),
       promo: find((v) => v.indexOf('promotor exclusivo') >= 0), t16: find((v) => v.indexOf('1.6M') >= 0), t12: find((v) => v.indexOf('1.2M') >= 0), t08: find((v) => v.indexOf('0.8M') >= 0),
       note: find((v) => v.indexOf('备注anota') >= 0), ok: find((v) => v.indexOf('Ok/Pendente') >= 0), date: find((v) => v.indexOf('veicula') >= 0) };
     const fotoCols = cols.filter((c) => H[c].some((v) => v.indexOf('照片') >= 0));
