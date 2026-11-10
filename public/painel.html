@@ -293,9 +293,9 @@ window.VMCRYPTO = (function () {
       <span class="vm-sub">cobrar envio no Forms</span>
     </div>
     <div class="vm-tile">
-      <span class="vm-tile-label">Com foto, mas com apontamento de VM<span class="zh">已上传但有陈列问题</span></span>
-      <span class="vm-big dash-skeleton t-ap" data-source="resumo" data-field="ok_apont">—</span>
-      <span class="vm-sub"><b class="t-ok" data-source="resumo" data-field="ok">—</b> sem apontamento</span>
+      <span class="vm-tile-label">Lojas com mesa multimarcas<span class="zh">多品牌体验台门店</span></span>
+      <span class="vm-big dash-skeleton t-mm" data-source="resumo" data-field="multimarcas">—</span>
+      <span class="vm-sub"><b class="t-mmfoto" data-source="resumo" data-field="multimarcas_foto">—</b> com foto aprovada</span>
     </div>
     <div class="vm-tile">
       <span class="vm-tile-label">Lojas com mesa de experiência<span class="zh">有体验台门店</span></span>
@@ -442,6 +442,8 @@ dash.calc('resumo', {
       const mesa = s.filter((l) => Number(l.mesas) > 0);
       out.push({ canal: c, regiao: r, lojas: n, ok, ok_apont: ap, pendente: n - ok - ap, com_foto: ok + ap,
         pct_foto: n ? (ok + ap) / n : null, lojas_mesa: mesa.length,
+        multimarcas: s.filter((l) => l.multimarcas === true || l.multimarcas === 'true').length,
+        multimarcas_foto: s.filter((l) => (l.multimarcas === true || l.multimarcas === 'true') && l.situacao !== 'Pendente').length,
         lojas_mesa_foto: mesa.filter((l) => Number(l.fotos) > 0).length,
         mesa_16: sum('mesa_16'), mesa_12: sum('mesa_12'), mesa_08: sum('mesa_08') });
     }
@@ -694,12 +696,12 @@ dash.calc('apontamentos', {
     document.querySelectorAll('#indicadores [data-source], #takeaway .tk-com, #takeaway .tk-lojas, #takeaway .tk-pct').forEach((el) => el.setAttribute('data-where', w));
     const row = res && res.find((r) => r.canal === p.canal && r.regiao === p.regiao);
     const set = (s, v) => document.querySelectorAll(s).forEach((el) => { el.textContent = v; });
-    if (!row) { ['.t-pct','.t-com','.t-lojas','.t-pend','.t-ap','.t-ok','.t-mesa','.t-mesafoto','.t-m16','.t-m12','.t-m08','.tk-com','.tk-lojas','.tk-pct'].forEach((s) => set(s, '—')); return; }
+    if (!row) { ['.t-pct','.t-com','.t-lojas','.t-pend','.t-mm','.t-mmfoto','.t-mesa','.t-mesafoto','.t-m16','.t-m12','.t-m08','.tk-com','.tk-lojas','.tk-pct'].forEach((s) => set(s, '—')); return; }
     set('.t-pct', row.pct_foto == null ? '—' : pct.format(row.pct_foto));
     set('.tk-pct', row.pct_foto == null ? '—' : pct.format(row.pct_foto));
     set('.t-com', num.format(row.com_foto)); set('.tk-com', num.format(row.com_foto));
     set('.t-lojas', num.format(row.lojas)); set('.tk-lojas', num.format(row.lojas));
-    set('.t-pend', num.format(row.pendente)); set('.t-ap', num.format(row.ok_apont)); set('.t-ok', num.format(row.ok));
+    set('.t-pend', num.format(row.pendente)); set('.t-mm', num.format(row.multimarcas || 0)); set('.t-mmfoto', num.format(row.multimarcas_foto || 0));
     set('.t-mesa', num.format(row.lojas_mesa)); set('.t-mesafoto', num.format(row.lojas_mesa_foto));
     set('.t-m16', num.format(row.mesa_16)); set('.t-m12', num.format(row.mesa_12)); set('.t-m08', num.format(row.mesa_08));
     document.querySelectorAll('.dash-skeleton').forEach((el) => el.classList.remove('dash-skeleton'));

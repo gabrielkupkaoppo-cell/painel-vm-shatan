@@ -34,14 +34,16 @@ function atualizarPainel_(detalhado) {
   // data da última foto aprovada por linha (vem do envio ao Feishu: "Magalu linha 75: ...")
   // data do último envio APROVADO de cada loja, pelo canal + código da loja (não depende da linha do Feishu)
   const ultima = {};
-  const aprov = {}; supa_('GET', '/rest/v1/revisoes?select=key,canal_corrigido,loja_corrigida&status=eq.Aprovado&limit=20000').forEach((r) => { aprov[r.key] = r; });
-  supa_('GET', '/rest/v1/envios?select=key,canal,loja_raw,data&limit=20000').forEach((e) => {
+  const aprov = {}; supa_('GET', '/rest/v1/revisoes?select=key,canal_corrigido,loja_corrigida,mesa_corrigida&status=eq.Aprovado&limit=20000').forEach((r) => { aprov[r.key] = r; });
+  const mesaUlt = {};   // tipo de mesa do último envio aprovado de cada loja (para contar mesa multimarcas)
+  supa_('GET', '/rest/v1/envios?select=key,canal,loja_raw,data,mesa&limit=20000').forEach((e) => {
     if (!aprov[e.key] || !e.data) return;
     if (aprov[e.key].canal_corrigido) e.canal = aprov[e.key].canal_corrigido;   // código da loja corrigido no site
     if (aprov[e.key].loja_corrigida) e.loja_raw = aprov[e.key].loja_corrigida;
     const c = semAcento_(canalFeishu_(e.canal)); const ks = chaves_(e.loja_raw);
     const iso = Utilities.formatDate(new Date(e.data), 'America/Sao_Paulo', 'yyyy-MM-dd');
-    [ks[0] && c + '|' + ks[0], ks[1] && c + '|#' + ks[1]].filter(Boolean).forEach((k) => { if (!ultima[k] || ultima[k] < iso) ultima[k] = iso; });
+    const mesa = aprov[e.key].mesa_corrigida || e.mesa || '';
+    [ks[0] && c + '|' + ks[0], ks[1] && c + '|#' + ks[1]].filter(Boolean).forEach((k) => { if (!ultima[k] || ultima[k] < iso) { ultima[k] = iso; mesaUlt[k] = mesa; } else if (ultima[k] === iso && mesa) mesaUlt[k] = mesa; });
   });
   const ultimaDe = (canal, codigo, nome) => {
     const c = semAcento_(canal);
@@ -49,6 +51,15 @@ function atualizarPainel_(detalhado) {
       const ks = chaves_(raw); if (!ks.length) continue;
       if (ks[0] && ultima[c + '|' + ks[0]]) return ultima[c + '|' + ks[0]];
       if (ks[1] && ultima[c + '|#' + ks[1]]) return ultima[c + '|#' + ks[1]];
+    }
+    return '';
+  };
+  const mesaDe = (canal, codigo, nome) => {
+    const c = semAcento_(canal);
+    for (const raw of [codigo, String(nome || '').split(/[\s-]/)[0]]) {
+      const ks = chaves_(raw); if (!ks.length) continue;
+      if (ks[0] && mesaUlt[c + '|' + ks[0]] != null) return mesaUlt[c + '|' + ks[0]];
+      if (ks[1] && mesaUlt[c + '|#' + ks[1]] != null) return mesaUlt[c + '|#' + ks[1]];
     }
     return '';
   };
@@ -76,7 +87,7 @@ function atualizarPainel_(detalhado) {
     const C = { code: find((v) => lo(v).indexOf('store code') >= 0), name: find((v) => lo(v).indexOf('store name') >= 0), city: find((v) => lo(v).indexOf('city') >= 0),
       state: find((v) => /\bstate\b/i.test(v) && lo(v).indexOf('currently') < 0), cls: find((v) => lo(v).indexOf('classification') >= 0),
       promo: find((v) => v.indexOf('promotor exclusivo') >= 0), t16: find((v) => v.indexOf('1.6M') >= 0), t12: find((v) => v.indexOf('1.2M') >= 0), t08: find((v) => v.indexOf('0.8M') >= 0),
-      note: find((v) => v.indexOf('备注anota') >= 0), ok: find((v) => v.indexOf('Ok/Pendente') >= 0), date: find((v) => v.indexOf('veicula') >= 0) };
+      note: find((v) => v.indexOf('备注anota') >= 0), mm: find((v) => /multimarca/i.test(v)), ok: find((v) => v.indexOf('Ok/Pendente') >= 0), date: find((v) => v.indexOf('veicula') >= 0) };
     const fotoCols = cols.filter((c) => H[c].some((v) => v.indexOf('照片') >= 0));
     const dispCols = cols.filter((c) => H[c].some((v) => v.toLowerCase().indexOf('display') >= 0 && v.indexOf('Store') < 0));
     if (!C.name) { resumo.push(ch + ': sem coluna Store Name'); return; }
@@ -101,9 +112,11 @@ function atualizarPainel_(detalhado) {
       let veic = g('date'); if (/^\d{5}(\.\d+)?$/.test(veic)) veic = Utilities.formatDate(new Date(Date.UTC(1899, 11, 30) + Math.round(+veic) * 864e5), 'UTC', 'yyyy-MM-dd');
       const ult = ultimaDe(ch, C.code ? g('code') : '', nome);
       const codigo = C.code ? g('code').replace(/\.0$/, '') : '';
+      const mmCx = C.mm ? ['1', 'TRUE', 'YES', 'SIM', 'X'].indexOf(g('mm').toUpperCase()) >= 0 : false;
+      const multimarcas = mmCx || /multimarca/i.test(mesaDe(ch, C.code ? g('code') : '', nome));
       lojas.push({ id: ch + '-' + r, canal: ch, codigo: codigo === '0' ? '' : codigo, loja: nome, cidade, uf, regiao: PAINEL_REGIAO[uf] || 'Outra', classe: cls, promotor: prom,
         mesa_16: t16, mesa_12: t12, mesa_08: t08, mesas: t16 + t12 + t08, displays: nd, fotos, situacao: sit, ok_planilha: okp, apontamento: tg.join('; '), observacao: obs,
-        veiculacao: veic, ultima_foto: ult, fotos_hash: '', atualizado_em: hoje, dias_sem_foto: ult ? Math.round((Date.parse(hoje) - Date.parse(ult)) / 864e5) : null });
+        veiculacao: veic, multimarcas, ultima_foto: ult, fotos_hash: '', atualizado_em: hoje, dias_sem_foto: ult ? Math.round((Date.parse(hoje) - Date.parse(ult)) / 864e5) : null });
       n++;
     }
     resumo.push(ch + ': ' + n + ' lojas, ' + lojas.filter((l) => l.canal === ch && l.situacao !== 'Pendente').length + ' com foto');
