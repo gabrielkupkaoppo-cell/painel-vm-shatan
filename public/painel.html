@@ -323,6 +323,16 @@ window.VMCRYPTO = (function () {
       <p class="vm-note">No canal selecionado.</p>
       <div class="vm-chart" id="reg-chart" data-source="resumo"></div>
     </section>
+    <section class="vm-card" id="g-mainpush">
+      <h2>Main push<span class="zh">主推物料</span></h2>
+      <p class="vm-note" id="mp-resumo">Lojas com os dois materiais do main push (colunas Q e R do Feishu). Americanas, Claro, Vivo e Tim não têm main push.</p>
+      <div class="vm-legend">
+        <span><i class="vm-sw" style="background:var(--color-ok)"></i>Os dois · 两个都有</span>
+        <span><i class="vm-sw" style="background:var(--color-warn)"></i>Só um · 只有一个</span>
+        <span><i class="vm-sw" style="background:var(--color-bad)"></i>Nenhum · 都没有</span>
+      </div>
+      <div class="vm-chart" id="mp-chart" data-source="lojas"></div>
+    </section>
     <section class="vm-card" id="g-mesas" hidden>
       <h2>Mesas por tamanho<span class="zh">体验台尺寸分布</span></h2>
       <p class="vm-note">Lojas com cada tamanho de mesa, com e sem foto. Claro, Vivo e Tim não têm essas colunas.</p>
@@ -857,6 +867,23 @@ dash.calc('apontamentos', {
       svg.append('text').attr('x', cx).attr('y', H - m.b + 16).attr('text-anchor', 'middle').style('font-size', x.bandwidth() < 50 ? '9px' : '11px').style('fill', 'var(--color-fg-muted)').text(short);
     });
   }
+  function drawMainPush(p, lojas) {
+    const el = $('#mp-chart'), res = $('#mp-resumo');
+    const base = lojas.filter((l) => l.main_push != null && l.main_push !== '' && (p.regiao === 'Todas' || l.regiao === p.regiao) &&
+      (p.canal === 'Todos' || (p.canal === 'Prioritários' ? PRI.has(l.canal) : l.canal === p.canal)));
+    if (!lojas.some((l) => 'main_push' in l)) { el.replaceChildren(); const n = document.createElement('p'); n.className = 'vm-note'; n.textContent = 'Aguardando a próxima atualização do Feishu (Painel.gs novo no Apps Script).'; el.appendChild(n); return; }
+    const by = new Map();
+    base.forEach((l) => { const g = by.get(l.canal) || { canal: l.canal, lojas: 0, Completo: 0, Parcial: 0, Sem: 0 }; g.lojas++; g[l.main_push] = (g[l.main_push] || 0) + 1; by.set(l.canal, g); });
+    const rows = [...by.values()].map((g) => Object.assign(g, { pct: g.lojas ? g.Completo / g.lojas : 0 })).sort((a, b) => b.pct - a.pct || b.lojas - a.lojas);
+    const tot = base.length, ok = base.filter((l) => l.main_push === 'Completo').length;
+    res.textContent = tot ? pct.format(ok / tot) + ' das lojas com main push têm os dois materiais (' + ok + ' de ' + tot + '). Colunas Q e R do Feishu; Americanas, Claro, Vivo e Tim não têm main push.'
+      : 'Nenhuma loja com main push nesta seleção (Americanas, Claro, Vivo e Tim não têm main push).';
+    hbar(el, rows, {
+      label: (r) => (PRI.has(r.canal) ? '★ ' : '') + r.canal, end: (r) => pct.format(r.pct) + ' (' + r.Completo + '/' + r.lojas + ')', total: (r) => r.lojas,
+      parts: [['Completo', 'var(--color-ok)'], ['Parcial', 'var(--color-warn)'], ['Sem', 'var(--color-bad)']],
+      tip: (r) => [['var(--color-ok)', 'Os dois materiais', r.Completo], ['var(--color-warn)', 'Só um', r.Parcial], ['var(--color-bad)', 'Nenhum', r.Sem]],
+    });
+  }
   function drawMesas(p, data) {
     const rows = data.filter((r) => r.canal === p.canal && r.regiao === p.regiao && r.lojas > 0);
     hbar($('#mesas-chart'), rows, {
@@ -1128,6 +1155,7 @@ dash.calc('apontamentos', {
     else if (re.status === 'error') { fail($('#heat')); }
     if (uf.status === 'ok') drawUf(p, uf.data); else if (uf.status === 'error') fail($('#uf-chart'));
     if (ap.status === 'ok') drawAp(p, ap.data); else if (ap.status === 'error') fail($('#ap-chart'));
+    if (lo.status === 'ok') drawMainPush(p, lo.data); else if (lo.status === 'error') fail($('#mp-chart'));
     if (lo.status === 'ok') {
       lastRows = lo.data.map((r) => Object.assign({}, r, { mesas: Number(r.mesas) || 0, fotos: Number(r.fotos) || 0,
         dias_sem_foto: r.dias_sem_foto == null || r.dias_sem_foto === '' ? null : Number(r.dias_sem_foto) }));
