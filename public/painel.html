@@ -108,6 +108,7 @@ window.dash = (function () {
     colors: ['#0f6e5c', '#3d6fb6', '#b05a2c', '#7b5ea7', '#2f8f9d', '#a4436b', '#6b7f2a', '#5d6b75'],
     _load(obj, lazyLoaders) { Object.entries(obj).forEach(([k, v]) => { raw[k] = v; sets[k] = { status: 'ok', data: v }; }); Object.assign(lazy, lazyLoaders || {}); aplicarFiltro(); lastW = window.innerWidth; fire(); },
     filtrarCanais(list) { canaisFiltro = list && list.length ? new Set(list) : null; aplicarFiltro(); fire(); },
+    canaisTodos() { return raw.lojas || (sets.lojas && sets.lojas.data) || []; },
   };
 })();
 
@@ -418,13 +419,18 @@ window.VMCRYPTO = (function () {
 </div>
 
 <script>
+// canais do painel: ordem fixa dos conhecidos + qualquer aba nova que aparecer nos dados (ex.: Gazin, Casas Bahia, Novo Mundo)
+window.VM_CANAIS_BASE = ['Americanas','Magalu','Lider','Bemol','Martinello','Paraiba','Fast','Claro','Vivo','Tim'];
+window.vmCanaisDe = function (rows) { const extra = [...new Set((rows || []).map((r) => r && r.canal).filter((c) => c && !window.VM_CANAIS_BASE.includes(c)))].sort(); return window.VM_CANAIS_BASE.concat(extra); };
+</script>
+<script>
 dash.calc('resumo', {
   inputs: ['lojas', 'prioridades'],
   title: 'Resumo canal × regional',
   description: 'Conta lojas, fotos, apontamentos e mesas por canal e regional, com linhas Todos/Todas para os totais.',
   fn: (lojas, prioridades) => {
     const pri = new Set(prioridades.filter((x) => x.prioritario === true || x.prioritario === 'true').map((x) => x.canal));
-    const canais = ['Prioritários','Todos','Americanas','Magalu','Lider','Bemol','Martinello','Paraiba','Fast','Claro','Vivo','Tim'];
+    const canais = ['Prioritários','Todos'].concat(window.vmCanaisDe(lojas));
     const regs = ['Todas','DF/GO','CE/PI','PA/AP','MT/MS','AM/AC/RR/RO','MA/TO'];
     const out = [];
     for (const c of canais) for (const r of regs) {
@@ -449,7 +455,7 @@ dash.calc('evolucao', {
   description: 'Soma o histórico por data, canal e regional, com linhas Todos/Todas, e calcula o % de lojas com foto.',
   fn: (historico, prioridades) => {
     const pri = new Set(prioridades.filter((x) => x.prioritario === true || x.prioritario === 'true').map((x) => x.canal));
-    const canais = ['Prioritários','Todos','Americanas','Magalu','Lider','Bemol','Martinello','Paraiba','Fast','Claro','Vivo','Tim'];
+    const canais = ['Prioritários','Todos'].concat(window.vmCanaisDe(historico));
     const regs = ['Todas','DF/GO','CE/PI','PA/AP','MT/MS','AM/AC/RR/RO','MA/TO'];
     const datas = [...new Set(historico.map((h) => String(h.data).slice(0, 10)))].sort();
     const out = [];
@@ -492,7 +498,7 @@ dash.calc('mesas', {
   description: 'Quantas lojas têm mesa de 1.6M, 1.2M e 0.8M e quantas delas já mandaram foto, por canal e regional.',
   fn: (lojas, prioridades) => {
     const pri = new Set(prioridades.filter((x) => x.prioritario === true || x.prioritario === 'true').map((x) => x.canal));
-    const canais = ['Prioritários','Todos','Americanas','Magalu','Lider','Bemol','Martinello','Paraiba','Fast','Claro','Vivo','Tim'];
+    const canais = ['Prioritários','Todos'].concat(window.vmCanaisDe(lojas));
     const regs = ['Todas','DF/GO','CE/PI','PA/AP','MT/MS','AM/AC/RR/RO','MA/TO'];
     const tams = [['mesa_16','Mesa 1.6M'],['mesa_12','Mesa 1.2M'],['mesa_08','Mesa 0.8M']];
     const out = [];
@@ -514,7 +520,7 @@ dash.calc('por_uf', {
   description: 'Lojas OK, OK com apontamento e pendentes por canal e estado, com canal Todos para o total.',
   fn: (lojas, prioridades) => {
     const pri = new Set(prioridades.filter((x) => x.prioritario === true || x.prioritario === 'true').map((x) => x.canal));
-    const canais = ['Prioritários','Todos','Americanas','Magalu','Lider','Bemol','Martinello','Paraiba','Fast','Claro','Vivo','Tim'];
+    const canais = ['Prioritários','Todos'].concat(window.vmCanaisDe(lojas));
     const out = [];
     for (const c of canais) {
       const by = new Map();
@@ -538,7 +544,7 @@ dash.calc('apontamentos', {
   description: 'Quantas lojas têm cada tipo de apontamento na anotação, por canal e regional (Todos/Todas para totais).',
   fn: (lojas, prioridades) => {
     const pri = new Set(prioridades.filter((x) => x.prioritario === true || x.prioritario === 'true').map((x) => x.canal));
-    const canais = ['Prioritários','Todos','Americanas','Magalu','Lider','Bemol','Martinello','Paraiba','Fast','Claro','Vivo','Tim'];
+    const canais = ['Prioritários','Todos'].concat(window.vmCanaisDe(lojas));
     const regs = ['Todas','DF/GO','CE/PI','PA/AP','MT/MS','AM/AC/RR/RO','MA/TO'];
     const tipos = ['Foto fora do padrão','Sem spec card','Sem modo demo','Mostruário / estoque','Sem mesa / sem espaço','Material / canvas'];
     const out = [];
@@ -553,7 +559,7 @@ dash.calc('apontamentos', {
 
 <script>
 (function () {
-  const CANAIS = ['Americanas','Magalu','Lider','Bemol','Martinello','Paraiba','Fast','Claro','Vivo','Tim'];
+  let CANAIS = window.VM_CANAIS_BASE.slice();
   const REGS = ['DF/GO','CE/PI','PA/AP','MT/MS','AM/AC/RR/RO','MA/TO'];
   const SITS = [['Pendente','Pendentes · 未上传'],['OK c/ apontamento','Com apontamento · 有问题'],['Antiga','Foto com 30+ dias · 超过30天'],['Dispensadas','Dispensadas · 免拍'],['Todas','Todas · 全部']];
   const APZH = { 'Foto fora do padrão': '照片不合格', 'Sem spec card': '缺参数卡', 'Sem modo demo': '未开演示', 'Mostruário / estoque': '样机/库存', 'Sem mesa / sem espaço': '无体验台', 'Material / canvas': '物料/画面' };
@@ -1103,6 +1109,7 @@ dash.calc('apontamentos', {
   }
 
   dash.onData(() => {
+    { const lj = dash.data('lojas'); if (lj && lj.status === 'ok') { const nv = window.vmCanaisDe(typeof dash.canaisTodos === 'function' ? dash.canaisTodos() : lj.data); if (nv.join() !== CANAIS.join()) { CANAIS = nv; fillSelect(); } } }
     const p = Object.assign({ canal: 'Prioritários', regiao: 'Todas', situacao: 'Pendente' }, dash.params());
     const pr = dash.data('prioridades');
     if (pr.status === 'ok') {
