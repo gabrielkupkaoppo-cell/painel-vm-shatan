@@ -292,7 +292,7 @@ window.VMCRYPTO = (function () {
       <span class="vm-big dash-skeleton t-pend" data-source="resumo" data-field="pendente">—</span>
       <span class="vm-sub">cobrar envio no Forms</span>
     </div>
-    <div class="vm-tile">
+    <div class="vm-tile" hidden>
       <span class="vm-tile-label">Lojas com mesa multimarcas<span class="zh">多品牌体验台门店</span></span>
       <span class="vm-big dash-skeleton t-mm" data-source="resumo" data-field="multimarcas">—</span>
       <span class="vm-sub"><b class="t-mmfoto" data-source="resumo" data-field="multimarcas_foto">—</b> com foto aprovada</span>
@@ -323,7 +323,7 @@ window.VMCRYPTO = (function () {
       <p class="vm-note">No canal selecionado.</p>
       <div class="vm-chart" id="reg-chart" data-source="resumo"></div>
     </section>
-    <section class="vm-card" id="g-mesas">
+    <section class="vm-card" id="g-mesas" hidden>
       <h2>Mesas por tamanho<span class="zh">体验台尺寸分布</span></h2>
       <p class="vm-note">Lojas com cada tamanho de mesa, com e sem foto. Claro, Vivo e Tim não têm essas colunas.</p>
       <div class="vm-legend">
@@ -334,7 +334,7 @@ window.VMCRYPTO = (function () {
     </section>
   </div>
 
-  <section class="vm-card" id="mapa">
+  <section class="vm-card" id="mapa" hidden>
     <h2>Mapa de envio: canal × regional<span class="zh">照片上传情况：渠道 × 区域</span></h2>
     <p class="vm-note">% de lojas com pelo menos uma foto na linha da loja. Clique numa célula para filtrar o painel todo.</p>
     <div class="vm-legend">
@@ -563,7 +563,7 @@ dash.calc('apontamentos', {
 (function () {
   let CANAIS = window.VM_CANAIS_BASE.slice();
   const REGS = ['DF/GO','CE/PI','PA/AP','MT/MS','AM/AC/RR/RO','MA/TO'];
-  const SITS = [['Pendente','Pendentes · 未上传'],['OK c/ apontamento','Com apontamento · 有问题'],['Antiga','Foto com 30+ dias · 超过30天'],['Dispensadas','Dispensadas · 免拍'],['Todas','Todas · 全部']];
+  const SITS = [['Pendente','Pendentes · 未上传'],['OK c/ apontamento','Com apontamento · 有问题'],['Todas','Todas · 全部']];
   const APZH = { 'Foto fora do padrão': '照片不合格', 'Sem spec card': '缺参数卡', 'Sem modo demo': '未开演示', 'Mostruário / estoque': '样机/库存', 'Sem mesa / sem espaço': '无体验台', 'Material / canvas': '物料/画面' };
   const fmtData = (s) => s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) : '';
   const pct = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 0 });
