@@ -55,7 +55,7 @@ function atualizarPainel_(detalhado) {
 
   const lojas = []; const resumo = [];
   PAINEL_CANAIS.forEach((ch) => {
-    const aba = abas.find((a) => semAcento_(a.title) === semAcento_(ch));
+    const aba = abas.find((a) => mesmaAba_(a.title, ch));
     if (!aba) { resumo.push(ch + ': aba não encontrada'); return; }
     const nCol = Math.min((aba.grid_properties && aba.grid_properties.column_count) || 40, 60);
     const nLin = Math.min((aba.grid_properties && aba.grid_properties.row_count) || 500, 3000);

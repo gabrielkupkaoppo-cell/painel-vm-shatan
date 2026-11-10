@@ -64,7 +64,7 @@ function enviarFeishu_(limite, detalhado) {
       const fotos = (e.fotos || []).filter((p) => p.path);
       if (!fotos.length) { if ((e.fotos || []).length) continue; info = 'sem fotos'; marcar_(key, info); continue; } // ainda copiando do Drive
       const canal = canalFeishu_(e.canal);
-      const aba = abas.find((a) => semAcento_(a.title) === semAcento_(canal));
+      const aba = abas.find((a) => mesmaAba_(a.title, canal));
       if (!aba) { info = 'aba "' + canal + '" não existe no Feishu'; marcar_(key, info); if (detalhado) console.log(key + ': ' + info); continue; }
       const A = cacheAba[aba.sheet_id] || (cacheAba[aba.sheet_id] = lerAba_(tk, planilha, aba));
       let linha = acharLinha_(A, e.loja_raw);
@@ -159,7 +159,7 @@ function criarLojasNovas_(detalhado) {
     const marca = (status, info) => supa_('PATCH', '/rest/v1/lojas_novas?id=eq.' + x.id, { status: status, info: info }, { Prefer: 'return=minimal' });
     try {
       const canal = canalFeishu_(x.canal);
-      const aba = abas.find((a) => semAcento_(a.title) === semAcento_(canal));
+      const aba = abas.find((a) => mesmaAba_(a.title, canal));
       if (!aba) { marca('erro', 'aba "' + canal + '" não existe no Feishu'); return; }
       const A = lerAba_(tk, planilha, aba);
       const ja = acharLinha_(A, x.codigo);
@@ -333,6 +333,8 @@ function canalFeishu_(c) {
   const M = { fastshop: 'Fast', fast: 'Fast', 'magazine luiza': 'Magalu', magalu: 'Magalu', paraiba: 'Paraiba', americanas: 'Americanas', claro: 'Claro', vivo: 'Vivo', tim: 'Tim', bemol: 'Bemol', martinello: 'Martinello', lider: 'Lider', gazin: 'Gazin', 'casas bahia': 'Casas Bahia', casasbahia: 'Casas Bahia', 'novo mundo': 'Novo Mundo', novomundo: 'Novo Mundo' };
   return M[t] || String(c || '').trim();
 }
+// nome da aba x canal, sem ligar para acento, maiúscula ou espaço ("novomundo" = "Novo Mundo")
+function mesmaAba_(titulo, canal) { const n = (x) => semAcento_(x).replace(/[^a-z0-9]/g, ''); return n(titulo) === n(canal); }
 function semAcento_(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim(); }
 function letra_(n) { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
 
@@ -375,7 +377,7 @@ function atualizarVeiculacao_(detalhado) {
       { etapas: Object.assign({}, x.etapas || {}, { veiculacao_feishu: { data: data, ok: ok, info: info, em: new Date().toISOString() } }) }, { Prefer: 'return=minimal' });
     try {
       const canal = canalFeishu_(x.canal);
-      const aba = abas.find((a) => semAcento_(a.title) === semAcento_(canal));
+      const aba = abas.find((a) => mesmaAba_(a.title, canal));
       if (!aba) { marca(false, 'aba "' + canal + '" não existe no Feishu'); return; }
       let c = cache[aba.sheet_id];
       if (!c) {
@@ -411,7 +413,7 @@ function anotarTransferencias_(detalhado) {
   const abas = feishu_(tk, 'GET', '/sheets/v3/spreadsheets/' + planilha + '/sheets/query').sheets || [];
   const cache = {};
   const abaInfo = (canal) => {
-    const aba = abas.find((a) => semAcento_(a.title) === semAcento_(canalFeishu_(canal)));
+    const aba = abas.find((a) => mesmaAba_(a.title, canalFeishu_(canal)));
     if (!aba) return null;
     if (!cache[aba.sheet_id]) {
       const A = lerAba_(tk, planilha, aba);
