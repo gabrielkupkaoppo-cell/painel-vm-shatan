@@ -288,7 +288,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 10/11 11:25</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 10/11 13:15</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -1414,6 +1414,34 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     catch (e) { const m = $('#i-msg'); m.hidden = false; m.textContent = errMsg(e); }
   }
 
+  // ---------- excluir aprovação de loja sem mesa: desfaz, limpa no Feishu e dispensa a loja ----------
+  function blocoExcluirAprov(r) {
+    const box = el('div'); box.style.cssText = 'margin:10px 0;padding:10px 12px;border:1px dashed var(--bad);border-radius:8px;font-size:.85rem';
+    const l = resolverLoja(r);
+    box.appendChild(el('span', 'note', 'Aprovou por engano uma loja que não tem mesa OPPO? Isto desfaz a aprovação, tira as fotos e desmarca as caixas dessa loja no Feishu (em até 10 min) e marca a loja como dispensada no painel.'));
+    const ln = el('div'); ln.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px';
+    const mot = el('input'); mot.value = 'Sem mesa OPPO'; mot.setAttribute('aria-label', 'Motivo'); mot.style.cssText = 'font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:6px';
+    const b = el('button', 'btn', '🗑 Excluir aprovação e dispensar a loja'); b.type = 'button'; b.style.borderColor = 'var(--bad)'; b.style.color = 'var(--bad)';
+    const info = el('span', 'note'); info.setAttribute('role', 'status');
+    b.addEventListener('click', async () => {
+      if (!b.dataset.armado) { b.dataset.armado = '1'; b.textContent = 'Confirmar: excluir e dispensar?'; setTimeout(() => { delete b.dataset.armado; b.textContent = '🗑 Excluir aprovação e dispensar a loja'; }, 4000); return; }
+      b.disabled = true; info.textContent = 'Excluindo…';
+      try {
+        const atual = ((await api('/rest/v1/revisoes?select=feishu_info&key=eq.' + encodeURIComponent(r.key))) || [])[0] || {};
+        const motivo = mot.value.trim() || 'Sem mesa OPPO';
+        await saveRevs([{ key: r.key, status: 'Descartado', motivos: motivo, obs: 'Aprovação excluída: ' + motivo }]);
+        if (atual.feishu_info && /linha \d+/.test(atual.feishu_info) && !/^NÃO/.test(atual.feishu_info))
+          await api('/rest/v1/revisoes?key=eq.' + encodeURIComponent(r.key), { method: 'PATCH', body: { feishu_desfazer: atual.feishu_info }, headers: { Prefer: 'return=minimal' } });
+        reviews.set(r.key, { status: 'Descartado', motivo, obs: 'Aprovação excluída: ' + motivo, em: fmtEm(new Date().toISOString()) + ' · ' + (perfil.email || '') });
+        if (l) { try { await salvarAjuste(l, 'dispensa', motivo, 'Aprovação do envio de ' + fmtD(r.data) + ' excluída'); } catch (e) { info.textContent = 'Aprovação excluída, mas não consegui dispensar a loja: ' + errMsg(e); } }
+        render(); renderDetail();
+      } catch (e) { b.disabled = false; info.textContent = errMsg(e); }
+    });
+    ln.append(el('span', 'note', 'Motivo:'), mot, b, info); box.appendChild(ln);
+    if (!l) box.appendChild(el('small', 'note', 'Obs.: não achei esta loja na planilha, então ela não será dispensada no painel (só a aprovação é excluída).'));
+    return box;
+  }
+
   // ---------- render ----------
   // mesma foto (mesmo arquivo, pela impressão digital md5 do Drive) usada em mais de um envio
   // identifica a loja pelo canal + número do código ("Filial 297", "Gazin 297" e "297" são a mesma loja)
@@ -1558,6 +1586,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       }
     }
     d.appendChild(blocoLoja(r));
+    if (stOf(r) === 'ap') d.appendChild(blocoExcluirAprov(r));
 
     const antigas = fotosAntigas(r);
     if (antigas.length) {

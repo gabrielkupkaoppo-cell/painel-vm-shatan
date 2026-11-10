@@ -30,7 +30,7 @@ function sincronizarFeishu() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) return;
   try {
-    criarLojasNovas_(); enviarFeishu_(FEISHU_LOTE, false);
+    criarLojasNovas_(); try { desfazerFeishu_(false); } catch (e) { console.warn('Desfazer no Feishu: ' + e); } enviarFeishu_(FEISHU_LOTE, false);
     try { atualizarVeiculacao_(false); } catch (e) { console.warn('Período de veiculação: ' + e); }
     try { anotarTransferencias_(false); } catch (e) { console.warn('Transferências: ' + e); }
   } finally { lock.releaseLock(); }
@@ -450,6 +450,38 @@ function anotarTransferencias_(detalhado) {
     supa_('PATCH', '/rest/v1/instalacoes?id=eq.' + x.id, { etapas: Object.assign({}, x.etapas || {}, { transf_feishu: t }) }, { Prefer: 'return=minimal' });
     if (t.destino && t.origem) feitos++;
     console.log('Transferência ' + orig + ' → ' + dest + ': ' + (t.destino && t.origem ? 'anotada nas duas lojas' : 'pendente — ' + [t.erro_destino, t.erro_origem, t.erro].filter(Boolean).join('; ')));
+  });
+  return feitos;
+}
+
+// ---------- aprovação excluída no site → limpa as fotos e desmarca as caixas daquela linha no Feishu ----------
+// O site grava em feishu_desfazer o registro do envio ("Bemol linha 5: AG5 ← …; AE5 ← … · caixas marcadas: K, L, M").
+function desfazerFeishu() { return desfazerFeishu_(true); }
+function desfazerFeishu_(detalhado) {
+  const lista = supa_('GET', '/rest/v1/revisoes?select=key,feishu_desfazer&feishu_desfazer=not.is.null&limit=50') || [];
+  if (!lista.length) { if (detalhado) console.log('Nada para desfazer no Feishu.'); return 0; }
+  const planilha = String(PropertiesService.getScriptProperties().getProperty('FEISHU_PLANILHA') || '').trim();
+  const tk = feishuToken_();
+  const abas = feishu_(tk, 'GET', '/sheets/v3/spreadsheets/' + planilha + '/sheets/query').sheets || [];
+  let feitos = 0;
+  lista.forEach((r) => {
+    const info = String(r.feishu_desfazer);
+    const fim = (txt) => supa_('PATCH', '/rest/v1/revisoes?key=eq.' + encodeURIComponent(r.key), { feishu_desfazer: null, feishu_info: txt }, { Prefer: 'return=minimal' });
+    try {
+      const m = info.match(/^(.+?) linha (\d+):/);
+      if (!m) { fim('nada a desfazer no Feishu (registro sem linha)'); return; }
+      const aba = abas.find((a) => mesmaAba_(a.title, m[1]));
+      if (!aba) { fim('não desfeito: aba "' + m[1] + '" não existe mais'); return; }
+      const linha = +m[2];
+      const fotos = []; const reF = /([A-Z]{1,3})(\d+) ←/g; let f; while ((f = reF.exec(info))) if (+f[2] === linha) fotos.push(f[1]);
+      const cx = ((info.match(/caixas marcadas: ([A-Z, ]+)/) || [])[1] || '').split(',').map((x) => x.trim()).filter(Boolean);
+      const vr = fotos.map((c) => ({ range: aba.sheet_id + '!' + c + linha + ':' + c + linha, values: [[null]] }))
+        .concat(cx.map((c) => ({ range: aba.sheet_id + '!' + c + linha + ':' + c + linha, values: [[0]] })));
+      if (vr.length) feishu_(tk, 'POST', '/sheets/v2/spreadsheets/' + planilha + '/values_batch_update', { valueRanges: vr });
+      fim('removido do Feishu (' + aba.title + ' linha ' + linha + '): ' + fotos.length + ' foto(s) limpas, ' + cx.length + ' caixa(s) desmarcadas');
+      console.log('Desfeito no Feishu: ' + aba.title + ' linha ' + linha + ' — fotos ' + fotos.join(', ') + ' limpas; caixas ' + cx.join(', ') + ' desmarcadas.');
+      feitos++;
+    } catch (err) { console.warn('Desfazer ' + r.key + ': ' + err); }
   });
   return feitos;
 }
