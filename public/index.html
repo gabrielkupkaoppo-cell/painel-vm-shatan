@@ -67,6 +67,7 @@ input[type=search]{min-width:min(100%,14rem)}
 .tl li{position:relative;padding:4px 0 14px 18px}
 .tl li::before{content:'';position:absolute;left:-10px;top:6px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--line)}
 .tl li.feito::before{background:var(--accent);border-color:var(--accent)} .tl li.atual::before{border-color:var(--warn);background:var(--warn-bg)}
+.fun{display:grid;grid-template-columns:minmax(150px,230px) 1fr 40px;gap:6px 10px;align-items:center;font-size:.85rem;margin-top:8px} .fun button{all:unset;cursor:pointer;display:contents} .fun .bar{height:14px;border-radius:7px;background:var(--accent-soft);overflow:hidden} .fun .bar i{display:block;height:100%;background:var(--accent);border-radius:7px} .fun .sel span{font-weight:700;color:var(--accent)} .sitp{display:inline-block;font-size:.75rem;padding:1px 8px;border-radius:9px;background:var(--accent-soft);color:var(--accent);font-weight:600}
 .tl li b{display:block} .tl li .note{display:block}
 .tl .acao{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px} .tl .acao input{font:inherit;font-size:.82rem;padding:3px 6px}
 .dots{display:inline-flex;gap:3px;vertical-align:middle} .dots i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block} .dots i.on{background:var(--accent)}
@@ -288,7 +289,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 10/11 16:15</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 10/11 16:40</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -398,8 +399,9 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <div class="msg" id="i-msg" role="status" hidden></div>
   <div id="i-form"></div>
   <div class="counts" id="i-kpis"></div>
+  <div class="users" id="i-funil" style="padding:12px 14px;margin:12px 0"></div>
   <div class="bar"><div class="bar" id="i-st" role="group" aria-label="Situação"></div>
-    <select id="i-canal" aria-label="Canal"></select> <select id="i-uf" aria-label="Estado"></select>
+    <select id="i-canal" aria-label="Canal"></select> <select id="i-uf" aria-label="Estado"></select> <select id="i-tipo" aria-label="Tipo"><option value="">Nova e transferência</option><option value="nova">🆕 Instalação nova</option><option value="transferencia">🔁 Transferência</option></select>
     <input id="i-q" type="search" placeholder="Buscar loja, código ou cidade" aria-label="Buscar"></div>
   <div class="work"><div class="list" id="i-lista"></div><section class="detail" id="i-det"></section></div>
 </div>
@@ -1213,6 +1215,22 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   }
   const hojeISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
   const notasDe = (x) => (instNotas.get(x.id) || []).slice().sort((a, b) => new Date(b.em) - new Date(a.em));
+  // situações da timeline (8 e 9 são automáticas: foto aprovada no Forms → concluída)
+  const SIT_INST = [['cadastrada', '📝 Cadastrada / aguardando liberação'], ['retirada', '📦 Mesa retirada da loja de origem'], ['enviada', '🚚 Mesa enviada (em trânsito)'],
+    ['entregue', '🏬 Mesa entregue na loja'], ['agendada', '🔧 Instalação agendada'], ['instalada', '✅ Mesa instalada'], ['vm', '🎨 Material de VM enviado']];
+  const SIT_TXT = Object.fromEntries(SIT_INST.concat([['concluida', '🏁 Concluída (foto aprovada)']]));
+  const sitOpcoes = (x) => SIT_INST.filter(([k]) => k !== 'retirada' || x.tipo === 'transferencia');
+  function etapaInst(x) {
+    if (concluidaInst(x)) return 'concluida';
+    const n = notasDe(x).find((y) => y.situacao); return n ? n.situacao : 'cadastrada';
+  }
+  // primeira vez que a loja chegou em cada situação (para o tempo médio)
+  function quandoChegou(x, k) {
+    if (k === 'cadastrada') return new Date(x.criada_em);
+    if (k === 'concluida') { const f = fotoDaInst(x); return concluidaInst(x) && f ? f.data : null; }
+    const ns = (instNotas.get(x.id) || []).filter((y) => y.situacao === k).map((y) => new Date(y.em)).sort((a, b) => a - b); return ns[0] || null;
+  }
+  let instEtapa = '';
   // concluída: marcada à mão OU foto da loja aprovada (a não ser que alguém tenha reaberto depois dessa foto)
   function concluidaInst(x) {
     if (x.status === 'cancelada') return false;
@@ -1232,16 +1250,17 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const n = { and: 0, atr: 0, ok: 0 }; sts.forEach(({ s }) => { if (s.k === 'and') n.and++; else if (s.k === 'atr') n.atr++; else if (s.k === 'ok') n.ok++; });
     const tn = $('#tab-in'); tn.hidden = !(n.and + n.atr); tn.textContent = n.and + n.atr;
     const k = $('#i-kpis'); k.replaceChildren();
-    const parado = sts.filter(({ x, s }) => (s.k === 'and' || s.k === 'atr') && (Date.now() - new Date((notasDe(x)[0] || x).em || x.criada_em)) > 7 * 864e5).length;
-    [['Em andamento', n.and + n.atr, 'aw'], ['Atrasadas (passou da previsão)', n.atr, 'rp'], ['Sem atualização há 7+ dias', parado, 'rp'], ['Concluídas', n.ok, 'ap']].forEach(([t, v, c]) => { const d = el('div', 'count ' + c); d.append(el('b', null, String(v)), el('span', null, t)); k.appendChild(d); });
+    const parado = sts.filter(({ x, s }) => (s.k === 'and' || s.k === 'atr') && (Date.now() - new Date((notasDe(x)[0] || x).em || x.criada_em)) > 3 * 864e5).length;
+    [['Em andamento', n.and + n.atr, 'aw'], ['Atrasadas (passou da previsão)', n.atr, 'rp'], ['Paradas há 3+ dias (sem atualização)', parado, 'rp'], ['Concluídas', n.ok, 'ap']].forEach(([t, v, c]) => { const d = el('div', 'count ' + c); d.append(el('b', null, String(v)), el('span', null, t)); k.appendChild(d); });
     const chips = $('#i-st'); if (!chips.children.length) [['and', 'Pendentes · 进行中'], ['atr', 'Atrasadas · 逾期'], ['ok', 'Concluídas · 已完成'], ['all', 'Todas · 全部']].forEach(([v, t]) => { const b = el('button', 'chip', t); b.type = 'button'; b.dataset.s = v; b.addEventListener('click', () => { instSt = v; renderInst(); }); chips.appendChild(b); });
     chips.querySelectorAll('.chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.s === instSt)));
     const enche = (sel, lab, vals) => { const cur = sel.value; sel.replaceChildren(new Option(lab, ''), ...vals.map((v) => new Option(v, v))); sel.value = vals.includes(cur) ? cur : ''; };
     enche($('#i-canal'), 'Todos os canais · 全部渠道', [...new Set(inst.map((x) => x.canal))].sort());
     enche($('#i-uf'), 'Todos os estados · 全部州', [...new Set(inst.map((x) => x.uf).filter(Boolean))].sort());
-    const q = normT($('#i-q').value), fc = canaisDe('i-canal'), fu = $('#i-uf').value;
-    const lst = sts.filter(({ x, s }) => (instSt === 'all' || (instSt === 'and' ? (s.k === 'and' || s.k === 'atr') : s.k === instSt)) && okCanal(fc, x.canal) && (!fu || x.uf === fu) &&
-      (!q || normT([x.canal, x.codigo, x.nome, x.cidade, x.uf].join(' ')).includes(q)));
+    const q = normT($('#i-q').value), fc = canaisDe('i-canal'), fu = $('#i-uf').value, ft = $('#i-tipo').value;
+    const base = sts.filter(({ x }) => okCanal(fc, x.canal) && (!fu || x.uf === fu) && (!ft || x.tipo === ft) && (!q || normT([x.canal, x.codigo, x.nome, x.cidade, x.uf].join(' ')).includes(q)));
+    desenharFunil(base);
+    const lst = base.filter(({ x, s }) => (instSt === 'all' || (instSt === 'and' ? (s.k === 'and' || s.k === 'atr') : s.k === instSt)) && (!instEtapa || (s.k !== 'can' && etapaInst(x) === instEtapa)));
     const box = $('#i-lista'); box.replaceChildren(el('div', 'list-h', lst.length + ' loja(s)'));
     if (!lst.length) box.appendChild(el('div', 'empty', inst.length ? 'Nenhuma loja com esses filtros.' : 'Nenhuma loja cadastrada ainda. Clique em "+ Cadastrar loja nova".'));
     lst.forEach(({ x, s }) => {
@@ -1249,12 +1268,34 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       b.appendChild(el('span', 't', (x.tipo === 'transferencia' ? '🔁 ' : '') + x.canal + ' · ' + (x.codigo || 's/ código') + (x.nome ? ' · ' + titulo(x.nome) : '')));
       b.appendChild(el('span', 'pill ' + (s.k === 'ok' ? 'ap' : s.k === 'atr' ? 'rp' : s.k === 'can' ? 'sb' : 'aw'), s.k === 'ok' ? 'Concluída' : s.k === 'can' ? 'Cancelada' : s.k === 'atr' ? 'Atrasada' : 'Em andamento'));
       const ult = notasDe(x)[0];
+      if (s.k !== 'can') b.appendChild(el('span', 'sitp', SIT_TXT[etapaInst(x)] || ''));
       b.appendChild(el('span', 's', [titulo(x.cidade), x.uf].filter(Boolean).join('/') + (x.previsao ? ' · previsão ' + fmtD10(x.previsao) : '')));
       const u0 = el('span', 's'); u0.style.color = 'var(--fg)';
-      u0.textContent = ult ? '🕓 ' + fmtEm(ult.em).slice(0, 10) + ' — ' + (ult.texto.length > 90 ? ult.texto.slice(0, 90) + '…' : ult.texto) : '🕓 Sem atualização ainda';
+      const ut = ult ? (ult.texto || SIT_TXT[ult.situacao] || '') : ''; u0.textContent = ult ? '🕓 ' + fmtEm(ult.em).slice(0, 10) + ' — ' + (ut.length > 90 ? ut.slice(0, 90) + '…' : ut) : '🕓 Sem atualização ainda';
       b.appendChild(u0); b.addEventListener('click', () => { instSel = x.id; renderInst(); }); box.appendChild(b);
     });
     renderInstDet();
+  }
+  function desenharFunil(base) {
+    const box = $('#i-funil'); box.replaceChildren();
+    const ativas = base.filter(({ s }) => s.k !== 'can');
+    box.appendChild(el('b', null, 'Acompanhamento das instalações · 安装进度'));
+    box.appendChild(el('span', 'note', ' — ' + ativas.length + ' loja(s) com os filtros acima. Clique numa etapa para ver as lojas dela.'));
+    const etapas = SIT_INST.concat([['concluida', SIT_TXT.concluida]]);
+    const cont = {}; ativas.forEach(({ x }) => { const k = etapaInst(x); cont[k] = (cont[k] || 0) + 1; });
+    const max = Math.max(1, ...Object.values(cont));
+    const g = el('div', 'fun');
+    etapas.forEach(([k, t]) => { const b = el('button', instEtapa === k ? 'sel' : null); b.type = 'button'; b.title = 'Ver as lojas nesta etapa';
+      const bar = el('div', 'bar'); const i = el('i'); i.style.width = ((cont[k] || 0) * 100 / max) + '%'; bar.appendChild(i);
+      b.append(el('span', null, t), bar, el('span', null, String(cont[k] || 0)));
+      b.addEventListener('click', () => { instEtapa = instEtapa === k ? '' : k; if (instEtapa) instSt = 'all'; renderInst(); }); g.appendChild(b); });
+    box.appendChild(g);
+    if (instEtapa) { const l = el('button', 'linkbtn', '✕ tirar filtro de etapa (' + SIT_TXT[instEtapa] + ')'); l.type = 'button'; l.addEventListener('click', () => { instEtapa = ''; renderInst(); }); box.appendChild(l); }
+    // tempo médio desde o cadastro
+    const media = (k) => { const ds = ativas.map(({ x }) => { const q = quandoChegou(x, k); return q ? (q - new Date(x.criada_em)) / 864e5 : null; }).filter((v) => v != null && v >= 0); return ds.length ? (ds.reduce((a, b) => a + b, 0) / ds.length).toFixed(1).replace('.', ',') + ' dias (' + ds.length + ')' : '—'; };
+    const tm = el('p', 'note'); tm.style.marginTop = '10px';
+    tm.textContent = 'Tempo médio desde o cadastro → mesa entregue: ' + media('entregue') + ' · mesa instalada: ' + media('instalada') + ' · concluída (foto aprovada): ' + media('concluida');
+    box.appendChild(tm);
   }
   function canaisConhecidos() { return [...new Set(baseFeishu.map((l) => l.canal).concat(['Gazin', 'Casas Bahia', 'Novo Mundo'], rows.map((r) => canalNorm(r.canal))).filter((c) => c && c !== '—'))].sort(); }
   // transferência ativa (não cancelada) que já sai desta loja de origem — cada loja tem 1 mesa
@@ -1369,25 +1410,30 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     d.appendChild(el('h3', null, 'Timeline · 进度'));
     if (x.status !== 'cancelada' && !concluidaInst(x)) {
       const nv = el('div'); nv.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-bottom:8px';
-      const ta = el('textarea'); ta.placeholder = 'Nova atualização (ex.: mesa saiu do CD, chegou na loja, instalada, faltou o totem…)'; ta.rows = 2; ta.style.cssText = 'width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:6px';
+      const ss = el('select'); ss.setAttribute('aria-label', 'Situação'); ss.style.cssText = 'font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;max-width:100%';
+      ss.appendChild(new Option('Situação · 状态 — escolha (ou deixe só observação)', ''));
+      sitOpcoes(x).forEach(([k, t]) => ss.appendChild(new Option(t, k)));
+      nv.appendChild(ss);
+      const ta = el('textarea'); ta.placeholder = 'Detalhe / observação (ex.: transportadora X, previsão de chegada sexta, faltou o totem…)'; ta.rows = 2; ta.style.cssText = 'width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:6px';
       const ln = el('div'); ln.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
       const dt = el('input'); dt.type = 'date'; dt.value = hojeISO(); dt.setAttribute('aria-label', 'Data da atualização'); dt.style.cssText = 'font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:6px';
       const add = el('button', 'btn ok', 'Adicionar à timeline · 添加'); add.type = 'button';
-      add.addEventListener('click', async () => { const t = ta.value.trim(); if (!t) { ta.focus(); return; } add.disabled = true;
+      add.addEventListener('click', async () => { const t = ta.value.trim(); if (!t && !ss.value) { ss.focus(); return; } add.disabled = true;
         const em = dt.value === hojeISO() ? new Date().toISOString() : new Date(dt.value + 'T12:00:00').toISOString();
-        try { await api('/rest/v1/instalacao_notas', { method: 'POST', body: [{ instalacao_id: x.id, texto: t, por_email: perfil.email || '', em }], headers: { Prefer: 'return=minimal' } });
+        try { await api('/rest/v1/instalacao_notas', { method: 'POST', body: [{ instalacao_id: x.id, texto: t, situacao: ss.value || null, por_email: perfil.email || '', em }], headers: { Prefer: 'return=minimal' } });
           await api('/rest/v1/instalacoes?id=eq.' + x.id, { method: 'PATCH', body: { atualizado_em: new Date().toISOString() }, headers: { Prefer: 'return=minimal' } }); await loadInst(); }
         catch (er) { add.disabled = false; add.textContent = errMsg(er); } });
       ln.append(el('span', 'note', 'Data:'), dt, add); nv.append(ta, ln); d.appendChild(nv);
     }
-    const itens = notasDe(x).map((n0) => ({ em: n0.em, por: n0.por_email, t: n0.texto, id: n0.id }));
+    const itens = notasDe(x).map((n0) => ({ em: n0.em, por: n0.por_email, t: n0.texto, sit: n0.situacao, id: n0.id }));
     const f = fotoDaInst(x); if (f) itens.push({ em: f.data.toISOString(), por: 'automático', t: '📷 Foto aprovada no Forms (envio de ' + (f.nome || '—') + ')', key: f.key });
     itens.push({ em: x.criada_em, por: x.por_email, t: x.tipo === 'transferencia' ? '🔁 Transferência registrada: mesa vem de ' + x.origem_canal + ' ' + x.origem_codigo + (x.origem_nome ? ' · ' + titulo(x.origem_nome) : '') : '🏬 Loja cadastrada' });
     itens.sort((a, b) => new Date(b.em) - new Date(a.em));
     const ul = el('ul', 'tl');
     itens.forEach((it, i) => { const li = el('li', i === 0 ? 'atual' : 'feito');
       li.appendChild(el('span', 'note', fmtEm(it.em).slice(0, 10) + (it.por ? ' · ' + it.por : '')));
-      const tx = el('div', null, it.t); tx.style.whiteSpace = 'pre-wrap'; li.appendChild(tx);
+      if (it.sit) li.appendChild(el('b', null, SIT_TXT[it.sit] || it.sit));
+      if (it.t) { const tx = el('div', null, it.t); tx.style.whiteSpace = 'pre-wrap'; li.appendChild(tx); }
       if (it.key) { const v = el('button', 'linkbtn', 'ver o envio'); v.type = 'button'; v.addEventListener('click', () => { showTab('rev'); fStatus = 'all'; select(it.key); }); li.appendChild(v); }
       if (it.id && it.por === perfil.email) { const del = el('button', 'linkbtn', 'apagar'); del.type = 'button'; del.style.marginLeft = '8px';
         del.addEventListener('click', async () => { if (!confirmar(del, 'confirmar?')) return; try { await api('/rest/v1/instalacao_notas?id=eq.' + it.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); await loadInst(); } catch (er) { del.textContent = errMsg(er); } }); li.appendChild(del); }
@@ -1957,7 +2003,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   ST.forEach(([s, lab]) => { const b = el('button', 'chip', lab); b.type = 'button'; b.dataset.s = s; b.addEventListener('click', () => { fStatus = s; render(); }); $('#st-chips').appendChild(b); });
   ['#f-form', '#f-canal', '#f-uf'].forEach((s) => $(s).addEventListener('change', render));
   $('#f-q').addEventListener('input', render);
-  $('#i-nova').addEventListener('click', () => formInst({})); ['#i-canal', '#i-uf'].forEach((x) => $(x).addEventListener('change', renderInst)); $('#i-q').addEventListener('input', renderInst);
+  $('#i-nova').addEventListener('click', () => formInst({})); ['#i-canal', '#i-uf', '#i-tipo'].forEach((x) => $(x).addEventListener('change', renderInst)); $('#i-q').addEventListener('input', renderInst);
   $('#r-reg').addEventListener('change', loadResumo); $('#r-canal').addEventListener('change', renderResumo); $('#r-csv').addEventListener('click', baixarResumo); $('#r-copy').addEventListener('click', copiarResumo);
   $('#c-q').addEventListener('input', renderBusca); ['#c-reg', '#c-canal', '#c-tipo'].forEach((x) => $(x).addEventListener('change', renderRel)); $('#c-csv').addEventListener('click', baixarRel);
   $('#n-uf').addEventListener('change', renderNovas); $('#n-canal').addEventListener('change', renderNovas); $('#n-csv').addEventListener('click', baixarCsv);
