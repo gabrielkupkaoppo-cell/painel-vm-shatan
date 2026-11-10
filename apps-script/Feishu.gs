@@ -116,12 +116,18 @@ function novaLinhaLoja_(tk, planilha, aba, A, e, extra) {
   const base = '/sheets/v2/spreadsheets/' + planilha;
   const col = A.dados[A.colCod] || A.dados[A.colNome] || [];
   let ult = 0; for (let r = 0; r < col.length; r++) if (String(col[r] || '').trim()) ult = r + 1;   // última linha com loja
-  if (ult < 3) return null;
+  let hdrRow = 0; for (let r = 0; r < Math.min(6, col.length); r++) if (/store\s*(code|name)/i.test(String(col[r] || ''))) hdrRow = r + 1;
+  const vazia = hdrRow && ult <= hdrRow;   // aba nova, ainda sem lojas: usa a primeira linha em branco (já formatada)
+  if (ult < 3 && !vazia) return null;
   const nCol = Math.min((aba.grid_properties && aba.grid_properties.column_count) || 40, 60), L = letra_(nCol);
-  const tplF = (feishu_(tk, 'GET', base + '/values/' + encodeURIComponent(aba.sheet_id + '!A' + ult + ':' + L + ult) + '?valueRenderOption=Formula').valueRange || {}).values || [[]];
-  feishu_(tk, 'POST', base + '/insert_dimension_range', { dimension: { sheetId: aba.sheet_id, majorDimension: 'ROWS', startIndex: ult, endIndex: ult + 1 }, inheritStyle: 'BEFORE' });
-  const nova = ult + 1;
-  if (aba.grid_properties) aba.grid_properties.row_count = (aba.grid_properties.row_count || 500) + 1;
+  const tplRow = vazia ? hdrRow + 1 : ult;
+  const tplF = (feishu_(tk, 'GET', base + '/values/' + encodeURIComponent(aba.sheet_id + '!A' + tplRow + ':' + L + tplRow) + '?valueRenderOption=Formula').valueRange || {}).values || [[]];
+  if (!vazia) {
+    feishu_(tk, 'POST', base + '/insert_dimension_range', { dimension: { sheetId: aba.sheet_id, majorDimension: 'ROWS', startIndex: ult, endIndex: ult + 1 }, inheritStyle: 'BEFORE' });
+    if (aba.grid_properties) aba.grid_properties.row_count = (aba.grid_properties.row_count || 500) + 1;
+  }
+  const nova = vazia ? hdrRow + 1 : ult + 1;
+  ult = tplRow;
   const cab = valores_(tk, planilha, aba.sheet_id + '!A1:' + L + '4');
   const H = {}; cab.forEach((row) => (row || []).forEach((v, c) => { const t = texto_(v); if (t) H[c + 1] = (H[c + 1] ? H[c + 1] + ' ' : '') + t; }));
   const colEst = Object.keys(H).map(Number).find((c) => /\bstate\b|estado/i.test(H[c]) && !/currently/i.test(H[c]));
@@ -324,7 +330,7 @@ function marcar_(key, info, ok) {
 }
 function canalFeishu_(c) {
   const t = semAcento_(c);
-  const M = { fastshop: 'Fast', fast: 'Fast', 'magazine luiza': 'Magalu', magalu: 'Magalu', paraiba: 'Paraiba', americanas: 'Americanas', claro: 'Claro', vivo: 'Vivo', tim: 'Tim', bemol: 'Bemol', martinello: 'Martinello', lider: 'Lider', gazin: 'Gazin' };
+  const M = { fastshop: 'Fast', fast: 'Fast', 'magazine luiza': 'Magalu', magalu: 'Magalu', paraiba: 'Paraiba', americanas: 'Americanas', claro: 'Claro', vivo: 'Vivo', tim: 'Tim', bemol: 'Bemol', martinello: 'Martinello', lider: 'Lider', gazin: 'Gazin', 'casas bahia': 'Casas Bahia', casasbahia: 'Casas Bahia' };
   return M[t] || String(c || '').trim();
 }
 function semAcento_(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim(); }
