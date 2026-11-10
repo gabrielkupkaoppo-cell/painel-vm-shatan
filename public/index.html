@@ -288,7 +288,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 10/11 11:45</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 10/11 11:15</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -1257,6 +1257,12 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     renderInstDet();
   }
   function canaisConhecidos() { return [...new Set(baseFeishu.map((l) => l.canal).concat(['Gazin'], rows.map((r) => r.canal)).filter((c) => c && c !== '—'))].sort(); }
+  // transferência ativa (não cancelada) que já sai desta loja de origem — cada loja tem 1 mesa
+  function transfAtivaDe(canal, cod, menosId) {
+    const n = String(cod || '').trim().replace(/^0+/, '');
+    return inst.find((y) => y.id !== menosId && y.tipo === 'transferencia' && y.status !== 'cancelada' && String(y.origem_canal).toLowerCase() === String(canal).toLowerCase() && String(y.origem_codigo).trim().replace(/^0+/, '') === n);
+  }
+  const descTransf = (y) => '⛔ Esta loja já tem a mesa em transferência para ' + y.canal + ' ' + y.codigo + (y.nome ? ' (' + titulo(y.nome) + ')' : '') + ', registrada em ' + fmtEm(y.criada_em).slice(0, 10) + '. Cada loja tem 1 mesa: cancele a outra transferência se precisar refazer.';
   function formInst(x) {
     const box = $('#i-form'); box.replaceChildren();
     if (x === null) return;
@@ -1279,7 +1285,11 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const encheO = () => odl.replaceChildren(...lojasDoCanal(osc.value).map((l) => { const o = el('option'); o.value = l.codigo + ' · ' + titulo(l.loja) + (l.uf ? ' (' + l.uf + ')' : ''); return o; }));
     encheO(); osc.addEventListener('change', encheO);
     const oInfo = el('span', 'note');
-    const confereO = () => { const l = lojaNaBase(osc.value, ocod.value.split(' · ')[0]); oInfo.textContent = l ? '✓ ' + l.codigo + ' · ' + titulo(l.loja) + (l.cidade ? ' — ' + titulo(l.cidade) : '') + (l.uf ? '/' + l.uf : '') : (ocod.value.trim() ? '⚠ loja não encontrada na planilha deste canal' : ''); };
+    const confereO = () => { const l = lojaNaBase(osc.value, ocod.value.split(' · ')[0]);
+      const dup = ocod.value.trim() ? transfAtivaDe(osc.value, l ? l.codigo : ocod.value.split(' · ')[0], x.id) : null;
+      oInfo.style.color = dup ? 'var(--bad)' : '';
+      oInfo.textContent = dup ? descTransf(dup) : l ? '✓ ' + l.codigo + ' · ' + titulo(l.loja) + (l.cidade ? ' — ' + titulo(l.cidade) : '') + (l.uf ? '/' + l.uf : '') : (ocod.value.trim() ? '⚠ loja não encontrada na planilha deste canal' : ''); };
+    confereO();
     ocod.addEventListener('input', confereO); osc.addEventListener('change', confereO);
     const lab = (t, i) => { const l = el('label'); l.append(document.createTextNode(t), i); return l; };
     ob.append(lab('Canal de origem', osc), lab('Loja de origem', ocod), odl, oInfo);
@@ -1316,6 +1326,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       if (!canal || !cod.value.trim() || !uf.value) { info.textContent = 'Preencha canal, código e estado.'; return; }
       const oL = tipo === 'transferencia' ? lojaNaBase(osc.value, ocod.value.split(' · ')[0]) : null;
       if (tipo === 'transferencia' && !ocod.value.trim()) { info.textContent = 'Informe a loja de origem da mesa.'; return; }
+      if (tipo === 'transferencia') { const dup = transfAtivaDe(osc.value, oL ? oL.codigo : ocod.value.split(' · ')[0], x.id); if (dup) { info.textContent = descTransf(dup); return; } }
       ok.disabled = true; info.textContent = 'Salvando…';
       const body = { canal, codigo: cod.value.trim(), nome: nome.value.trim(), cidade: cid.value.trim(), uf: uf.value, endereco: end.value.trim(), mesa: mesa.value, materiais: [...marc], previsao: prev.value || null, rastreio: rast.value.trim(), atualizado_em: new Date().toISOString(),
         tipo, origem_canal: tipo === 'transferencia' ? osc.value : '', origem_codigo: tipo === 'transferencia' ? (oL ? String(oL.codigo) : ocod.value.split(' · ')[0].trim()) : '',
@@ -1329,7 +1340,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
           if (feishu && feishu.checked) await api('/rest/v1/lojas_novas?on_conflict=canal,codigo', { method: 'POST', body: [{ canal, codigo: body.codigo, nome: body.nome || (canal.toUpperCase() + ' ' + body.codigo), cidade: body.cidade, uf: body.uf, status: 'aprovada', por_email: perfil.email || '' }], headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' } }).catch(() => {});
         }
         formInst(null); await loadInst();
-      } catch (e) { ok.disabled = false; info.textContent = errMsg(e); }
+      } catch (e) { ok.disabled = false; info.textContent = /uma_transferencia_por_origem|duplicate key/i.test(e.message || '') ? '⛔ Esta loja de origem já tem uma transferência ativa. Cada loja tem 1 mesa.' : errMsg(e); }
     });
     box.appendChild(f); f.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -1393,7 +1404,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       try { await api('/rest/v1/instalacoes?id=eq.' + x.id, { method: 'PATCH', body, headers: { Prefer: 'return=minimal' } }); await loadInst(); } catch (er) { cc.textContent = errMsg(er); } });
     if (fim && x.status !== 'concluida') d.appendChild(el('p', 'note', '✓ Concluída sozinha: a foto desta loja foi aprovada nas Aprovações.'));
     const cn = el('button', 'btn', x.status === 'cancelada' ? 'Reabrir' : 'Cancelar instalação'); cn.type = 'button'; cn.hidden = fim;
-    cn.addEventListener('click', async () => { if (x.status !== 'cancelada' && !confirmar(cn, 'Confirmar cancelamento?')) return; try { await api('/rest/v1/instalacoes?id=eq.' + x.id, { method: 'PATCH', body: { status: x.status === 'cancelada' ? 'andamento' : 'cancelada', atualizado_em: new Date().toISOString() }, headers: { Prefer: 'return=minimal' } }); await loadInst(); } catch (er) { cn.textContent = errMsg(er); } });
+    cn.addEventListener('click', async () => { if (x.status !== 'cancelada' && !confirmar(cn, 'Confirmar cancelamento?')) return; try { await api('/rest/v1/instalacoes?id=eq.' + x.id, { method: 'PATCH', body: { status: x.status === 'cancelada' ? 'andamento' : 'cancelada', atualizado_em: new Date().toISOString() }, headers: { Prefer: 'return=minimal' } }); await loadInst(); } catch (er) { cn.textContent = /uma_transferencia_por_origem|duplicate key/i.test(er.message || '') ? 'Não dá para reabrir: a loja de origem já tem outra transferência ativa' : errMsg(er); } });
     acts.append(cc, ed, cn); d.appendChild(acts);
   }
   function confirmar(b, txt) { if (b.dataset.armado) return true; b.dataset.armado = '1'; const old = b.textContent; b.textContent = txt; setTimeout(() => { delete b.dataset.armado; b.textContent = old; }, 4000); return false; }
