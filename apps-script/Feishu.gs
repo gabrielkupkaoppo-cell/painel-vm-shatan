@@ -330,7 +330,7 @@ function marcar_(key, info, ok) {
 }
 function canalFeishu_(c) {
   const t = semAcento_(c);
-  const M = { fastshop: 'Fast', fast: 'Fast', 'magazine luiza': 'Magalu', magalu: 'Magalu', paraiba: 'Paraiba', americanas: 'Americanas', claro: 'Claro', vivo: 'Vivo', tim: 'Tim', bemol: 'Bemol', martinello: 'Martinello', lider: 'Lider', gazin: 'Gazin', 'casas bahia': 'Casas Bahia', casasbahia: 'Casas Bahia' };
+  const M = { fastshop: 'Fast', fast: 'Fast', 'magazine luiza': 'Magalu', magalu: 'Magalu', paraiba: 'Paraiba', americanas: 'Americanas', claro: 'Claro', vivo: 'Vivo', tim: 'Tim', bemol: 'Bemol', martinello: 'Martinello', lider: 'Lider', gazin: 'Gazin', 'casas bahia': 'Casas Bahia', casasbahia: 'Casas Bahia', 'novo mundo': 'Novo Mundo', novomundo: 'Novo Mundo' };
   return M[t] || String(c || '').trim();
 }
 function semAcento_(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim(); }

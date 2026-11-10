@@ -2,14 +2,14 @@
  * Painel VM Shatan — cria uma aba de canal no Feishu com a MESMA estrutura de outra aba.
  * Arquivo do mesmo Apps Script (usa funções do Feishu.gs). Trabalha na planilha de FEISHU_PLANILHA.
  *
- * criarAbaCasasBahia() → copia a aba "Magalu": cabeçalho (português/chinês), colunas, caixas de seleção,
+ * criarAbaNovoMundo() → copia a aba "Magalu": cabeçalho (português/chinês), colunas, caixas de seleção,
  * fórmula do Ok/Pendente e colunas de foto. As lojas da Magalu NÃO são copiadas: ficam 20 linhas em branco
- * já formatadas. As lojas da Casas Bahia entram pela aba Instalações do site (ou à mão).
+ * já formatadas. As lojas da Novo Mundo entram pela aba Instalações do site (ou à mão).
  *
- * Se já existir uma aba "Casas Bahia" VAZIA (só criada, sem nada escrito), ela é substituída.
+ * Se já existir uma aba "Novo Mundo" VAZIA (só criada, sem nada escrito), ela é substituída.
  * Se ela já tiver qualquer conteúdo, o script para e não mexe em nada.
  */
-function criarAbaCasasBahia() { copiarEstruturaAba_('Casas Bahia', 'Magalu', 20); }
+function criarAbaNovoMundo() { copiarEstruturaAba_('Novo Mundo', 'Magalu', 20); }
 
 function copiarEstruturaAba_(nova, modelo, linhasVazias) {
   const planilha = String(PropertiesService.getScriptProperties().getProperty('FEISHU_PLANILHA') || '').trim();

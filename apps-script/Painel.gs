@@ -5,7 +5,7 @@
  * 1) Rode painelTeste()  → lê o Feishu, mostra no registro o resumo e grava no dash.
  * 2) Deu certo? Rode painelLigar() → passa a atualizar sozinho a cada 10 min.
  */
-var PAINEL_CANAIS = ['Americanas', 'Magalu', 'Lider', 'Bemol', 'Martinello', 'Paraiba', 'Fast', 'Claro', 'Vivo', 'Tim', 'Gazin', 'Casas Bahia'];
+var PAINEL_CANAIS = ['Americanas', 'Magalu', 'Lider', 'Bemol', 'Martinello', 'Paraiba', 'Fast', 'Claro', 'Vivo', 'Tim', 'Gazin', 'Casas Bahia', 'Novo Mundo'];
 var PAINEL_REGIAO = { DF: 'DF/GO', GO: 'DF/GO', CE: 'CE/PI', PI: 'CE/PI', PA: 'PA/AP', AP: 'PA/AP', MT: 'MT/MS', MS: 'MT/MS', AM: 'AM/AC/RR/RO', AC: 'AM/AC/RR/RO', RR: 'AM/AC/RR/RO', RO: 'AM/AC/RR/RO', MA: 'MA/TO', TO: 'MA/TO' };
 
 function painelTeste() { atualizarPainel_(true); }
