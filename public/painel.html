@@ -884,7 +884,7 @@ dash.calc('apontamentos', {
     hbar(el, rows, {
       label: (r) => (PRI.has(r.canal) ? '★ ' : '') + r.canal, end: (r) => pct.format(r.pct) + ' (' + r.Completo + '/' + r.lojas + ')', total: (r) => r.lojas,
       parts: [['Completo', 'var(--color-ok)'], ['Reno', 'var(--color-warn)'], ['A6', '#7b5ea7'], ['Parcial', 'var(--color-warn)'], ['Sem', 'var(--color-bad)']],
-      tip: (r) => [['var(--color-ok)', 'Reno 16 + A6 Pro', r.Completo], ['var(--color-warn)', 'Só Reno 16', r.Reno], ['#7b5ea7', 'Só A6 Pro', r.A6], ['var(--color-bad)', 'Nenhum', r.Sem]].concat(r.Parcial ? [[null, 'Só um (atualizar Painel.gs)', r.Parcial]] : []),
+      tip: (r) => [['var(--color-ok)', 'Reno 16 + A6 Pro', r.Completo], ['var(--color-warn)', 'Só Reno 16', r.Reno], ['#7b5ea7', 'Só A6 Pro', r.A6], ['var(--color-bad)', 'Nenhum', r.Sem]].concat(r.Parcial ? [[null, 'Só um', r.Parcial]] : []),
     });
   }
   function drawMesas(p, data) {
