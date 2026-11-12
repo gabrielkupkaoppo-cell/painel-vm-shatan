@@ -383,7 +383,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 <section id="pane-resumo" role="tabpanel" aria-labelledby="tab-resumo" hidden>
 <div class="wrap">
   <div class="head"><div><h1>Resumo por estado<span class="zh">各州摘要</span></h1>
-    <p class="note" id="r-sub">Lojas que precisam de ação: lojas com apontamento de VM e lojas sem foto atualizada há mais de 35 dias.</p></div>
+    <p class="note" id="r-sub">Lojas que precisam de ação: lojas com foto pendente (ainda sem foto) e lojas com apontamento de VM.</p></div>
     <div><button class="btn" type="button" id="r-copy">Copiar tudo · 复制</button> <button class="btn" type="button" id="r-csv">Baixar lista · 下载</button></div></div>
   <div class="msg" id="r-msg" role="status" hidden></div>
   <div class="bar"><select id="r-reg" aria-label="Estado" hidden></select> <select id="r-canal" aria-label="Canal"></select> <span class="note" id="r-upd"></span></div>
@@ -1116,7 +1116,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       $('#r-sub').textContent = ''; return; }
     const lojas = resumo.lojas || [];
     const regTxt = (resumo.estados && resumo.estados.length) ? resumo.estados.join(', ') : 'todos';
-    $('#r-sub').textContent = 'Estados: ' + regTxt + '. Lojas que precisam de ação: lojas com apontamento de VM e lojas sem foto atualizada há mais de 35 dias.';
+    $('#r-sub').textContent = 'Estados: ' + regTxt + '. Lojas que precisam de ação: lojas com foto pendente (ainda sem foto) e lojas com apontamento de VM.';
     $('#r-upd').textContent = resumo.atualizado_em ? 'Dados de ' + fmtEm(resumo.atualizado_em) : '';
     const lojaDe = (canal, raw) => { const c = canalNorm(canal), n = numDe(raw); if (!n) return null; const cand = lojas.filter((l) => l.canal === c && (codN(l.codigo) === codN(raw) || digL(l.codigo) === n)); return cand.length === 1 ? cand[0] : (cand.find((l) => codN(l.codigo) === n) || null); };
     // reprovadas que ainda não tiveram foto nova aprovada
@@ -1127,7 +1127,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       const corrigida = ap.some((a) => a.c === x.c && a.d > x.d && (x.n ? a.n === x.n : promotorK(a.nome) === promotorK(x.nome)));
       const k = x.c + '|' + (x.n || promotorK(x.nome)); if (corrigida || vistos.has(k)) return false; vistos.add(k); return true; });
     const apont = lojas.filter((l) => apsR(l).length);
-    const velhas = lojas.filter((l) => l.dias_sem_foto != null && l.dias_sem_foto >= 35).sort((a, b) => b.dias_sem_foto - a.dias_sem_foto);
+    const velhas = lojas.filter((l) => l.situacao === 'Pendente');   // foto pendente: loja ainda sem foto
     // filtro de canal
     const sc = $('#r-canal'); const cur = sc.value;
     const cns = [...new Set(reprov.map((x) => x.c).concat(apont.map((l) => l.canal), velhas.map((l) => l.canal)))].sort();
@@ -1136,7 +1136,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const R = [] /* reprovadas não entram no Resumo (ficam no histórico de cada envio) */, A = apont.filter((l) => okCanal(fc, l.canal)), V = velhas.filter((l) => okCanal(fc, l.canal));
     resumoVisivel = { R, A, V, lojaDe };
     const k = $('#r-kpis'); k.replaceChildren();
-    [['Com apontamento · 有问题', A.length, 'aw', 'r-sec-a'], ['35+ dias sem foto nova · 超35天', V.length, 'aw', 'r-sec-v']].forEach(([t, v, c, id]) => {
+    [['Foto pendente · 未上传', V.length, 'aw', 'r-sec-v'], ['Com apontamento · 有问题', A.length, 'aw', 'r-sec-a']].forEach(([t, v, c, id]) => {
       const d = el('button', 'count ' + c); d.type = 'button'; d.style.textAlign = 'left'; d.style.cursor = 'pointer'; d.append(el('b', null, String(v)), el('span', null, t));
       d.addEventListener('click', () => { const s0 = document.getElementById(id); if (s0) s0.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); k.appendChild(d); });
     const box = $('#r-corpo'); box.replaceChildren(); resumoTextos = [];
@@ -1156,12 +1156,12 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const pills = (arr) => { const f = document.createDocumentFragment(); arr.forEach((p) => f.appendChild(el('span', 'pb', p))); return f; };
     const nomeL = (l) => l.canal + ' ' + l.codigo + ' · ' + titulo(l.loja);
     const ordUF = (a, b) => String(a.uf || '').localeCompare(String(b.uf || ''));
-    secao('r-sec-a', 'Lojas com apontamento de VM · 有陈列问题', ['Loja', 'Cidade / UF', 'Apontamentos', 'Anotação', 'Última foto'],
-      A.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), pills(apsR(l)), l.observacao || '', l.ultima_foto ? fmtD10(l.ultima_foto) : '—']),
+    secao('r-sec-v', 'Lojas com foto pendente · 未上传照片', ['Loja', 'Cidade / UF', 'Anotação'],
+      V.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), l.observacao || '']),
+      'Nenhuma loja com foto pendente. 👏');
+    secao('r-sec-a', 'Lojas com apontamento de VM · 有陈列问题', ['Loja', 'Cidade / UF', 'Apontamentos', 'Anotação'],
+      A.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), pills(apsR(l)), l.observacao || '']),
       'Nenhuma loja com apontamento.');
-    secao('r-sec-v', 'Lojas sem foto nova há mais de 35 dias · 超过35天未更新', ['Loja', 'Cidade / UF', 'Última foto', 'Dias sem atualizar'],
-      V.map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), l.ultima_foto ? fmtD10(l.ultima_foto) : '—', l.dias_sem_foto + ' dias']),
-      'Nenhuma loja passou de 35 dias. 👏');
   }
   let resumoVisivel = null, resumoTextos = [];
   async function copiarTxt(b, txt) {
@@ -1172,16 +1172,15 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   function copiarResumo() { if (!resumoTextos.length) return; copiarTxt($('#r-copy'), ($('#r-sub').textContent.split('.')[0] + ' · ' + nomeCanais('r-canal', 'todos os canais')) + '\n\n' + resumoTextos.join('\n\n')); }
   function baixarResumo() {
     if (!resumoVisivel) return; const { R, A, V, lojaDe } = resumoVisivel;
-    // Detalhe 1 = apontamento de VM (ou motivo da reprovação) · Detalhe 2 = dias sem foto nova
-    // loja que tem apontamento E está há 35+ dias sem foto vira UMA linha só
-    const linhas = [['Tipo', 'Região', 'UF', 'Canal', 'Código', 'Loja', 'Detalhe 1 (apontamento)', 'Detalhe 2 (dias sem foto)', 'Observação', 'Última foto']];
-    R.forEach((x) => { const l = lojaDe(x.canal, x.loja_raw); linhas.push(['Foto reprovada', l ? l.regiao : '', x.uf || '', x.c, l ? l.codigo : String(x.loja_raw || ''), l ? l.loja : '', x.motivos || '', '', x.obs || '', fmtD(x.d)]); });
+    // Detalhe 1 = apontamento de VM · Detalhe 2 = foto pendente · loja nas duas listas vira UMA linha só
+    const linhas = [['Tipo', 'Região', 'UF', 'Canal', 'Código', 'Loja', 'Detalhe 1 (apontamento)', 'Detalhe 2 (foto)', 'Observação']];
+    R.forEach((x) => { const l = lojaDe(x.canal, x.loja_raw); linhas.push(['Foto reprovada', l ? l.regiao : '', x.uf || '', x.c, l ? l.codigo : String(x.loja_raw || ''), l ? l.loja : '', x.motivos || '', '', x.obs || '']); });
     const porLoja = new Map(), chave = (l) => l.canal + '|' + codN(l.codigo);
     A.forEach((l) => porLoja.set(chave(l), { l, ap: true, v: false }));
     V.forEach((l) => { const x = porLoja.get(chave(l)); if (x) x.v = true; else porLoja.set(chave(l), { l, ap: false, v: true }); });
     [...porLoja.values()].sort((a, b) => String(a.l.uf || '').localeCompare(String(b.l.uf || '')) || String(a.l.canal).localeCompare(String(b.l.canal)) || (+codN(a.l.codigo) || 0) - (+codN(b.l.codigo) || 0))
-      .forEach(({ l, ap, v }) => linhas.push([ap && v ? 'Apontamento + 35+ dias sem foto' : ap ? 'Apontamento' : '35+ dias sem foto', l.regiao || '', l.uf || '', l.canal, l.codigo, l.loja,
-        ap ? apsR(l).join(', ') : '', l.dias_sem_foto != null && l.dias_sem_foto >= 35 ? l.dias_sem_foto + ' dias' : '', ap ? (l.observacao || '') : '', l.ultima_foto ? fmtD10(l.ultima_foto) : '']));
+      .forEach(({ l, ap, v }) => linhas.push([ap && v ? 'Foto pendente + apontamento' : ap ? 'Apontamento' : 'Foto pendente', l.regiao || '', l.uf || '', l.canal, l.codigo, l.loja,
+        ap ? apsR(l).join(', ') : '', v ? 'Sem foto' : '', l.observacao || '']));
     const csv = '﻿' + linhas.map((x) => x.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'resumo-regiao-' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
   }
