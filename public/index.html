@@ -386,7 +386,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     <p class="note" id="r-sub">Lojas que precisam de ação: lojas com foto pendente (ainda sem foto) e lojas com apontamento de VM.</p></div>
     <div><button class="btn" type="button" id="r-copy">Copiar tudo · 复制</button> <button class="btn" type="button" id="r-csv">Baixar lista · 下载</button></div></div>
   <div class="msg" id="r-msg" role="status" hidden></div>
-  <div class="bar"><select id="r-reg" aria-label="Estado" hidden></select> <select id="r-canal" aria-label="Canal"></select> <span class="note" id="r-upd"></span></div>
+  <div class="bar"><select id="r-reg" aria-label="Estado" hidden></select> <select id="r-canal" aria-label="Canal"></select> <select id="r-tipo" aria-label="Mostrar"><option value="">Pendentes e apontamentos · 全部</option><option value="v">Só foto pendente · 未上传</option><option value="a">Só com apontamento · 有问题</option></select> <span class="note" id="r-upd"></span></div>
   <div class="counts" id="r-kpis"></div>
   <div id="r-corpo"></div>
 </div>
@@ -1133,10 +1133,11 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const cns = [...new Set(reprov.map((x) => x.c).concat(apont.map((l) => l.canal), velhas.map((l) => l.canal)))].sort();
     sc.replaceChildren(new Option('Todos os canais · 全部渠道', ''), ...cns.map((c) => new Option(c, c))); sc.value = cns.includes(cur) ? cur : '';
     const fc = canaisDe('r-canal');
-    const R = [] /* reprovadas não entram no Resumo (ficam no histórico de cada envio) */, A = apont.filter((l) => okCanal(fc, l.canal)), V = velhas.filter((l) => okCanal(fc, l.canal));
+    const tp = $('#r-tipo').value;   // '' = as duas listas · 'v' = só foto pendente · 'a' = só apontamento
+    const R = [] /* reprovadas não entram no Resumo (ficam no histórico de cada envio) */, A = tp === 'v' ? [] : apont.filter((l) => okCanal(fc, l.canal)), V = tp === 'a' ? [] : velhas.filter((l) => okCanal(fc, l.canal));
     resumoVisivel = { R, A, V, lojaDe };
     const k = $('#r-kpis'); k.replaceChildren();
-    [['Foto pendente · 未上传', V.length, 'aw', 'r-sec-v'], ['Com apontamento · 有问题', A.length, 'aw', 'r-sec-a']].forEach(([t, v, c, id]) => {
+    [['Foto pendente · 未上传', V.length, 'aw', 'r-sec-v', 'v'], ['Com apontamento · 有问题', A.length, 'aw', 'r-sec-a', 'a']].filter((x) => !tp || x[4] === tp).forEach(([t, v, c, id]) => {
       const d = el('button', 'count ' + c); d.type = 'button'; d.style.textAlign = 'left'; d.style.cursor = 'pointer'; d.append(el('b', null, String(v)), el('span', null, t));
       d.addEventListener('click', () => { const s0 = document.getElementById(id); if (s0) s0.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); k.appendChild(d); });
     const box = $('#r-corpo'); box.replaceChildren(); resumoTextos = [];
@@ -1156,10 +1157,10 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const pills = (arr) => { const f = document.createDocumentFragment(); arr.forEach((p) => f.appendChild(el('span', 'pb', p))); return f; };
     const nomeL = (l) => l.canal + ' ' + l.codigo + ' · ' + titulo(l.loja);
     const ordUF = (a, b) => String(a.uf || '').localeCompare(String(b.uf || ''));
-    secao('r-sec-v', 'Lojas com foto pendente · 未上传照片', ['Loja', 'Cidade / UF', 'Anotação'],
+    if (tp !== 'a') secao('r-sec-v', 'Lojas com foto pendente · 未上传照片', ['Loja', 'Cidade / UF', 'Anotação'],
       V.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), l.observacao || '']),
       'Nenhuma loja com foto pendente. 👏');
-    secao('r-sec-a', 'Lojas com apontamento de VM · 有陈列问题', ['Loja', 'Cidade / UF', 'Apontamentos', 'Anotação'],
+    if (tp !== 'v') secao('r-sec-a', 'Lojas com apontamento de VM · 有陈列问题', ['Loja', 'Cidade / UF', 'Apontamentos', 'Anotação'],
       A.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), pills(apsR(l)), l.observacao || '']),
       'Nenhuma loja com apontamento.');
   }
@@ -2003,7 +2004,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   ['#f-form', '#f-canal', '#f-uf'].forEach((s) => $(s).addEventListener('change', render));
   $('#f-q').addEventListener('input', render);
   $('#i-nova').addEventListener('click', () => formInst({})); ['#i-canal', '#i-uf', '#i-tipo'].forEach((x) => $(x).addEventListener('change', renderInst)); $('#i-q').addEventListener('input', renderInst);
-  $('#r-reg').addEventListener('change', loadResumo); $('#r-canal').addEventListener('change', renderResumo); $('#r-csv').addEventListener('click', baixarResumo); $('#r-copy').addEventListener('click', copiarResumo);
+  $('#r-reg').addEventListener('change', loadResumo); $('#r-canal').addEventListener('change', renderResumo); $('#r-tipo').addEventListener('change', renderResumo); $('#r-csv').addEventListener('click', baixarResumo); $('#r-copy').addEventListener('click', copiarResumo);
   $('#c-q').addEventListener('input', renderBusca); ['#c-reg', '#c-canal', '#c-tipo'].forEach((x) => $(x).addEventListener('change', renderRel)); $('#c-csv').addEventListener('click', baixarRel);
   $('#n-uf').addEventListener('change', renderNovas); $('#n-canal').addEventListener('change', renderNovas); $('#n-csv').addEventListener('click', baixarCsv);
   try { if (localStorage.getItem('vm-soultimo') === '0') $('#f-ultimo').checked = false; } catch (e) {}
