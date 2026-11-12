@@ -95,7 +95,11 @@ function atualizarPainel_(detalhado) {
     const dispCols = cols.filter((c) => H[c].some((v) => v.toLowerCase().indexOf('display') >= 0 && v.indexOf('Store') < 0));
     if (!C.name) { resumo.push(ch + ': sem coluna Store Name'); return; }
     const temMP = PAINEL_MP_SEM.indexOf(ch) < 0;
-    if (temMP) resumo.push(ch + ': main push = ' + PAINEL_MP_COLS.map((c) => letra_(c) + ' "' + (H[c] || ['(sem título)']).join(' / ') + '"').join(' + '));
+    // acha cada material pelo título da coluna; se não achar, usa Q para Reno 16 e R para A6 Pro
+    const mpReno = find((v) => /reno/i.test(v)) || PAINEL_MP_COLS[0];
+    const mpA6 = find((v) => /\ba6\b|a6\s*pro/i.test(v)) || PAINEL_MP_COLS[1];
+    const tit = (c) => letra_(c) + ' "' + (H[c] || ['(sem título)']).join(' / ') + '"';
+    if (temMP) resumo.push(ch + ': main push → Reno 16 = ' + tit(mpReno) + ' · A6 Pro = ' + tit(mpA6));
     const temMat = (v) => { v = String(v || '').trim().toUpperCase(); return !!v && ['NO', 'NÃO', 'NAO', 'N', '0', '-', '—', 'FALSE', 'X0'].indexOf(v) < 0; };
     let n = 0;
     for (let r = hdr + 1; r <= V.length; r++) {
@@ -120,10 +124,11 @@ function atualizarPainel_(detalhado) {
       const codigo = C.code ? g('code').replace(/\.0$/, '') : '';
       const mmCx = C.mm ? ['1', 'TRUE', 'YES', 'SIM', 'X'].indexOf(g('mm').toUpperCase()) >= 0 : false;
       const multimarcas = mmCx || /multimarca/i.test(mesaDe(ch, C.code ? g('code') : '', nome));
-      const mpN = temMP ? PAINEL_MP_COLS.filter((c) => temMat(txt(r, c))).length : null;
+      const temReno = temMP ? temMat(txt(r, mpReno)) : null, temA6 = temMP ? temMat(txt(r, mpA6)) : null;
+      const mpN = temMP ? (temReno ? 1 : 0) + (temA6 ? 1 : 0) : null;
       lojas.push({ id: ch + '-' + r, canal: ch, codigo: codigo === '0' ? '' : codigo, loja: nome, cidade, uf, regiao: PAINEL_REGIAO[uf] || 'Outra', classe: cls, promotor: prom,
         mesa_16: t16, mesa_12: t12, mesa_08: t08, mesas: t16 + t12 + t08, displays: nd, fotos, situacao: sit, ok_planilha: okp, apontamento: tg.join('; '), observacao: obs,
-        veiculacao: veic, multimarcas, main_push: mpN == null ? null : mpN === PAINEL_MP_COLS.length ? 'Completo' : mpN ? 'Parcial' : 'Sem', ultima_foto: ult, fotos_hash: '', atualizado_em: hoje, dias_sem_foto: ult ? Math.round((Date.parse(hoje) - Date.parse(ult)) / 864e5) : null });
+        veiculacao: veic, multimarcas, main_push: mpN == null ? null : mpN === 2 ? 'Completo' : mpN ? 'Parcial' : 'Sem', mp_reno: temReno, mp_a6: temA6, ultima_foto: ult, fotos_hash: '', atualizado_em: hoje, dias_sem_foto: ult ? Math.round((Date.parse(hoje) - Date.parse(ult)) / 864e5) : null });
       n++;
     }
     resumo.push(ch + ': ' + n + ' lojas, ' + lojas.filter((l) => l.canal === ch && l.situacao !== 'Pendente').length + ' com foto');

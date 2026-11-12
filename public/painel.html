@@ -325,10 +325,11 @@ window.VMCRYPTO = (function () {
     </section>
     <section class="vm-card" id="g-mainpush">
       <h2>Main push<span class="zh">主推物料</span></h2>
-      <p class="vm-note" id="mp-resumo">Lojas com os dois materiais do main push (colunas Q e R do Feishu). Americanas, Claro, Vivo e Tim não têm main push.</p>
+      <p class="vm-note" id="mp-resumo">Lojas com os dois materiais do main push: Reno 16 e A6 Pro. Americanas, Claro, Vivo e Tim não têm main push.</p>
       <div class="vm-legend">
         <span><i class="vm-sw" style="background:var(--color-ok)"></i>Os dois · 两个都有</span>
-        <span><i class="vm-sw" style="background:var(--color-warn)"></i>Só um · 只有一个</span>
+        <span><i class="vm-sw" style="background:var(--color-warn)"></i>Só Reno 16 · 只有Reno 16</span>
+        <span><i class="vm-sw" style="background:#7b5ea7"></i>Só A6 Pro · 只有A6 Pro</span>
         <span><i class="vm-sw" style="background:var(--color-bad)"></i>Nenhum · 都没有</span>
       </div>
       <div class="vm-chart" id="mp-chart" data-source="lojas"></div>
@@ -873,15 +874,17 @@ dash.calc('apontamentos', {
       (p.canal === 'Todos' || (p.canal === 'Prioritários' ? PRI.has(l.canal) : l.canal === p.canal)));
     if (!lojas.some((l) => 'main_push' in l)) { el.replaceChildren(); const n = document.createElement('p'); n.className = 'vm-note'; n.textContent = 'Aguardando a próxima atualização do Feishu (Painel.gs novo no Apps Script).'; el.appendChild(n); return; }
     const by = new Map();
-    base.forEach((l) => { const g = by.get(l.canal) || { canal: l.canal, lojas: 0, Completo: 0, Parcial: 0, Sem: 0 }; g.lojas++; g[l.main_push] = (g[l.main_push] || 0) + 1; by.set(l.canal, g); });
+    base.forEach((l) => { const g = by.get(l.canal) || { canal: l.canal, lojas: 0, Completo: 0, Reno: 0, A6: 0, Parcial: 0, Sem: 0 }; g.lojas++;
+      if (l.main_push === 'Parcial') { if (l.mp_reno === true) g.Reno++; else if (l.mp_a6 === true) g.A6++; else g.Parcial++; } else g[l.main_push] = (g[l.main_push] || 0) + 1;
+      by.set(l.canal, g); });
     const rows = [...by.values()].map((g) => Object.assign(g, { pct: g.lojas ? g.Completo / g.lojas : 0 })).sort((a, b) => b.pct - a.pct || b.lojas - a.lojas);
     const tot = base.length, ok = base.filter((l) => l.main_push === 'Completo').length;
-    res.textContent = tot ? pct.format(ok / tot) + ' das lojas com main push têm os dois materiais (' + ok + ' de ' + tot + '). Colunas Q e R do Feishu; Americanas, Claro, Vivo e Tim não têm main push.'
+    res.textContent = tot ? pct.format(ok / tot) + ' das lojas com main push têm Reno 16 e A6 Pro (' + ok + ' de ' + tot + '). Faltando: ' + base.filter((l) => l.mp_reno === false).length + ' sem Reno 16 · ' + base.filter((l) => l.mp_a6 === false).length + ' sem A6 Pro. Americanas, Claro, Vivo e Tim não têm main push.'
       : 'Nenhuma loja com main push nesta seleção (Americanas, Claro, Vivo e Tim não têm main push).';
     hbar(el, rows, {
       label: (r) => (PRI.has(r.canal) ? '★ ' : '') + r.canal, end: (r) => pct.format(r.pct) + ' (' + r.Completo + '/' + r.lojas + ')', total: (r) => r.lojas,
-      parts: [['Completo', 'var(--color-ok)'], ['Parcial', 'var(--color-warn)'], ['Sem', 'var(--color-bad)']],
-      tip: (r) => [['var(--color-ok)', 'Os dois materiais', r.Completo], ['var(--color-warn)', 'Só um', r.Parcial], ['var(--color-bad)', 'Nenhum', r.Sem]],
+      parts: [['Completo', 'var(--color-ok)'], ['Reno', 'var(--color-warn)'], ['A6', '#7b5ea7'], ['Parcial', 'var(--color-warn)'], ['Sem', 'var(--color-bad)']],
+      tip: (r) => [['var(--color-ok)', 'Reno 16 + A6 Pro', r.Completo], ['var(--color-warn)', 'Só Reno 16', r.Reno], ['#7b5ea7', 'Só A6 Pro', r.A6], ['var(--color-bad)', 'Nenhum', r.Sem]].concat(r.Parcial ? [[null, 'Só um (atualizar Painel.gs)', r.Parcial]] : []),
     });
   }
   function drawMesas(p, data) {
