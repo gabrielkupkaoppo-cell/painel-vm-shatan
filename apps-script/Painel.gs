@@ -7,7 +7,7 @@
  */
 var PAINEL_CANAIS = ['Americanas', 'Magalu', 'Lider', 'Bemol', 'Martinello', 'Paraiba', 'Fast', 'Claro', 'Vivo', 'Tim', 'Gazin', 'Casas Bahia', 'Novo Mundo'];
 // Main push = loja com os DOIS materiais das colunas Q e R da aba. Estes canais não têm main push.
-var PAINEL_MP_COLS = [17, 18];   // Q = A6 Pro, R = Reno 16
+var PAINEL_MP_COLS = [17, 18];   // Q, R
 var PAINEL_MP_SEM = ['Americanas', 'Claro', 'Vivo', 'Tim'];
 var PAINEL_REGIAO = { DF: 'DF/GO', GO: 'DF/GO', CE: 'CE/PI', PI: 'CE/PI', PA: 'PA/AP', AP: 'PA/AP', MT: 'MT/MS', MS: 'MT/MS', AM: 'AM/AC/RR/RO', AC: 'AM/AC/RR/RO', RR: 'AM/AC/RR/RO', RO: 'AM/AC/RR/RO', MA: 'MA/TO', TO: 'MA/TO' };
 
@@ -95,10 +95,7 @@ function atualizarPainel_(detalhado) {
     const dispCols = cols.filter((c) => H[c].some((v) => v.toLowerCase().indexOf('display') >= 0 && v.indexOf('Store') < 0));
     if (!C.name) { resumo.push(ch + ': sem coluna Store Name'); return; }
     const temMP = PAINEL_MP_SEM.indexOf(ch) < 0;
-    // coluna Q = A6 Pro · coluna R = Reno 16 (letras fixas: o título "Reno" também aparece em outras colunas)
-    const mpA6 = PAINEL_MP_COLS[0], mpReno = PAINEL_MP_COLS[1];
-    const tit = (c) => letra_(c) + ' "' + (H[c] || ['(sem título)']).join(' / ') + '"';
-    if (temMP) resumo.push(ch + ': main push → Reno 16 = ' + tit(mpReno) + ' · A6 Pro = ' + tit(mpA6));
+    if (temMP) resumo.push(ch + ': main push = ' + PAINEL_MP_COLS.map((c) => letra_(c) + ' "' + (H[c] || ['(sem título)']).join(' / ') + '"').join(' + '));
     const temMat = (v) => { v = String(v || '').trim().toUpperCase(); return !!v && ['NO', 'NÃO', 'NAO', 'N', '0', '-', '—', 'FALSE', 'X0'].indexOf(v) < 0; };
     let n = 0;
     for (let r = hdr + 1; r <= V.length; r++) {
@@ -123,11 +120,10 @@ function atualizarPainel_(detalhado) {
       const codigo = C.code ? g('code').replace(/\.0$/, '') : '';
       const mmCx = C.mm ? ['1', 'TRUE', 'YES', 'SIM', 'X'].indexOf(g('mm').toUpperCase()) >= 0 : false;
       const multimarcas = mmCx || /multimarca/i.test(mesaDe(ch, C.code ? g('code') : '', nome));
-      const temReno = temMP ? temMat(txt(r, mpReno)) : null, temA6 = temMP ? temMat(txt(r, mpA6)) : null;
-      const mpN = temMP ? (temReno ? 1 : 0) + (temA6 ? 1 : 0) : null;
+      const mpN = temMP ? PAINEL_MP_COLS.filter((c) => temMat(txt(r, c))).length : null;
       lojas.push({ id: ch + '-' + r, canal: ch, codigo: codigo === '0' ? '' : codigo, loja: nome, cidade, uf, regiao: PAINEL_REGIAO[uf] || 'Outra', classe: cls, promotor: prom,
         mesa_16: t16, mesa_12: t12, mesa_08: t08, mesas: t16 + t12 + t08, displays: nd, fotos, situacao: sit, ok_planilha: okp, apontamento: tg.join('; '), observacao: obs,
-        veiculacao: veic, multimarcas, main_push: mpN == null ? null : mpN === 2 ? 'Completo' : mpN ? 'Parcial' : 'Sem', mp_reno: temReno, mp_a6: temA6, ultima_foto: ult, fotos_hash: '', atualizado_em: hoje, dias_sem_foto: ult ? Math.round((Date.parse(hoje) - Date.parse(ult)) / 864e5) : null });
+        veiculacao: veic, multimarcas, main_push: mpN == null ? null : mpN === PAINEL_MP_COLS.length ? 'Completo' : mpN ? 'Parcial' : 'Sem', ultima_foto: ult, fotos_hash: '', atualizado_em: hoje, dias_sem_foto: ult ? Math.round((Date.parse(hoje) - Date.parse(ult)) / 864e5) : null });
       n++;
     }
     resumo.push(ch + ': ' + n + ' lojas, ' + lojas.filter((l) => l.canal === ch && l.situacao !== 'Pendente').length + ' com foto');
