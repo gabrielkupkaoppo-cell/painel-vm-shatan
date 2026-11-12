@@ -7,7 +7,7 @@
  */
 var PAINEL_CANAIS = ['Americanas', 'Magalu', 'Lider', 'Bemol', 'Martinello', 'Paraiba', 'Fast', 'Claro', 'Vivo', 'Tim', 'Gazin', 'Casas Bahia', 'Novo Mundo'];
 // Main push = loja com os DOIS materiais das colunas Q e R da aba. Estes canais não têm main push.
-var PAINEL_MP_COLS = [17, 18];   // Q, R
+var PAINEL_MP_COLS = [17, 18];   // Q = A6 Pro, R = Reno 16
 var PAINEL_MP_SEM = ['Americanas', 'Claro', 'Vivo', 'Tim'];
 var PAINEL_REGIAO = { DF: 'DF/GO', GO: 'DF/GO', CE: 'CE/PI', PI: 'CE/PI', PA: 'PA/AP', AP: 'PA/AP', MT: 'MT/MS', MS: 'MT/MS', AM: 'AM/AC/RR/RO', AC: 'AM/AC/RR/RO', RR: 'AM/AC/RR/RO', RO: 'AM/AC/RR/RO', MA: 'MA/TO', TO: 'MA/TO' };
 
@@ -95,9 +95,8 @@ function atualizarPainel_(detalhado) {
     const dispCols = cols.filter((c) => H[c].some((v) => v.toLowerCase().indexOf('display') >= 0 && v.indexOf('Store') < 0));
     if (!C.name) { resumo.push(ch + ': sem coluna Store Name'); return; }
     const temMP = PAINEL_MP_SEM.indexOf(ch) < 0;
-    // acha cada material pelo título da coluna; se não achar, usa Q para Reno 16 e R para A6 Pro
-    const mpReno = find((v) => /reno/i.test(v)) || PAINEL_MP_COLS[0];
-    const mpA6 = find((v) => /\ba6\b|a6\s*pro/i.test(v)) || PAINEL_MP_COLS[1];
+    // coluna Q = A6 Pro · coluna R = Reno 16 (letras fixas: o título "Reno" também aparece em outras colunas)
+    const mpA6 = PAINEL_MP_COLS[0], mpReno = PAINEL_MP_COLS[1];
     const tit = (c) => letra_(c) + ' "' + (H[c] || ['(sem título)']).join(' / ') + '"';
     if (temMP) resumo.push(ch + ': main push → Reno 16 = ' + tit(mpReno) + ' · A6 Pro = ' + tit(mpA6));
     const temMat = (v) => { v = String(v || '').trim().toUpperCase(); return !!v && ['NO', 'NÃO', 'NAO', 'N', '0', '-', '—', 'FALSE', 'X0'].indexOf(v) < 0; };
