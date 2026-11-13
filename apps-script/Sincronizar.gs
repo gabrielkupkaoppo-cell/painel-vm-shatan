@@ -83,8 +83,11 @@ function sincronizar() {
     }
 
     // 2) decisões antigas da aba "Revisão" (Portal do Claude) → Supabase
+    //    DESLIGADO: a aba "Revisão" é cópia do site (passo 3). Importar de volta ressuscitava aprovações
+    //    que tinham sido desfeitas no banco. Só liga com a propriedade IMPORTAR_REVISAO_ANTIGA = sim.
     const aba = SpreadsheetApp.getActive().getSheetByName(ABA_REVISAO);
-    if (aba && aba.getLastRow() > 1) {
+    const importarAntigas = String(PropertiesService.getScriptProperties().getProperty('IMPORTAR_REVISAO_ANTIGA') || '').toLowerCase() === 'sim';
+    if (importarAntigas && aba && aba.getLastRow() > 1) {
       const linhas = aba.getRange(2, 1, aba.getLastRow() - 1, 12).getDisplayValues();
       const antigas = linhas.filter((l) => l[0] && atuais[l[0]] && (l[7] === 'Aprovado' || l[7] === 'Reprovado')).map((l) => ({
         key: l[0], status: l[7], motivos: l[8] || '', obs: l[9] || '', revisado_em: (parseData_(l[10]) || new Date()).toISOString(),
