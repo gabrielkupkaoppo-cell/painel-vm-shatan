@@ -1,25 +1,24 @@
 /**
- * Painel VM Shatan — guarda as fotos do Forms no FEISHU e libera o Google Drive.
+ * Painel VM Shatan — guarda as fotos do Forms numa PLANILHA DE ARQUIVO no Feishu e libera o Google Drive.
  * Sexto arquivo do mesmo Apps Script (usa supa_ do Sincronizar.gs e feishuToken_/feishu_ do Feishu.gs).
+ * Usa só a permissão de planilha que o app já tem (não precisa de aprovação do admin).
  *
- * O Forms sempre salva a foto no seu Drive (não dá para mudar). Este script:
- *   1) copia cada foto ORIGINAL (qualidade cheia) para uma pasta no Feishu Drive
- *      "Fotos VM Mesas (Forms)", com subpastas por mês e canal (ex.: "2026-11 Bemol");
- *   2) depois que a foto foi decidida e já está guardada no Feishu, manda o original do Google Drive
- *      para a LIXEIRA (DIAS_DRIVE dias após a decisão).
- * O site mostra a miniatura de sempre e o link "abrir original no Feishu".
+ * O Forms sempre salva a foto no seu Drive (não dá para mudar). Depois que a foto foi decidida, este script:
+ *   1) escreve uma linha na planilha de arquivo do Feishu (uma aba por mês: "2026-11"):
+ *      Data do envio | Canal | Loja | UF | Promotor | Foto | Status | Imagem (a foto dentro da célula, até 2000 px)
+ *   2) manda o original do Google Drive para a LIXEIRA (só depois de arquivado no Feishu).
+ * O site mostra a miniatura de sempre e o link "abrir original no Feishu" (vai direto para a linha da foto).
  *
  * Nunca vai para a lixeira:
- *   - foto que ainda NÃO foi copiada para o Feishu
  *   - foto aguardando aprovação
- *   - foto aprovada que ainda não foi para a planilha do Feishu
+ *   - foto aprovada que ainda não foi para a planilha das lojas no Feishu
+ *   - foto que não foi arquivada (se a planilha recusar, ela fica no Drive)
  *
  * Antes da 1ª vez:
- *   - No app do Feishu (open.feishu.cn → seu app → Permissões), ligue a permissão de Drive
- *     "查看、评论、编辑和管理云空间中所有文件" (drive:drive) e publique a nova versão do app.
- *   - Propriedade do script FEISHU_FOTOS_DONO = seu e-mail do Feishu (a pasta é compartilhada com você).
+ *   - Crie a planilha no Feishu, adicione o app "Painel VM Shatan" com permissão de EDIÇÃO.
+ *   - Propriedade do script FEISHU_ARQUIVO = link da planilha (copie da barra de endereço do Feishu).
  *
- * 1) limparDriveTeste()   → NÃO muda nada: mostra quantas fotos iriam para o Feishu e quantos GB sairiam do Drive.
+ * 1) limparDriveTeste()   → NÃO muda nada: mostra quantas fotos seriam arquivadas e quantos GB sairiam do Drive.
  * 2) limparDrive()        → faz o trabalho (em partes de ~5 min; rode de novo se faltar).
  * 3) limparDriveLigar()   → roda sozinho a cada hora. limparDriveDesligar() para parar.
  *
@@ -27,6 +26,7 @@
  * (sozinha em 30 dias, ou na hora em drive.google.com → Lixeira → Esvaziar).
  */
 var DIAS_DRIVE = 1;
+var ARQ_CAB = ['Data do envio · 提交日期', 'Canal · 渠道', 'Loja · 门店', 'UF · 州', 'Promotor · 提交人', 'Foto · 照片类型', 'Status · 审核结果', 'Imagem · 图片'];
 
 function limparDriveTeste() { limparDrive_(true); }
 function limparDrive() {
@@ -37,7 +37,7 @@ function limparDrive() {
 function limparDriveLigar() {
   ScriptApp.getProjectTriggers().forEach((t) => { if (t.getHandlerFunction() === 'limparDriveDiario') ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger('limparDriveDiario').timeBased().everyHours(1).create();
-  console.log('Fotos → Feishu e limpeza do Drive ligadas (a cada hora).');
+  console.log('Arquivo de fotos no Feishu + limpeza do Drive ligados (a cada hora).');
 }
 function limparDriveDesligar() {
   ScriptApp.getProjectTriggers().forEach((t) => { if (t.getHandlerFunction() === 'limparDriveDiario') ScriptApp.deleteTrigger(t); });
@@ -49,51 +49,66 @@ function limparDriveDiario() {
   try { limparDrive_(false); } finally { lock.releaseLock(); }
 }
 
-// ---------- pastas no Feishu ----------
-function fotosPastas_() {
+// ---------- planilha de arquivo ----------
+function arquivoCfg_() {
+  const url = String(PropertiesService.getScriptProperties().getProperty('FEISHU_ARQUIVO') || '').trim();
+  const m = url.match(/sheets\/([A-Za-z0-9]+)/) || url.match(/^([A-Za-z0-9]{15,})$/);
+  if (!m) throw new Error('Falta a propriedade FEISHU_ARQUIVO com o link da planilha de arquivo do Feishu.');
+  const host = (url.match(/^https:\/\/[^/]+/) || ['https://www.feishu.cn'])[0];
+  return { token: m[1], host: host };
+}
+function arquivoEstado_() {
   const p = PropertiesService.getScriptProperties();
-  let st = {}; try { st = JSON.parse(p.getProperty('FEISHU_FOTOS_PASTAS') || '{}'); } catch (e) { st = {}; }
-  st.subs = st.subs || {};
-  return { st: st, salvar: () => p.setProperty('FEISHU_FOTOS_PASTAS', JSON.stringify(st)) };
+  let st = {}; try { st = JSON.parse(p.getProperty('FEISHU_ARQUIVO_ABAS') || '{}'); } catch (e) { st = {}; }
+  st.abas = st.abas || {};
+  return { st: st, salvar: () => p.setProperty('FEISHU_ARQUIVO_ABAS', JSON.stringify(st)) };
 }
-function fotosRaiz_(tk, P) {
-  if (P.st.raiz) return P.st.raiz;
-  const dono = String(PropertiesService.getScriptProperties().getProperty('FEISHU_FOTOS_DONO') || '').trim();
-  if (!dono) throw new Error('Falta a propriedade FEISHU_FOTOS_DONO (seu e-mail do Feishu), para a pasta das fotos ser compartilhada com você.');
-  const root = feishu_(tk, 'GET', '/drive/explorer/v2/root_folder/meta');
-  const f = feishu_(tk, 'POST', '/drive/v1/files/create_folder', { name: 'Fotos VM Mesas (Forms)', folder_token: root.token });
-  feishu_(tk, 'POST', '/drive/v1/permissions/' + f.token + '/members?type=folder&need_notification=true', { member_type: 'email', member_id: dono, perm: 'full_access' });
-  P.st.raiz = f.token; P.st.url = f.url || ''; P.salvar();
-  console.log('Pasta criada no Feishu e compartilhada com ' + dono + ': ' + (f.url || f.token));
-  return f.token;
+// aba do mês: acha ou cria (com cabeçalho) e descobre a próxima linha livre
+function arquivoAba_(tk, cfg, E, titulo) {
+  const cache = E.st.abas[titulo];
+  if (cache && cache.token === cfg.token) return cache;
+  const abas = feishu_(tk, 'GET', '/sheets/v3/spreadsheets/' + cfg.token + '/sheets/query').sheets || [];
+  let a = abas.find((x) => x.title === titulo), id;
+  if (a) id = a.sheet_id;
+  else {
+    const r = feishu_(tk, 'POST', '/sheets/v2/spreadsheets/' + cfg.token + '/sheets_batch_update', { requests: [{ addSheet: { properties: { title: titulo, index: 0 } } }] });
+    id = r.replies[0].addSheet.properties.sheetId;
+  }
+  const col = feishu_(tk, 'GET', '/sheets/v2/spreadsheets/' + cfg.token + '/values/' + encodeURIComponent(id + '!A1:A20000') + '?valueRenderOption=ToString');
+  const vals = (col.valueRange && col.valueRange.values) || [];
+  let n = vals.length; while (n > 0 && (vals[n - 1][0] == null || vals[n - 1][0] === '')) n--;
+  if (n === 0) {
+    feishu_(tk, 'PUT', '/sheets/v2/spreadsheets/' + cfg.token + '/values', { valueRange: { range: id + '!A1:H1', values: [ARQ_CAB] } });
+    n = 1;
+  }
+  E.st.abas[titulo] = { token: cfg.token, id: id, prox: n + 1 }; E.salvar();
+  return E.st.abas[titulo];
 }
-function fotosSub_(tk, P, nome) {
-  if (P.st.subs[nome]) return P.st.subs[nome];
-  const f = feishu_(tk, 'POST', '/drive/v1/files/create_folder', { name: nome, folder_token: fotosRaiz_(tk, P) });
-  P.st.subs[nome] = f.token; P.salvar();
-  return f.token;
+// foto em até 2000 px (qualidade boa e leve); se não der, o original
+function fotoArquivo_(id) {
+  const tk = ScriptApp.getOAuthToken();
+  try {
+    const meta = JSON.parse(UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + id + '?fields=thumbnailLink', { headers: { Authorization: 'Bearer ' + tk } }).getContentText());
+    if (meta.thumbnailLink) {
+      const r = UrlFetchApp.fetch(meta.thumbnailLink.replace(/=s\d+$/, '=s2000'), { headers: { Authorization: 'Bearer ' + tk }, muteHttpExceptions: true });
+      if (r.getResponseCode() === 200 && r.getBlob().getBytes().length > 5000) return r.getBlob();
+    }
+  } catch (e) { /* usa o original */ }
+  return DriveApp.getFileById(id).getBlob();
 }
-function fotoUrlFeishu_(P, token) {
-  const m = String(P.st.url || '').match(/^https:\/\/[^/]+/);
-  return (m ? m[0] : 'https://www.feishu.cn') + '/file/' + token;
-}
-function enviarFotoFeishu_(tk, P, e, p) {
-  const blob = DriveApp.getFileById(p.id).getBlob();
-  const bytes = blob.getBytes();
-  if (bytes.length > 20 * 1048576) throw new Error('arquivo maior que 20 MB');
+function arquivarFoto_(tk, cfg, E, e, p, status) {
   const d = new Date(e.data);
-  const canal = String(e.canal || 'Sem canal').replace(/[\\/:*?"<>|]/g, ' ').trim();
-  const sub = fotosSub_(tk, P, Utilities.formatDate(d, 'America/Sao_Paulo', 'yyyy-MM') + ' ' + canal);
-  const ext = (String(blob.getName() || '').match(/\.[A-Za-z0-9]{2,5}$/) || ['.jpg'])[0];
-  const nome = (Utilities.formatDate(d, 'America/Sao_Paulo', 'yyyy-MM-dd HH.mm') + ' ' + canal + ' ' + String(e.loja_raw || '').trim() + ' ' + String(p.label || 'Foto').split(' · ')[0])
-    .replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').slice(0, 180) + ext;
-  const res = UrlFetchApp.fetch(FEISHU_API + '/drive/v1/files/upload_all', {
-    method: 'post', headers: { Authorization: 'Bearer ' + tk }, muteHttpExceptions: true,
-    payload: { file_name: nome, parent_type: 'explorer', parent_node: sub, size: String(bytes.length), file: blob.setName(nome) },
-  });
-  let j = {}; try { j = JSON.parse(res.getContentText()); } catch (x) { /* */ }
-  if (j.code !== 0 || !j.data || !j.data.file_token) throw new Error('Feishu upload → ' + (j.code || res.getResponseCode()) + ' ' + (j.msg || res.getContentText().slice(0, 150)));
-  return { bytes: bytes.length, token: j.data.file_token };
+  const aba = arquivoAba_(tk, cfg, E, Utilities.formatDate(d, 'America/Sao_Paulo', 'yyyy-MM'));
+  const n = aba.prox;
+  feishu_(tk, 'PUT', '/sheets/v2/spreadsheets/' + cfg.token + '/values', { valueRange: { range: aba.id + '!A' + n + ':G' + n, values: [[
+    Utilities.formatDate(d, 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm'), String(e.canal || ''), String(e.loja_raw || ''), String(e.uf || ''), String(e.nome || ''),
+    String(p.label || 'Foto').split(' · ')[0], status]] } });
+  aba.prox = n + 1; E.salvar();   // a linha já está ocupada mesmo se a imagem falhar
+  const blob = fotoArquivo_(p.id);
+  const corpo = { range: aba.id + '!H' + n + ':H' + n, image: Array.from(blob.getBytes(), (b) => b & 0xff), name: (p.id + '.jpg') };
+  try { feishu_(tk, 'POST', '/sheets/v2/spreadsheets/' + cfg.token + '/values_image', corpo); }
+  catch (e1) { Utilities.sleep(3000); feishu_(tk, 'POST', '/sheets/v2/spreadsheets/' + cfg.token + '/values_image', corpo); }
+  return { bytes: blob.getBytes().length, url: cfg.host + '/sheets/' + cfg.token + '?sheet=' + aba.id + '&range=H' + n };
 }
 
 function limparDrive_(teste) {
@@ -101,55 +116,53 @@ function limparDrive_(teste) {
   const dia = 864e5, agora = Date.now();
   const rev = {};
   (supa_('GET', '/rest/v1/revisoes?select=key,status,revisado_em,feishu_em&limit=20000') || []).forEach((r) => { rev[r.key] = r; });
-  const envios = (supa_('GET', '/rest/v1/envios?select=key,data,canal,loja_raw,fotos&limit=20000') || [])
+  const envios = (supa_('GET', '/rest/v1/envios?select=key,data,canal,loja_raw,uf,nome,fotos&limit=20000') || [])
     .sort((a, b) => new Date(a.data) - new Date(b.data));
   const gtk = ScriptApp.getOAuthToken();
+  const cfg = teste ? null : arquivoCfg_();
   const tk = teste ? null : feishuToken_();
-  const P = fotosPastas_();
-  let nFeishu = 0, bFeishu = 0, nLixo = 0, bLixo = 0, faltaFeishu = 0, erros = 0, parou = false, ultErro = '';
+  const E = arquivoEstado_();
+  let nArq = 0, bArq = 0, nLixo = 0, bLixo = 0, erros = 0, parou = false, ultErro = '';
 
   for (let i = 0; i < envios.length; i++) {
     if (Date.now() - inicio > limite) { parou = true; break; }
     const e = envios[i], r = rev[e.key];
+    if (!r || !r.revisado_em) continue;                                          // aguardando: fica no Drive
+    if (agora - new Date(r.revisado_em).getTime() < DIAS_DRIVE * dia) continue;    // carência
+    const ok = (r.status === 'Aprovado' && r.feishu_em) || r.status === 'Reprovado' || r.status === 'Substituído' || r.status === 'Descartado';
+    if (!ok) continue;
     const fotos = e.fotos || [];
     let mudou = false;
-    const decidida = r && r.revisado_em && agora - new Date(r.revisado_em).getTime() >= DIAS_DRIVE * dia &&
-      ((r.status === 'Aprovado' && r.feishu_em) || r.status === 'Reprovado' || r.status === 'Substituído' || r.status === 'Descartado');
-
-    fotos.forEach((p) => {
-      if (!p || !p.id || p.drive_lixeira) return;
-      if (Date.now() - inicio > limite) { parou = true; return; }
+    for (const p of fotos) {
+      if (!p || !p.id || p.drive_lixeira) continue;
+      if (Date.now() - inicio > limite) { parou = true; break; }
       try {
-        // 1) guardar o original no Feishu
-        if (!p.feishu_token) {
-          if (teste) {
-            const m = JSON.parse(UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + p.id + '?fields=size,trashed,ownedByMe', { headers: { Authorization: 'Bearer ' + gtk }, muteHttpExceptions: true }).getContentText());
-            if (m.size && !m.trashed && m.ownedByMe) { faltaFeishu++; bFeishu += +m.size || 0; if (decidida) { nLixo++; bLixo += +m.size || 0; } }
-            return;
-          }
-          const up = enviarFotoFeishu_(tk, P, e, p);
-          p.feishu_token = up.token; p.feishu_url = fotoUrlFeishu_(P, up.token); mudou = true;
-          nFeishu++; bFeishu += up.bytes;
-        }
-        // 2) original já está no Feishu e a foto foi decidida → lixeira do Drive
-        if (!decidida || teste) return;
         const res = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + p.id + '?fields=size,trashed,ownedByMe', { headers: { Authorization: 'Bearer ' + gtk }, muteHttpExceptions: true });
-        if (res.getResponseCode() === 404) { p.drive_lixeira = true; mudou = true; return; }
+        if (res.getResponseCode() === 404) { p.drive_lixeira = true; mudou = true; continue; }
         const m = JSON.parse(res.getContentText());
-        if (!m.ownedByMe) return;
-        if (m.trashed) { p.drive_lixeira = true; mudou = true; return; }
+        if (!m.ownedByMe) continue;
+        if (m.trashed) { p.drive_lixeira = true; mudou = true; continue; }
+        if (teste) { nLixo++; bLixo += +m.size || 0; continue; }
+        // 1) arquiva na planilha do Feishu
+        if (!p.feishu_url) {
+          const a = arquivarFoto_(tk, cfg, E, e, p, r.status);
+          p.feishu_url = a.url; mudou = true; nArq++; bArq += a.bytes;
+        }
+        // 2) original → lixeira do Drive
         const t = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + p.id, { method: 'patch', contentType: 'application/json', payload: JSON.stringify({ trashed: true }), headers: { Authorization: 'Bearer ' + gtk }, muteHttpExceptions: true });
-        if (t.getResponseCode() >= 300) { erros++; return; }
+        if (t.getResponseCode() >= 300) { erros++; continue; }
         p.drive_lixeira = true; mudou = true; nLixo++; bLixo += +m.size || 0;
       } catch (err) {
         erros++; ultErro = String(err && err.message || err);
-        if (/Falta a propriedade|99991672|99991679|permission|scope/i.test(ultErro)) throw err; // problema de configuração: para já
+        if (mudou) supa_('PATCH', '/rest/v1/envios?key=eq.' + encodeURIComponent(e.key), { fotos: fotos }, { Prefer: 'return=minimal' });
+        if (/FEISHU_ARQUIVO|91403|1310213|403|permiss/i.test(ultErro)) throw new Error('Parei: ' + ultErro + ' — confira se o app "Painel VM Shatan" está na planilha de arquivo com permissão de edição.');
+        mudou = false;
       }
-    });
+    }
     if (mudou) supa_('PATCH', '/rest/v1/envios?key=eq.' + encodeURIComponent(e.key), { fotos: fotos }, { Prefer: 'return=minimal' });
   }
 
   const gb = (b) => (b / 1073741824).toFixed(2) + ' GB';
-  if (teste) console.log('TESTE (nada mudou): ' + faltaFeishu + ' fotos iriam para o Feishu (' + gb(bFeishu) + '). Dessas, ' + nLixo + ' já poderiam sair do Drive agora (~' + gb(bLixo) + '); as outras saem depois de decididas.' + (parou ? ' — a contagem parou no limite de tempo; o total real é maior.' : ''));
-  else console.log(nFeishu + ' fotos copiadas para o Feishu (' + gb(bFeishu) + ') · ' + nLixo + ' originais foram para a lixeira do Drive (~' + gb(bLixo) + ').' + (erros ? ' ' + erros + ' erro(s). Último: ' + ultErro : '') + (parou ? ' Parou no limite de tempo: rode de novo (ou deixe ligado a cada hora).' : ' Concluído.') + (P.st.url ? ' Pasta no Feishu: ' + P.st.url : ''));
+  if (teste) console.log('TESTE (nada mudou): ' + nLixo + ' fotos já decididas seriam arquivadas no Feishu e sairiam do Drive (~' + gb(bLixo) + '). As que estão aguardando saem depois de decididas.' + (parou ? ' — a contagem parou no limite de tempo; o total real é maior.' : ''));
+  else console.log(nArq + ' fotos arquivadas na planilha do Feishu · ' + nLixo + ' originais foram para a lixeira do Drive (~' + gb(bLixo) + ').' + (erros ? ' ' + erros + ' erro(s). Último: ' + ultErro : '') + (parou ? ' Parou no limite de tempo: rode de novo (ou deixe ligado a cada hora).' : ' Concluído.'));
 }
