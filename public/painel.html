@@ -998,7 +998,7 @@ dash.calc('apontamentos', {
       ap.fotos.forEach((x) => {
         const fig = document.createElement('figure'); fig.className = 'vm-ph';
         const cap = document.createElement('figcaption'); cap.textContent = String(x.label || 'Foto').split(' · ')[0];
-        const a = document.createElement('a'); a.href = 'https://drive.google.com/file/d/' + x.id + '/view'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = ' · abrir no Drive'; cap.appendChild(a);
+        if (x.feishu_url || !x.drive_lixeira) { const a = document.createElement('a'); a.href = x.feishu_url || 'https://drive.google.com/file/d/' + x.id + '/view'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = x.feishu_url ? ' · original no Feishu' : ' · abrir no Drive'; cap.appendChild(a); }
         if (x.path) {
           const img = document.createElement('img'); img.alt = cap.textContent; img.loading = 'lazy'; img.addEventListener('click', () => fig.classList.toggle('big'));
           fig.append(img, cap);

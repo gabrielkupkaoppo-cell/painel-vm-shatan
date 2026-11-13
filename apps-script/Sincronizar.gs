@@ -26,7 +26,7 @@ function sincronizar() {
     const existentes = {};
     const antigosEnvios = supa_('GET', '/rest/v1/envios?select=key,form,carimbo,nome,loja_raw,fotos&limit=20000');
     const fotoPorId = {}; // o mesmo arquivo do Drive guarda o que já foi feito (cópia, impressão digital, data) mesmo se a linha mudar
-    antigosEnvios.forEach((e) => { existentes[e.key] = e.fotos || []; (e.fotos || []).forEach((p) => { if (p && p.id && (p.path || p.md5 || p.arquivada || p.drive_lixeira)) fotoPorId[p.id] = p; }); });
+    antigosEnvios.forEach((e) => { existentes[e.key] = e.fotos || []; (e.fotos || []).forEach((p) => { if (p && p.id && (p.path || p.md5 || p.arquivada || p.drive_lixeira || p.feishu_token)) fotoPorId[p.id] = p; }); });
 
     // 1) envios dos 2 Forms
     const envios = [];
@@ -47,7 +47,7 @@ function sincronizar() {
         const fotos = [];
         for (let c = 9; c < row.length; c++) {
           const ids = driveIds_(row[c]);
-          ids.forEach((id, k) => fotos.push({ id: id, label: rotulo_(header[c] || 'Foto') + (ids.length > 1 ? ' (' + (k + 1) + ')' : ''), path: (antigas[id] || {}).path || null, arquivada: !!(antigas[id] || {}).arquivada, px: (antigas[id] || {}).px || null, md5: (antigas[id] || {}).md5 || null, tirada: (antigas[id] || {}).tirada != null ? antigas[id].tirada : null, drive_lixeira: !!(antigas[id] || {}).drive_lixeira }));
+          ids.forEach((id, k) => fotos.push({ id: id, label: rotulo_(header[c] || 'Foto') + (ids.length > 1 ? ' (' + (k + 1) + ')' : ''), path: (antigas[id] || {}).path || null, arquivada: !!(antigas[id] || {}).arquivada, px: (antigas[id] || {}).px || null, md5: (antigas[id] || {}).md5 || null, tirada: (antigas[id] || {}).tirada != null ? antigas[id].tirada : null, drive_lixeira: !!(antigas[id] || {}).drive_lixeira, feishu_token: (antigas[id] || {}).feishu_token || null, feishu_url: (antigas[id] || {}).feishu_url || null }));
         }
         envios.push({
           key: key, form: F.nome, linha: r + 1, carimbo: carimbo, data: data.toISOString(),

@@ -289,7 +289,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 10/11 16:40</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 13/11 10:40</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -727,7 +727,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       const uf = String(e.uf || '').toUpperCase();
       return { key: e.key, form: e.form, linha: e.linha, carimbo: e.carimbo, data: e.data ? new Date(e.data) : parseDate(e.carimbo), nome: e.nome || '', cargo: e.cargo || '',
         tel: e.tel || '', canal: canalNorm(e.canal) || '—', lojaRaw: e.loja_raw || '', loja: e.loja || lojaCodigo(e.loja_raw), uf, regiao: REG[uf] || '—',
-        produtos: e.produtos || '', mesa: e.mesa || '', photos: (e.fotos || []).map((p) => ({ id: p.id, label: p.label || 'Foto', path: p.path || null, arquivada: !!p.arquivada, md5: p.md5 || null, tirada: p.tirada == null ? null : p.tirada })), notas: e.notas || '' };
+        produtos: e.produtos || '', mesa: e.mesa || '', photos: (e.fotos || []).map((p) => ({ id: p.id, label: p.label || 'Foto', path: p.path || null, arquivada: !!p.arquivada, drive_lixeira: !!p.drive_lixeira, feishu_url: p.feishu_url || null, md5: p.md5 || null, tirada: p.tirada == null ? null : p.tirada })), notas: e.notas || '' };
     }).sort((a, b) => b.data - a.data);
   }
   const fmtEm = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); };
@@ -1668,11 +1668,12 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       const fig = el('figure', 'ph'); const box = el('div', 'box', 'Carregando foto…'); box.tabIndex = 0; box.setAttribute('role', 'button'); box.setAttribute('aria-label', 'Ampliar ' + p.label);
       const dt = dataTirada(p.tirada);
       const cap = el('figcaption', null, p.label + (dt ? ' · tirada em ' + dt.toLocaleDateString('pt-BR') : (p.tirada === '' ? ' · sem data da câmera' : '')) + ' · ');
-      const a = el('a', null, 'abrir no Drive'); a.href = 'https://drive.google.com/file/d/' + p.id + '/view'; a.target = '_blank'; a.rel = 'noopener'; cap.appendChild(a);
+      const orig = p.feishu_url ? ['abrir original no Feishu', p.feishu_url] : !p.drive_lixeira ? ['abrir no Drive', 'https://drive.google.com/file/d/' + p.id + '/view'] : null;
+      if (orig) { const a = el('a', null, orig[0]); a.href = orig[1]; a.target = '_blank'; a.rel = 'noopener'; cap.appendChild(a); } else cap.appendChild(document.createTextNode('original apagado do Drive'));
       fig.append(box, cap);
-      if (p.arquivada && !p.path) { box.textContent = 'Foto arquivada (já substituída). Use "abrir no Drive". · 已归档'; box.style.cursor = 'default'; return fig; }
+      if (p.arquivada && !p.path) { box.textContent = 'Foto arquivada (já substituída).' + (orig ? ' Use "' + orig[0] + '".' : '') + ' · 已归档'; box.style.cursor = 'default'; return fig; }
       loadPhoto(p).then((url) => { if (!box.isConnected) return; box.replaceChildren(); const img = el('img'); img.src = url; img.alt = p.label; box.appendChild(img); const open = () => lightbox(url); box.addEventListener('click', open); box.addEventListener('keydown', (e) => { if (e.key === 'Enter') open(); }); })
-        .catch((e) => { if (box.isConnected) { box.textContent = e && e.pend ? 'A foto ainda está sendo copiada do Drive. Use "abrir no Drive". · 照片同步中' : 'Não consegui abrir esta foto. Use "abrir no Drive".'; box.style.cursor = 'default'; } });
+        .catch((e) => { if (box.isConnected) { box.textContent = e && e.pend ? 'A foto ainda está sendo copiada do Drive. · 照片同步中' : 'Não consegui abrir esta foto.' + (orig ? ' Use "' + orig[0] + '".' : ''); box.style.cursor = 'default'; } });
       return fig;
     };
     if (!r.photos.length) d.appendChild(el('p', 'note', 'Este envio não tem fotos anexadas.'));
