@@ -110,8 +110,8 @@ function arquivarFoto_(tk, cfg, E, e, p, status) {
     if (!blob) continue;
     try {
       feishu_(tk, 'POST', '/sheets/v2/spreadsheets/' + cfg.token + '/values_image', { range: aba.id + '!H' + n + ':H' + n, image: Array.from(blob.getBytes(), (b) => b & 0xff), name: p.id + '.jpg' });
-      ok = blob; break;
-    } catch (err) { ultimo = String(err.message || err); Utilities.sleep(1500); }
+      ok = blob; Utilities.sleep(700); break;   // pausa curta: o Feishu recusa quando chega imagem rápido demais
+    } catch (err) { ultimo = String(err.message || err); Utilities.sleep(3000); }
   }
   if (!ok) throw new Error('imagem recusada pelo Feishu: ' + (ultimo || 'foto sem miniatura no Drive'));
   // 2) os dados da linha
