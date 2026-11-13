@@ -161,8 +161,8 @@ function limparDrive_(teste) {
           p.feishu_url = a.url; mudou = true; nArq++; bArq += a.bytes;
         }
         // 2) original → lixeira do Drive
-        const t = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + p.id, { method: 'patch', contentType: 'application/json', payload: JSON.stringify({ trashed: true }), headers: { Authorization: 'Bearer ' + gtk }, muteHttpExceptions: true });
-        if (t.getResponseCode() >= 300) { erros++; erroLixo = t.getResponseCode() + ' ' + t.getContentText().slice(0, 160); continue; }
+        try { DriveApp.getFileById(p.id).setTrashed(true); }   // setTrashed faz o Google pedir a permissão completa do Drive
+        catch (x) { erros++; erroLixo = String(x.message || x).slice(0, 160); continue; }
         p.drive_lixeira = true; mudou = true; nLixo++; bLixo += +m.size || 0;
       } catch (err) {
         erros++; ultErro = String(err && err.message || err);
