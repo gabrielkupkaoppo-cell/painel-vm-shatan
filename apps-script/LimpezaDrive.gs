@@ -16,7 +16,7 @@
  *
  * Antes da 1ª vez:
  *   - Crie a planilha no Feishu, adicione o app "Painel VM Shatan" com permissão de EDIÇÃO.
- *   - Propriedade do script FEISHU_ARQUIVO = link da planilha (copie da barra de endereço do Feishu).
+ *   - O link da planilha já está em FEISHU_ARQUIVO_PADRAO (a propriedade FEISHU_ARQUIVO, se existir, tem prioridade).
  *
  * 1) limparDriveTeste()   → NÃO muda nada: mostra quantas fotos seriam arquivadas e quantos GB sairiam do Drive.
  * 2) limparDrive()        → faz o trabalho (em partes de ~5 min; rode de novo se faltar).
@@ -26,6 +26,7 @@
  * (sozinha em 30 dias, ou na hora em drive.google.com → Lixeira → Esvaziar).
  */
 var DIAS_DRIVE = 1;
+var FEISHU_ARQUIVO_PADRAO = 'https://vcn8bhpny9gy.feishu.cn/sheets/Y39SsskmrhLvRhtVewhctb1lnpg'; // planilha Arquivo Fotos VM
 var ARQ_CAB = ['Data do envio · 提交日期', 'Canal · 渠道', 'Loja · 门店', 'UF · 州', 'Promotor · 提交人', 'Foto · 照片类型', 'Status · 审核结果', 'Imagem · 图片'];
 
 function limparDriveTeste() { limparDrive_(true); }
@@ -51,7 +52,7 @@ function limparDriveDiario() {
 
 // ---------- planilha de arquivo ----------
 function arquivoCfg_() {
-  const url = String(PropertiesService.getScriptProperties().getProperty('FEISHU_ARQUIVO') || '').trim();
+  const url = String(PropertiesService.getScriptProperties().getProperty('FEISHU_ARQUIVO') || FEISHU_ARQUIVO_PADRAO || '').trim();
   const m = url.match(/sheets\/([A-Za-z0-9]+)/) || url.match(/^([A-Za-z0-9]{15,})$/);
   if (!m) throw new Error('Falta a propriedade FEISHU_ARQUIVO com o link da planilha de arquivo do Feishu.');
   const host = (url.match(/^https:\/\/[^/]+/) || ['https://www.feishu.cn'])[0];
