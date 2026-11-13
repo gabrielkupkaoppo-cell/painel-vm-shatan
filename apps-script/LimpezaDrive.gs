@@ -5,7 +5,7 @@
  *
  * O Forms sempre salva a foto no seu Drive (não dá para mudar). Depois que a foto foi decidida, este script:
  *   1) escreve uma linha na planilha de arquivo do Feishu (uma aba por mês: "2026-11"):
- *      Data do envio | Canal | Loja | UF | Promotor | Foto | Status | Imagem (a foto dentro da célula, até 2000 px)
+ *      Data do envio | Canal | Loja | UF | Promotor | Foto | Status | Imagem (a foto dentro da célula, até 1600 px)
  *   2) manda o original do Google Drive para a LIXEIRA (só depois de arquivado no Feishu).
  * O site mostra a miniatura de sempre e o link "abrir original no Feishu" (vai direto para a linha da foto).
  *
@@ -90,13 +90,19 @@ function arquivoAba_(tk, cfg, E, titulo) {
   E.st.abas[titulo] = { v: 2, token: cfg.token, id: id, prox: n + 1, vagas: vagas }; E.salvar();
   return E.st.abas[titulo];
 }
-// foto em tamanho decrescente até o Feishu aceitar (2000 → 1200 → 800 px)
+// foto em tamanho decrescente até o Feishu aceitar (1600 → 1000 px → cópia do site)
 function fotoArquivo_(id, px) {
   const tk = ScriptApp.getOAuthToken();
   const meta = JSON.parse(UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + id + '?fields=thumbnailLink', { headers: { Authorization: 'Bearer ' + tk } }).getContentText());
   if (!meta.thumbnailLink) return null;
   const r = UrlFetchApp.fetch(meta.thumbnailLink.replace(/=s\d+$/, '=s' + px), { headers: { Authorization: 'Bearer ' + tk }, muteHttpExceptions: true });
   return r.getResponseCode() === 200 && r.getBlob().getBytes().length > 5000 ? r.getBlob() : null;
+}
+// sem miniatura no Drive (ex.: HEIC): usa a cópia reduzida do site ou o original se for pequeno
+function fotoSemMiniatura_(p) {
+  try { if (p.path) return fotoSupabase_(p.path); } catch (e) { /* tenta o original */ }
+  try { const f = DriveApp.getFileById(p.id); if (f.getSize() < 3 * 1048576 && /^image\/(jpeg|png)/.test(f.getMimeType())) return f.getBlob(); } catch (e) { /* */ }
+  return null;
 }
 function arquivarFoto_(tk, cfg, E, e, p, status) {
   const d = new Date(e.data);
@@ -105,8 +111,8 @@ function arquivarFoto_(tk, cfg, E, e, p, status) {
   const n = daVaga ? aba.vagas[0] : aba.prox;
   // 1) a imagem primeiro: se o Feishu recusar, nenhuma linha fica ocupada
   let ok = null, ultimo = '';
-  for (const px of [2000, 1200, 800]) {
-    const blob = fotoArquivo_(p.id, px);
+  for (const px of [1600, 1000, 0]) {
+    const blob = px ? fotoArquivo_(p.id, px) : fotoSemMiniatura_(p);
     if (!blob) continue;
     try {
       feishu_(tk, 'POST', '/sheets/v2/spreadsheets/' + cfg.token + '/values_image', { range: aba.id + '!H' + n + ':H' + n, image: Array.from(blob.getBytes(), (b) => b & 0xff), name: p.id + '.jpg' });
