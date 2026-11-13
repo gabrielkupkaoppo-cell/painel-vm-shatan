@@ -289,7 +289,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 13/11 10:40</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 13/11 12:40</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -746,7 +746,9 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const m = u.match(/\d+/g); if (m) out.push(canal + '|#' + (m[m.length - 1].replace(/^0+/, '') || '0'));
     return out;
   }
-  const jaValidados = () => rows.filter((r) => stOf(r) === 'aw' && matchKeys(r.canal, r.lojaRaw).some((k) => JA_OK.has(k)));
+  // só envios ANTERIORES à lista (feita em 29/10): foto nova de loja da lista precisa ser olhada e ir para o Feishu
+  const JA_OK_ATE = new Date('2026-10-30T00:00:00-03:00');
+  const jaValidados = () => rows.filter((r) => stOf(r) === 'aw' && r.data < JA_OK_ATE && matchKeys(r.canal, r.lojaRaw).some((k) => JA_OK.has(k)));
   let bulkArmed = false;
   function bulkLabel() {
     const b = $('#bulk'); if (!b) return;
