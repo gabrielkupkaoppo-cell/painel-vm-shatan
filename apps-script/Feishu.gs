@@ -163,15 +163,35 @@ function criarLojasNovas_(detalhado) {
       if (!aba) { marca('erro', 'aba "' + canal + '" não existe no Feishu'); return; }
       const A = lerAba_(tk, planilha, aba);
       const ja = acharLinha_(A, x.codigo);
-      if (ja) { marca('criada', 'já existia na aba ' + aba.title + ', linha ' + ja); criadas++; return; }
+      if (ja) { marca('criada', 'já existia na aba ' + aba.title + ', linha ' + ja + mesaDaInstalacao_(tk, planilha, aba, A, ja, x, true)); criadas++; return; }
       const linha = novaLinhaLoja_(tk, planilha, aba, A, { loja_raw: x.codigo, uf: x.uf }, { codigo: x.codigo, nome: x.nome, cidade: x.cidade, uf: x.uf });
       if (!linha) { marca('erro', 'não consegui criar a linha na aba ' + aba.title); return; }
-      marca('criada', 'criada na aba ' + aba.title + ', linha ' + linha); criadas++;
+      marca('criada', 'criada na aba ' + aba.title + ', linha ' + linha + mesaDaInstalacao_(tk, planilha, aba, A, linha, x, false)); criadas++;
       console.log('Loja nova ' + canal + ' ' + x.codigo + ' criada na linha ' + linha + '.');
     } catch (err) { marca('erro', String(err.message || err).slice(0, 300)); console.warn('Loja nova ' + x.canal + ' ' + x.codigo + ': ' + err); }
   });
   if (criadas) supa_('PATCH', '/rest/v1/revisoes?feishu_info=like.' + encodeURIComponent('*não encontrada na aba*'), { feishu_em: null, feishu_info: null }, { Prefer: 'return=minimal' });
   return criadas;
+}
+// marca no Feishu a caixa do tipo de mesa escolhido no cadastro da instalação (1.6M / 1.2M / 0.8M / Multimarcas),
+// para a loja já entrar no painel ("Lojas com mesa de experiência") como Pendente até a foto chegar.
+// Só marca (nunca desmarca). Em loja que já existia, só marca se nenhuma caixa de mesa estiver marcada.
+function mesaDaInstalacao_(tk, planilha, aba, A, linha, x, soSeVazia) {
+  try {
+    const inst = (supa_('GET', '/rest/v1/instalacoes?select=mesa,materiais,status&canal=eq.' + encodeURIComponent(x.canal) + '&codigo=eq.' + encodeURIComponent(x.codigo) + '&status=neq.cancelada&order=criada_em.desc&limit=1') || [])[0];
+    if (!inst || !inst.mesa || /sem mesa/i.test(inst.mesa)) return '';
+    const tem = itensDoEnvio_({ mesa: inst.mesa, produtos: '', fotos: [] });
+    const cols = MESAS_CAIXAS_.filter((k) => tem.has(k)).map((k) => A.caixas[k]).filter(Boolean);
+    if (!cols.length) return ' · tipo de mesa "' + inst.mesa + '" sem coluna na aba';
+    if (soSeVazia) {
+      const todas = MESAS_CAIXAS_.map((k) => A.caixas[k]).filter(Boolean);
+      const ja = todas.some((c) => { const v = (valores_(tk, planilha, aba.sheet_id + '!' + letra_(c) + linha + ':' + letra_(c) + linha)[0] || [])[0]; return v === true || v === 1 || String(texto_(v)).trim() === '1' || /^true$/i.test(String(texto_(v))); });
+      if (ja) return ' · mesa já marcada';
+    }
+    feishu_(tk, 'POST', '/sheets/v2/spreadsheets/' + planilha + '/values_batch_update',
+      { valueRanges: cols.map((c) => ({ range: aba.sheet_id + '!' + letra_(c) + linha + ':' + letra_(c) + linha, values: [[1]] })) });
+    return ' · mesa marcada (' + inst.mesa + ', coluna ' + cols.map(letra_).join(', ') + ')';
+  } catch (err) { console.warn('Mesa da instalação ' + x.canal + ' ' + x.codigo + ': ' + err); return ' · não consegui marcar a mesa: ' + String(err.message || err).slice(0, 120); }
 }
 // aprovações que não acharam a loja na aba → tentar de novo (ex.: depois de criar a linha à mão)
 function feishuReenviarLojasNaoEncontradas() {
