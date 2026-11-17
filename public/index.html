@@ -68,7 +68,6 @@ input[type=search]{min-width:min(100%,14rem)}
 .tl li::before{content:'';position:absolute;left:-10px;top:6px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--line)}
 .tl li.feito::before{background:var(--accent);border-color:var(--accent)} .tl li.atual::before{border-color:var(--warn);background:var(--warn-bg)}
 .fun{display:grid;grid-template-columns:minmax(150px,230px) 1fr 40px;gap:6px 10px;align-items:center;font-size:.85rem;margin-top:8px} .fun button{all:unset;cursor:pointer;display:contents} .fun .bar{height:14px;border-radius:7px;background:var(--accent-soft);overflow:hidden} .fun .bar i{display:block;height:100%;background:var(--accent);border-radius:7px} .fun .sel span{font-weight:700;color:var(--accent)} .sitp{display:inline-block;font-size:.75rem;padding:1px 8px;border-radius:9px;background:var(--accent-soft);color:var(--accent);font-weight:600}
-.hb{display:grid;grid-template-columns:minmax(120px,190px) 1fr 64px;gap:12px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)} .hb-nome b{display:block} .hb-nome span{font-size:.78rem;color:var(--muted)} .hb-barra{display:flex;height:28px;border-radius:7px;overflow:hidden;background:var(--line)} .hb-barra i{display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:700;font-size:.82rem;height:100%;min-width:0} .hb-pct{text-align:right;line-height:1.1} .hb-pct b{display:block;font-size:1.05rem} .hb-pct span{font-size:.72rem;color:var(--muted)} .hb.forte{border-bottom:0} .hb.forte .hb-nome b{color:var(--accent)} .hb-grupo{font-weight:700;color:var(--accent);margin:16px 0 2px;font-size:.95rem} @media (max-width:560px){.hb{grid-template-columns:1fr 54px}.hb-nome{grid-column:1/-1}}
 .mg{width:100%;border-collapse:collapse;font-size:.86rem;margin-top:8px} .mg th{text-align:right;font-weight:600;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap} .mg th:first-child,.mg td:first-child{text-align:left} .mg td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums} .mg tr.tot td{font-weight:700;border-bottom:0} .mg .barra{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--line);min-width:120px} .mg .barra i{display:block;height:100%} .mg-leg{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin-top:8px} .mg-leg span::before{content:'';display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--c)}
 .tl li b{display:block} .tl li .note{display:block}
 .tl .acao{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px} .tl .acao input{font:inherit;font-size:.82rem;padding:3px 6px}
@@ -291,7 +290,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 17/11 12:10</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 17/11 12:00</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -1187,24 +1186,26 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       .forEach(([t, v, c]) => { const d = el('div', 'count ' + c); d.append(el('b', null, String(v)), el('span', null, t)); k.appendChild(d); });
     box.appendChild(k);
     if (!L.length) { box.appendChild(el('p', 'note', 'Nenhuma loja nesta seleção.')); return; }
-    const COR = { o: 'var(--accent)', a: '#e0a100', p: '#c9ced6' }, TXT = { o: '#fff', a: '#3a2c00', p: '#3d4650' };
-    const lg = el('div', 'mg-leg'); [['o', 'OK · 合格'], ['a', 'Com apontamento · 有问题'], ['p', 'Pendente (sem foto aprovada) · 待处理']].forEach(([kk, x]) => { const sp = el('span', null, x); sp.style.setProperty('--c', COR[kk]); lg.appendChild(sp); });
-    box.appendChild(lg);
-    const linha = (c, forte) => {
-      const r = el('div', 'hb' + (forte ? ' forte' : ''));
-      const nm = el('div', 'hb-nome'); nm.append(el('b', null, c.canal), el('span', null, c.t + ' loja' + (c.t === 1 ? '' : 's') + ' · ' + c.f + ' no Forms'));
-      const b = el('div', 'hb-barra');
-      [['o', c.o], ['a', c.a], ['p', c.p]].forEach(([kk, v]) => { if (!v) return; const i = el('i', null, v * 100 / c.t >= 9 ? String(v) : ''); i.style.width = (v * 100 / c.t) + '%'; i.style.background = COR[kk]; i.style.color = TXT[kk];
-        i.title = { o: 'OK', a: 'Com apontamento', p: 'Pendente' }[kk] + ': ' + v; b.appendChild(i); });
-      const pc = el('div', 'hb-pct'); pc.append(el('b', null, (c.t ? Math.round((c.o + c.a) * 100 / c.t) : 0) + '%'), el('span', null, 'com foto'));
-      r.append(nm, b, pc); box.appendChild(r);
+    const COR = { o: 'var(--accent)', a: '#e0a100', p: '#c9ced6' };
+    const t = el('table', 'mg'); const h = el('tr');
+    ['Canal · 渠道', 'Lojas', 'No Forms', 'OK', 'Apontamento', 'Pendente', ''].forEach((x) => h.appendChild(el('th', null, x)));
+    const th = el('thead'); th.appendChild(h); t.appendChild(th); const tb = el('tbody');
+    const linha = (c, cls) => {
+      const tr = el('tr', cls);
+      [c.canal, c.t, c.f, c.o, c.a, c.p].forEach((v) => tr.appendChild(el('td', null, String(v))));
+      const td = el('td'); const b = el('div', 'barra'); b.title = 'OK ' + c.o + ' · apontamento ' + c.a + ' · pendente ' + c.p;
+      [['o', c.o], ['a', c.a], ['p', c.p]].forEach(([kk, v]) => { if (!v) return; const i = el('i'); i.style.width = (v * 100 / c.t) + '%'; i.style.background = COR[kk]; b.appendChild(i); });
+      td.appendChild(b); tr.appendChild(td); tb.appendChild(tr);
     };
     grupos.forEach(([nome, lst]) => {
-      const g = el('div', 'hb-grupo', nome); box.appendChild(g);
+      const g = el('tr'); const gt = el('td', null, nome); gt.colSpan = 7; gt.style.cssText = 'font-weight:700;color:var(--accent);padding-top:12px'; g.appendChild(gt); tb.appendChild(g);
       const por = {}; lst.forEach((l) => { (por[l.canal] = por[l.canal] || []).push(l); });
       Object.keys(por).sort((a, b) => por[b].length - por[a].length).forEach((c) => linha(soma(por[c], c)));
-      if (Object.keys(por).length > 1) linha(soma(lst, 'Total do grupo'), true);
+      if (Object.keys(por).length > 1) linha(soma(lst, 'Subtotal'), 'tot');
     });
+    t.appendChild(tb); const wrap = el('div'); wrap.style.overflowX = 'auto'; wrap.appendChild(t); box.appendChild(wrap);
+    const lg = el('div', 'mg-leg'); [['o', 'OK (aprovada sem apontamento)'], ['a', 'Aprovada com apontamento'], ['p', 'Pendente (sem foto aprovada)']].forEach(([kk, x]) => { const sp = el('span', null, x); sp.style.setProperty('--c', COR[kk]); lg.appendChild(sp); });
+    box.appendChild(lg);
   }
   let resumoVisivel = null, resumoTextos = [];
   async function copiarTxt(b, txt) {
