@@ -290,7 +290,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 17/11 12:40</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 17/11 12:25</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -1132,9 +1132,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       const corrigida = ap.some((a) => a.c === x.c && a.d > x.d && (x.n ? a.n === x.n : promotorK(a.nome) === promotorK(x.nome)));
       const k = x.c + '|' + (x.n || promotorK(x.nome)); if (corrigida || vistos.has(k)) return false; vistos.add(k); return true; });
     const apont = lojas.filter((l) => apsR(l).length);
-    // pendente = loja que nunca mandou foto pelo Google Forms
-    const envForms = new Set(); (resumo.enviados || []).forEach((e) => { const l = lojaDe(e.canal, e.loja_raw); if (l) envForms.add(l.id); });
-    const velhas = lojas.filter((l) => !envForms.has(l.id));
+    const velhas = lojas.filter((l) => l.situacao === 'Pendente');   // foto pendente: loja ainda sem foto
     // filtro de canal
     const sc = $('#r-canal'); const cur = sc.value;
     const cns = [...new Set(reprov.map((x) => x.c).concat(apont.map((l) => l.canal), velhas.map((l) => l.canal)))].sort();
@@ -1143,7 +1141,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const tp = $('#r-tipo').value;   // '' = as duas listas · 'v' = só foto pendente · 'a' = só apontamento
     const R = [] /* reprovadas não entram no Resumo (ficam no histórico de cada envio) */, A = tp === 'v' ? [] : apont.filter((l) => okCanal(fc, l.canal)), V = tp === 'a' ? [] : velhas.filter((l) => okCanal(fc, l.canal));
     resumoVisivel = { R, A, V, lojaDe };
-    desenharMesasCanal(lojas.filter((l) => okCanal(fc, l.canal)), envForms);   // toda loja da matriz do Feishu = 1 mesa
+    desenharMesasCanal(lojas.filter((l) => okCanal(fc, l.canal)), lojaDe);   // toda loja da matriz do Feishu = 1 mesa
     const k = $('#r-kpis'); k.replaceChildren(); k.hidden = true;
     [['Foto pendente · 未上传', V.length, 'aw', 'r-sec-v', 'v'], ['Com apontamento · 有问题', A.length, 'aw', 'r-sec-a', 'a']].filter((x) => !tp || x[4] === tp).forEach(([t, v, c, id]) => {
       const d = el('button', 'count ' + c); d.type = 'button'; d.style.textAlign = 'left'; d.style.cursor = 'pointer'; d.append(el('b', null, String(v)), el('span', null, t));
@@ -1165,9 +1163,9 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const pills = (arr) => { const f = document.createDocumentFragment(); arr.forEach((p) => f.appendChild(el('span', 'pb', p))); return f; };
     const nomeL = (l) => l.canal + ' ' + l.codigo + ' · ' + titulo(l.loja);
     const ordUF = (a, b) => String(a.uf || '').localeCompare(String(b.uf || ''));
-    if (tp !== 'a') secao('r-sec-v', 'Lojas que não mandaram foto pelo Forms · 未上传照片', ['Loja', 'Cidade / UF', 'Anotação'],
+    if (tp !== 'a') secao('r-sec-v', 'Lojas com foto pendente · 未上传照片', ['Loja', 'Cidade / UF', 'Anotação'],
       V.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), l.observacao || '']),
-      'Todas as lojas já mandaram foto pelo Forms. 👏');
+      'Nenhuma loja com foto pendente. 👏');
     if (tp !== 'v') secao('r-sec-a', 'Lojas com apontamento de VM · 有陈列问题', ['Loja', 'Cidade / UF', 'Apontamentos', 'Anotação'],
       A.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), pills(apsR(l)), l.observacao || '']),
       'Nenhuma loja com apontamento.');
@@ -1175,11 +1173,11 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   // Resumo: só lojas com mesa de experiência (tipo de mesa marcado) e lojas das operadoras (form Checklist Fast/Operadoras)
   const CANAIS_OPER = new Set(['Claro', 'Vivo', 'Tim', 'Fast']);
   const noResumo = (l) => CANAIS_OPER.has(l.canal) || Number(l.mesas) > 0;
-  function desenharMesasCanal(L, env) {
+  function desenharMesasCanal(L, lojaDe) {
     const box = $('#r-graf'); box.replaceChildren();
-    // p = não mandou pelo Forms · a = com apontamento · o = aprovada OK · w = mandou, mas ainda sem foto aprovada (em análise)
-    const st = (l) => !env.has(l.id) ? 'p' : /apont/i.test(l.situacao || '') ? 'a' : Number(l.fotos) > 0 && l.situacao !== 'Pendente' ? 'o' : 'w';
-    const soma = (lst, nome) => lst.reduce((c, l) => { c.t++; c[st(l)]++; return c; }, { canal: nome, t: 0, o: 0, a: 0, p: 0, w: 0 });
+    const env = new Set(); (resumo.enviados || []).forEach((e) => { const l = lojaDe(e.canal, e.loja_raw); if (l) env.add(l.id); });
+    const st = (l) => !(Number(l.fotos) > 0) || l.situacao === 'Pendente' ? 'p' : /apont/i.test(l.situacao || '') ? 'a' : 'o';
+    const soma = (lst, nome) => lst.reduce((c, l) => { c.t++; if (env.has(l.id)) c.f++; c[st(l)]++; return c; }, { canal: nome, t: 0, f: 0, o: 0, a: 0, p: 0 });
     const grupos = [['Mesas de experiência · 体验台', L.filter((l) => !CANAIS_OPER.has(l.canal))], ['Operadoras · 运营商', L.filter((l) => CANAIS_OPER.has(l.canal))]].filter((g) => g[1].length);
     const tot = soma(L, 'Total');
     // números grandes
@@ -1188,25 +1186,25 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       .forEach(([t, v, c]) => { const d = el('div', 'count ' + c); d.append(el('b', null, String(v)), el('span', null, t)); k.appendChild(d); });
     box.appendChild(k);
     if (!L.length) { box.appendChild(el('p', 'note', 'Nenhuma loja nesta seleção.')); return; }
-    const COR = { o: 'var(--accent)', a: '#d64545', p: '#e0a100', w: '#c9ced6' };   // verde OK · vermelho apontamento · amarelo pendente · cinza em análise
+    const COR = { o: 'var(--accent)', a: '#d64545', p: '#e0a100' };   // verde OK · vermelho apontamento · amarelo pendente
     const t = el('table', 'mg'); const h = el('tr');
-    ['Canal · 渠道', 'Lojas', 'Aprovadas', 'Apontamento', 'Pendente de foto', ''].forEach((x) => h.appendChild(el('th', null, x)));
+    ['Canal · 渠道', 'Lojas', 'No Forms', 'OK', 'Apontamento', 'Pendente', ''].forEach((x) => h.appendChild(el('th', null, x)));
     const th = el('thead'); th.appendChild(h); t.appendChild(th); const tb = el('tbody');
     const linha = (c, cls) => {
       const tr = el('tr', cls);
-      [c.canal, c.t, c.o + c.a, c.a, c.p].forEach((v) => tr.appendChild(el('td', null, String(v))));
-      const td = el('td'); const b = el('div', 'barra'); b.title = 'OK ' + c.o + ' · apontamento ' + c.a + ' · pendente de foto ' + c.p + (c.w ? ' · em análise ' + c.w : '');
-      [['o', c.o], ['a', c.a], ['w', c.w], ['p', c.p]].forEach(([kk, v]) => { if (!v) return; const i = el('i'); i.style.width = (v * 100 / c.t) + '%'; i.style.background = COR[kk]; b.appendChild(i); });
+      [c.canal, c.t, c.f, c.o, c.a, c.p].forEach((v) => tr.appendChild(el('td', null, String(v))));
+      const td = el('td'); const b = el('div', 'barra'); b.title = 'OK ' + c.o + ' · apontamento ' + c.a + ' · pendente ' + c.p;
+      [['o', c.o], ['a', c.a], ['p', c.p]].forEach(([kk, v]) => { if (!v) return; const i = el('i'); i.style.width = (v * 100 / c.t) + '%'; i.style.background = COR[kk]; b.appendChild(i); });
       td.appendChild(b); tr.appendChild(td); tb.appendChild(tr);
     };
     grupos.forEach(([nome, lst]) => {
-      const g = el('tr'); const gt = el('td', null, nome); gt.colSpan = 6; gt.style.cssText = 'font-weight:700;color:var(--accent);padding-top:12px'; g.appendChild(gt); tb.appendChild(g);
+      const g = el('tr'); const gt = el('td', null, nome); gt.colSpan = 7; gt.style.cssText = 'font-weight:700;color:var(--accent);padding-top:12px'; g.appendChild(gt); tb.appendChild(g);
       const por = {}; lst.forEach((l) => { (por[l.canal] = por[l.canal] || []).push(l); });
       Object.keys(por).sort((a, b) => por[b].length - por[a].length).forEach((c) => linha(soma(por[c], c)));
       if (Object.keys(por).length > 1) linha(soma(lst, 'Subtotal'), 'tot');
     });
     t.appendChild(tb); const wrap = el('div'); wrap.style.overflowX = 'auto'; wrap.appendChild(t); box.appendChild(wrap);
-    const lg = el('div', 'mg-leg'); [['o', 'Aprovada OK'], ['a', 'Aprovada com apontamento'], ['p', 'Pendente de foto (não mandou pelo Forms)']].concat(tot.w ? [['w', 'Mandou, ainda em análise']] : []).forEach(([kk, x]) => { const sp = el('span', null, x); sp.style.setProperty('--c', COR[kk]); lg.appendChild(sp); });
+    const lg = el('div', 'mg-leg'); [['o', 'OK (aprovada sem apontamento)'], ['a', 'Aprovada com apontamento'], ['p', 'Pendente (sem foto aprovada)']].forEach(([kk, x]) => { const sp = el('span', null, x); sp.style.setProperty('--c', COR[kk]); lg.appendChild(sp); });
     box.appendChild(lg);
   }
   let resumoVisivel = null, resumoTextos = [];
