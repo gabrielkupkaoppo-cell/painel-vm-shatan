@@ -290,7 +290,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 17/11 11:45</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 17/11 12:00</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -1119,9 +1119,9 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     if (!resumo) return;
     if (isRegional() && !(resumo.meus || []).length) { $('#r-kpis').replaceChildren(); $('#r-corpo').replaceChildren(el('div', 'empty', 'Você ainda não está ligado a nenhum estado. Peça ao administrador para colocar você em "Responsáveis por estado". · 请联系管理员'));
       $('#r-sub').textContent = ''; return; }
-    const lojas = resumo.lojas || [];
+    const lojas = (resumo.lojas || []).filter(noResumo);   // só mesas de experiência + operadoras
     const regTxt = (resumo.estados && resumo.estados.length) ? resumo.estados.join(', ') : 'todos';
-    $('#r-sub').textContent = 'Estados: ' + regTxt + '. Lojas que precisam de ação: lojas com foto pendente (ainda sem foto) e lojas com apontamento de VM.';
+    $('#r-sub').textContent = 'Estados: ' + regTxt + '. Só lojas com mesa de experiência e lojas das operadoras (Claro, Vivo, Tim, Fast).';
     $('#r-upd').textContent = resumo.atualizado_em ? 'Dados de ' + fmtEm(resumo.atualizado_em) : '';
     const lojaDe = (canal, raw) => { const c = canalNorm(canal), n = numDe(raw); if (!n) return null; const cand = lojas.filter((l) => l.canal === c && (codN(l.codigo) === codN(raw) || digL(l.codigo) === n)); return cand.length === 1 ? cand[0] : (cand.find((l) => codN(l.codigo) === n) || null); };
     // reprovadas que ainda não tiveram foto nova aprovada
@@ -1142,7 +1142,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const R = [] /* reprovadas não entram no Resumo (ficam no histórico de cada envio) */, A = tp === 'v' ? [] : apont.filter((l) => okCanal(fc, l.canal)), V = tp === 'a' ? [] : velhas.filter((l) => okCanal(fc, l.canal));
     resumoVisivel = { R, A, V, lojaDe };
     desenharMesasCanal(lojas.filter((l) => okCanal(fc, l.canal)), lojaDe);   // toda loja da matriz do Feishu = 1 mesa
-    const k = $('#r-kpis'); k.replaceChildren();
+    const k = $('#r-kpis'); k.replaceChildren(); k.hidden = true;
     [['Foto pendente · 未上传', V.length, 'aw', 'r-sec-v', 'v'], ['Com apontamento · 有问题', A.length, 'aw', 'r-sec-a', 'a']].filter((x) => !tp || x[4] === tp).forEach(([t, v, c, id]) => {
       const d = el('button', 'count ' + c); d.type = 'button'; d.style.textAlign = 'left'; d.style.cursor = 'pointer'; d.append(el('b', null, String(v)), el('span', null, t));
       d.addEventListener('click', () => { const s0 = document.getElementById(id); if (s0) s0.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); k.appendChild(d); });
@@ -1170,31 +1170,41 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       A.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), pills(apsR(l)), l.observacao || '']),
       'Nenhuma loja com apontamento.');
   }
-  // gráfico do Resumo: mesas por canal na região — no Forms, aprovadas, com apontamento e pendentes
+  // Resumo: só lojas com mesa de experiência (tipo de mesa marcado) e lojas das operadoras (form Checklist Fast/Operadoras)
+  const CANAIS_OPER = new Set(['Claro', 'Vivo', 'Tim', 'Fast']);
+  const noResumo = (l) => CANAIS_OPER.has(l.canal) || Number(l.mesas) > 0;
   function desenharMesasCanal(L, lojaDe) {
     const box = $('#r-graf'); box.replaceChildren();
     const env = new Set(); (resumo.enviados || []).forEach((e) => { const l = lojaDe(e.canal, e.loja_raw); if (l) env.add(l.id); });
     const st = (l) => !(Number(l.fotos) > 0) || l.situacao === 'Pendente' ? 'p' : /apont/i.test(l.situacao || '') ? 'a' : 'o';
-    const por = {}; L.forEach((l) => { const c = por[l.canal] = por[l.canal] || { canal: l.canal, t: 0, f: 0, o: 0, a: 0, p: 0 }; c.t++; if (env.has(l.id)) c.f++; c[st(l)]++; });
-    const linhas = Object.values(por).sort((a, b) => b.t - a.t);
-    const tot = linhas.reduce((s, c) => { ['t', 'f', 'o', 'a', 'p'].forEach((k) => { s[k] += c[k]; }); return s; }, { canal: 'Total', t: 0, f: 0, o: 0, a: 0, p: 0 });
-    box.appendChild(el('b', null, 'Mesas por canal · 各渠道体验台'));
-    box.appendChild(el('p', 'note', 'Lojas da matriz do Feishu nos estados selecionados (cada loja = 1 mesa). "No Forms" = a loja já mandou foto pelo formulário, aprovada ou não. "Pendentes" = ainda sem foto aprovada.'));
-    if (!linhas.length) { box.appendChild(el('p', 'note', 'Nenhuma loja com mesa nesta seleção.')); return; }
+    const soma = (lst, nome) => lst.reduce((c, l) => { c.t++; if (env.has(l.id)) c.f++; c[st(l)]++; return c; }, { canal: nome, t: 0, f: 0, o: 0, a: 0, p: 0 });
+    const grupos = [['Mesas de experiência · 体验台', L.filter((l) => !CANAIS_OPER.has(l.canal))], ['Operadoras · 运营商', L.filter((l) => CANAIS_OPER.has(l.canal))]].filter((g) => g[1].length);
+    const tot = soma(L, 'Total');
+    // números grandes
+    const k = el('div', 'counts'); k.style.margin = '0 0 6px';
+    [['Lojas · 门店', tot.t, ''], ['Mandaram no Forms · 已提交', tot.f, ''], ['Aprovadas OK · 合格', tot.o, 'ap'], ['Com apontamento · 有问题', tot.a, 'aw'], ['Pendentes · 待处理', tot.p, 'rp']]
+      .forEach(([t, v, c]) => { const d = el('div', 'count ' + c); d.append(el('b', null, String(v)), el('span', null, t)); k.appendChild(d); });
+    box.appendChild(k);
+    if (!L.length) { box.appendChild(el('p', 'note', 'Nenhuma loja nesta seleção.')); return; }
     const COR = { o: 'var(--accent)', a: '#e0a100', p: '#c9ced6' };
     const t = el('table', 'mg'); const h = el('tr');
-    ['Canal · 渠道', 'Mesas · 体验台', 'No Forms · 已提交', 'Aprovadas · 通过', 'Com apontamento · 有问题', 'Pendentes · 待处理', ''].forEach((x) => h.appendChild(el('th', null, x)));
+    ['Canal · 渠道', 'Lojas', 'No Forms', 'OK', 'Apontamento', 'Pendente', ''].forEach((x) => h.appendChild(el('th', null, x)));
     const th = el('thead'); th.appendChild(h); t.appendChild(th); const tb = el('tbody');
-    const pct = (v, d) => d ? ' (' + Math.round(v * 100 / d) + '%)' : '';
-    linhas.concat([tot]).forEach((c) => {
-      const tr = el('tr', c === tot ? 'tot' : null);
-      [c.canal, String(c.t), c.f + pct(c.f, c.t), (c.o + c.a) + pct(c.o + c.a, c.t), String(c.a), c.p + pct(c.p, c.t)].forEach((v) => tr.appendChild(el('td', null, v)));
-      const td = el('td'); const b = el('div', 'barra'); b.title = 'Aprovadas OK ' + c.o + ' · com apontamento ' + c.a + ' · pendentes ' + c.p;
-      [['o', c.o], ['a', c.a], ['p', c.p]].forEach(([k, v]) => { if (!v) return; const i = el('i'); i.style.width = (v * 100 / c.t) + '%'; i.style.background = COR[k]; b.appendChild(i); });
+    const linha = (c, cls) => {
+      const tr = el('tr', cls);
+      [c.canal, c.t, c.f, c.o, c.a, c.p].forEach((v) => tr.appendChild(el('td', null, String(v))));
+      const td = el('td'); const b = el('div', 'barra'); b.title = 'OK ' + c.o + ' · apontamento ' + c.a + ' · pendente ' + c.p;
+      [['o', c.o], ['a', c.a], ['p', c.p]].forEach(([kk, v]) => { if (!v) return; const i = el('i'); i.style.width = (v * 100 / c.t) + '%'; i.style.background = COR[kk]; b.appendChild(i); });
       td.appendChild(b); tr.appendChild(td); tb.appendChild(tr);
+    };
+    grupos.forEach(([nome, lst]) => {
+      const g = el('tr'); const gt = el('td', null, nome); gt.colSpan = 7; gt.style.cssText = 'font-weight:700;color:var(--accent);padding-top:12px'; g.appendChild(gt); tb.appendChild(g);
+      const por = {}; lst.forEach((l) => { (por[l.canal] = por[l.canal] || []).push(l); });
+      Object.keys(por).sort((a, b) => por[b].length - por[a].length).forEach((c) => linha(soma(por[c], c)));
+      if (Object.keys(por).length > 1) linha(soma(lst, 'Subtotal'), 'tot');
     });
     t.appendChild(tb); const wrap = el('div'); wrap.style.overflowX = 'auto'; wrap.appendChild(t); box.appendChild(wrap);
-    const lg = el('div', 'mg-leg'); [['o', 'Aprovada sem apontamento · 合格'], ['a', 'Aprovada com apontamento · 有问题'], ['p', 'Pendente (sem foto aprovada) · 待处理']].forEach(([k, x]) => { const sp = el('span', null, x); sp.style.setProperty('--c', COR[k]); lg.appendChild(sp); });
+    const lg = el('div', 'mg-leg'); [['o', 'OK (aprovada sem apontamento)'], ['a', 'Aprovada com apontamento'], ['p', 'Pendente (sem foto aprovada)']].forEach(([kk, x]) => { const sp = el('span', null, x); sp.style.setProperty('--c', COR[kk]); lg.appendChild(sp); });
     box.appendChild(lg);
   }
   let resumoVisivel = null, resumoTextos = [];
