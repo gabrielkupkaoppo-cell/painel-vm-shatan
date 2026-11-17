@@ -1141,7 +1141,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const tp = $('#r-tipo').value;   // '' = as duas listas · 'v' = só foto pendente · 'a' = só apontamento
     const R = [] /* reprovadas não entram no Resumo (ficam no histórico de cada envio) */, A = tp === 'v' ? [] : apont.filter((l) => okCanal(fc, l.canal)), V = tp === 'a' ? [] : velhas.filter((l) => okCanal(fc, l.canal));
     resumoVisivel = { R, A, V, lojaDe };
-    desenharMesasCanal(lojas.filter((l) => Number(l.mesas) > 0 && okCanal(fc, l.canal)), lojaDe);
+    desenharMesasCanal(lojas.filter((l) => okCanal(fc, l.canal)), lojaDe);   // toda loja da matriz do Feishu = 1 mesa
     const k = $('#r-kpis'); k.replaceChildren();
     [['Foto pendente · 未上传', V.length, 'aw', 'r-sec-v', 'v'], ['Com apontamento · 有问题', A.length, 'aw', 'r-sec-a', 'a']].filter((x) => !tp || x[4] === tp).forEach(([t, v, c, id]) => {
       const d = el('button', 'count ' + c); d.type = 'button'; d.style.textAlign = 'left'; d.style.cursor = 'pointer'; d.append(el('b', null, String(v)), el('span', null, t));
@@ -1179,7 +1179,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const linhas = Object.values(por).sort((a, b) => b.t - a.t);
     const tot = linhas.reduce((s, c) => { ['t', 'f', 'o', 'a', 'p'].forEach((k) => { s[k] += c[k]; }); return s; }, { canal: 'Total', t: 0, f: 0, o: 0, a: 0, p: 0 });
     box.appendChild(el('b', null, 'Mesas por canal · 各渠道体验台'));
-    box.appendChild(el('p', 'note', 'Lojas com mesa de experiência nos estados selecionados. "No Forms" = a loja já mandou foto pelo formulário (aprovada ou não).'));
+    box.appendChild(el('p', 'note', 'Lojas da matriz do Feishu nos estados selecionados (cada loja = 1 mesa). "No Forms" = a loja já mandou foto pelo formulário, aprovada ou não. "Pendentes" = ainda sem foto aprovada.'));
     if (!linhas.length) { box.appendChild(el('p', 'note', 'Nenhuma loja com mesa nesta seleção.')); return; }
     const COR = { o: 'var(--accent)', a: '#e0a100', p: '#c9ced6' };
     const t = el('table', 'mg'); const h = el('tr');
