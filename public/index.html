@@ -290,7 +290,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 17/11 13:15</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 17/11 13:25</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -384,7 +384,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 <section id="pane-resumo" role="tabpanel" aria-labelledby="tab-resumo" hidden>
 <div class="wrap">
   <div class="head"><div><h1>Resumo por estado<span class="zh">各州摘要</span></h1>
-    <p class="note" id="r-sub">Lojas que precisam de ação: lojas com foto pendente (ainda sem foto) e lojas com apontamento de VM.</p></div>
+    <p class="note" id="r-sub"></p></div>
     <div><button class="btn" type="button" id="r-copy">Copiar tudo · 复制</button> <button class="btn" type="button" id="r-csv">Baixar lista · 下载</button></div></div>
   <div class="msg" id="r-msg" role="status" hidden></div>
   <div class="bar"><select id="r-reg" aria-label="Estado" hidden></select> <select id="r-canal" aria-label="Canal"></select> <select id="r-tipo" aria-label="Mostrar"><option value="">Pendentes e apontamentos · 全部</option><option value="v">Só foto pendente · 未上传</option><option value="a">Só com apontamento · 有问题</option></select> <span class="note" id="r-upd"></span></div>
@@ -1094,6 +1094,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   // ---------- resumo da região (leitor) ----------
   let resumo = null, resumoReq = 0;
   const AP_TIPOS_R = ['Foto fora do padrão', 'Sem spec card', 'Sem modo demo', 'Mostruário / estoque', 'Material / canvas'];
+  const AP_ZH_R = { 'Foto fora do padrão': '照片不合格', 'Sem spec card': '缺参数卡', 'Sem modo demo': '未开演示', 'Mostruário / estoque': '样机/库存', 'Material / canvas': '物料/画面' };
+  const apZh = (t) => t + (AP_ZH_R[t] ? ' · ' + AP_ZH_R[t] : '');
   const apsR = (l) => String(l.apontamento || '').split('; ').filter((t) => AP_TIPOS_R.includes(t));
   const numDe = (raw) => { const m = String(raw || '').match(/\d+/g); return m ? m[m.length - 1].replace(/^0+/, '') : ''; };
   const digL = (c) => ((String(c || '').match(/\d+/g) || []).pop() || '').replace(/^0+/, '');
@@ -1103,9 +1105,9 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     if (!sel.options.length) {
       if (!isRegional()) {
         sel.replaceChildren(new Option('Todos os estados · 全部州', ''));
-        REG_LISTA.forEach((g) => { const og = el('optgroup'); og.label = g; og.appendChild(new Option('Região ' + g + ' (todos)', 'R:' + g)); g.split('/').forEach((uf) => og.appendChild(new Option(uf, uf))); sel.appendChild(og); });
+        REG_LISTA.forEach((g) => { const og = el('optgroup'); og.label = g; og.appendChild(new Option('Região ' + g + ' (todos) · 区域', 'R:' + g)); g.split('/').forEach((uf) => og.appendChild(new Option(uf, uf))); sel.appendChild(og); });
         sel.hidden = false;
-      } else if ((perfil.estados || []).length > 1) { sel.replaceChildren(new Option('Meus estados (' + perfil.estados.join(' + ') + ')', ''), ...perfil.estados.map((g) => new Option(g, g))); sel.hidden = false; }
+      } else if ((perfil.estados || []).length > 1) { sel.replaceChildren(new Option('Meus estados · 我的州 (' + perfil.estados.join(' + ') + ')', ''), ...perfil.estados.map((g) => new Option(g, g))); sel.hidden = false; }
     }
     try {
       const v = sel.value;
@@ -1117,12 +1119,12 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   }
   function renderResumo() {
     if (!resumo) return;
-    if (isRegional() && !(resumo.meus || []).length) { $('#r-kpis').replaceChildren(); $('#r-corpo').replaceChildren(el('div', 'empty', 'Você ainda não está ligado a nenhum estado. Peça ao administrador para colocar você em "Responsáveis por estado". · 请联系管理员'));
+    if (isRegional() && !(resumo.meus || []).length) { $('#r-kpis').replaceChildren(); $('#r-corpo').replaceChildren(el('div', 'empty', 'Você ainda não está ligado a nenhum estado (您尚未关联任何州). Peça ao administrador para colocar você em "Responsáveis por estado". · 请联系管理员'));
       $('#r-sub').textContent = ''; return; }
     const lojas = (resumo.lojas || []).filter(noResumo);   // só mesas de experiência + operadoras
-    const regTxt = (resumo.estados && resumo.estados.length) ? resumo.estados.join(', ') : 'todos';
-    $('#r-sub').textContent = 'Estados: ' + regTxt + '. Só lojas com mesa de experiência e lojas das operadoras (Claro, Vivo, Tim, Fast).';
-    $('#r-upd').textContent = resumo.atualizado_em ? 'Dados de ' + fmtEm(resumo.atualizado_em) : '';
+    const regTxt = (resumo.estados && resumo.estados.length) ? resumo.estados.join(', ') : 'todos · 全部';
+    $('#r-sub').textContent = 'Estados · 州: ' + regTxt + '. Só lojas com mesa de experiência e lojas das operadoras (Claro, Vivo, Tim, Fast). · 仅含体验台门店和运营商门店';
+    $('#r-upd').textContent = resumo.atualizado_em ? 'Dados de · 数据更新: ' + fmtEm(resumo.atualizado_em) : '';
     const lojaDe = (canal, raw) => { const c = canalNorm(canal), n = numDe(raw); if (!n) return null; const cand = lojas.filter((l) => l.canal === c && (codN(l.codigo) === codN(raw) || digL(l.codigo) === n)); return cand.length === 1 ? cand[0] : (cand.find((l) => codN(l.codigo) === n) || null); };
     // reprovadas que ainda não tiveram foto nova aprovada
     const ap = (resumo.aprovados || []).map((a) => Object.assign({}, a, { c: canalNorm(a.canal), n: numDe(a.loja_raw), d: new Date(a.data) }));
@@ -1154,7 +1156,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       const h = el('div'); h.style.cssText = 'padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap'; h.appendChild(el('b', null, titulo + ' — ' + linhas.length)); sec.appendChild(h);
       // texto para colar no WhatsApp / Feishu (lido antes de as etiquetas irem para a tabela)
       const txtCel = (v) => (v instanceof Node ? [...v.childNodes].map((n) => n.textContent.trim()).filter(Boolean).join(', ') : String(v == null ? '' : v).trim());
-      const txt = '*' + titulo.split(' · ')[0] + ' — ' + linhas.length + '*' + (linhas.length ? '\n' + linhas.map((cells) => '• ' + cells.map((v, i) => { if (cols[i] === 'Fotos') return ''; const t = txtCel(v); return !t || t === '—' ? '' : i < 2 ? t : cols[i] + ': ' + t; }).filter(Boolean).join(' — ')).join('\n') : '');
+      const txt = '*' + titulo.split(' · ')[0] + ' — ' + linhas.length + '*' + (linhas.length ? '\n' + linhas.map((cells) => '• ' + cells.map((v, i) => { if (/^Fotos/.test(cols[i])) return ''; const t = txtCel(v); return !t || t === '—' ? '' : i < 2 ? t : cols[i] + ': ' + t; }).filter(Boolean).join(' — ')).join('\n') : '');
       resumoTextos.push(txt);
       if (linhas.length) { const cp = el('button', 'btn', 'Copiar lista · 复制'); cp.type = 'button'; cp.addEventListener('click', () => copiarTxt(cp, txt)); h.appendChild(cp); }
       if (!linhas.length) { sec.appendChild(el('p', 'note', vazio)); sec.lastChild.style.padding = '0 12px 12px'; box.appendChild(sec); return; }
@@ -1166,13 +1168,13 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const nomeL = (l) => l.canal + ' ' + l.codigo + ' · ' + titulo(l.loja);
     const ordUF = (a, b) => String(a.uf || '').localeCompare(String(b.uf || ''));
     const sitPend = (l) => { const e = aguarda.get(l.id); if (!e) return el('span', 'pb', '⛔ Não enviou · 未提交');
-      const x = el('span', 'pb', '📨 Enviada ' + new Date(e.data).toLocaleDateString('pt-BR') + (e.nome ? ' por ' + String(e.nome).split(' ')[0] : '') + ' · aguardando aprovação'); x.style.background = '#fff4d6'; x.style.color = '#6b4e00'; return x; };
-    if (tp !== 'a') secao('r-sec-v', 'Lojas com foto pendente · 未上传照片', ['Loja', 'Cidade / UF', 'Situação', 'Anotação'],
+      const x = el('span', 'pb', '📨 Enviada ' + new Date(e.data).toLocaleDateString('pt-BR') + (e.nome ? ' por ' + String(e.nome).split(' ')[0] : '') + ' · aguardando aprovação · 待审核'); x.style.background = '#fff4d6'; x.style.color = '#6b4e00'; return x; };
+    if (tp !== 'a') secao('r-sec-v', 'Lojas com foto pendente · 未上传照片', ['Loja · 门店', 'Cidade / UF · 城市/州', 'Situação · 状态', 'Anotação · 备注'],
       V.slice().sort((a, b) => (aguarda.has(a.id) - aguarda.has(b.id)) || ordUF(a, b)).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), sitPend(l), l.observacao || '']),
-      'Nenhuma loja com foto pendente. 👏');
-    if (tp !== 'v') secao('r-sec-a', 'Lojas com apontamento de VM · 有陈列问题', ['Loja', 'Cidade / UF', 'Apontamentos', 'Anotação', 'Fotos'],
-      A.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), pills(apsR(l)), l.observacao || '', botaoFotosResumo(l, ap, lojaDe)]),
-      'Nenhuma loja com apontamento.');
+      'Nenhuma loja com foto pendente. 👏 · 无待上传门店');
+    if (tp !== 'v') secao('r-sec-a', 'Lojas com apontamento de VM · 有陈列问题', ['Loja · 门店', 'Cidade / UF · 城市/州', 'Apontamentos · 问题', 'Anotação · 备注', 'Fotos · 照片'],
+      A.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), pills(apsR(l).map(apZh)), l.observacao || '', botaoFotosResumo(l, ap, lojaDe)]),
+      'Nenhuma loja com apontamento. · 无问题门店');
   }
   // Resumo: só lojas com mesa de experiência (tipo de mesa marcado) e lojas das operadoras (form Checklist Fast/Operadoras)
   const CANAIS_OPER = new Set(['Claro', 'Vivo', 'Tim', 'Fast']);
@@ -1189,17 +1191,17 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     [['Total de lojas · 门店总数', tot.t, ''], ['Lojas com mesa de experiência · 体验台门店', L.filter((l) => Number(l.mesas) > 0).length, ''], ['Aprovadas · 通过', tot.o + tot.a, 'ap'], ['Apontamentos · 有问题', tot.a, 'rp'], ['Pendentes de foto · 未上传', tot.p, 'aw']]
       .forEach(([t, v, c]) => { const d = el('div', 'count ' + c); d.append(el('b', null, String(v)), el('span', null, t)); k.appendChild(d); });
     // dos pendentes, quantos já mandaram e esperam aprovação
-    if (tot.w) { const sub = el('span', null, '📨 ' + tot.w + ' já enviada' + (tot.w > 1 ? 's' : '') + ', aguardando aprovação'); sub.style.cssText = 'display:block;font-size:.75rem;margin-top:2px;color:#6b4e00'; k.lastChild.appendChild(sub); }
+    if (tot.w) { const sub = el('span', null, '📨 ' + tot.w + ' já enviada' + (tot.w > 1 ? 's' : '') + ', aguardando aprovação · 已提交待审核'); sub.style.cssText = 'display:block;font-size:.75rem;margin-top:2px;color:#6b4e00'; k.lastChild.appendChild(sub); }
     box.appendChild(k);
-    if (!L.length) { box.appendChild(el('p', 'note', 'Nenhuma loja nesta seleção.')); return; }
+    if (!L.length) { box.appendChild(el('p', 'note', 'Nenhuma loja nesta seleção. · 无门店')); return; }
     const COR = { o: 'var(--accent)', a: '#d64545', p: '#e0a100' };   // verde OK · vermelho apontamento · amarelo pendente
     const t = el('table', 'mg'); const h = el('tr');
-    ['Canal · 渠道', 'Lojas', 'OK', 'Apontamento', 'Pendente', 'Aguardando aprovação', ''].forEach((x) => h.appendChild(el('th', null, x)));
+    ['Canal · 渠道', 'Lojas · 门店', 'OK · 合格', 'Apontamento · 有问题', 'Pendente · 未上传', 'Aguardando aprovação · 待审核', ''].forEach((x) => h.appendChild(el('th', null, x)));
     const th = el('thead'); th.appendChild(h); t.appendChild(th); const tb = el('tbody');
     const linha = (c, cls) => {
       const tr = el('tr', cls);
       [c.canal, c.t, c.o, c.a, c.p, c.w].forEach((v) => tr.appendChild(el('td', null, String(v))));
-      const td = el('td'); const b = el('div', 'barra'); b.title = 'OK ' + c.o + ' · apontamento ' + c.a + ' · pendente ' + c.p;
+      const td = el('td'); const b = el('div', 'barra'); b.title = 'OK 合格 ' + c.o + ' · apontamento 有问题 ' + c.a + ' · pendente 未上传 ' + c.p;
       [['o', c.o], ['a', c.a], ['p', c.p]].forEach(([kk, v]) => { if (!v) return; const i = el('i'); i.style.width = (v * 100 / c.t) + '%'; i.style.background = COR[kk]; b.appendChild(i); });
       td.appendChild(b); tr.appendChild(td); tb.appendChild(tr);
     };
@@ -1207,33 +1209,33 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       const g = el('tr'); const gt = el('td', null, nome); gt.colSpan = 7; gt.style.cssText = 'font-weight:700;color:var(--accent);padding-top:12px'; g.appendChild(gt); tb.appendChild(g);
       const por = {}; lst.forEach((l) => { (por[l.canal] = por[l.canal] || []).push(l); });
       Object.keys(por).sort((a, b) => por[b].length - por[a].length).forEach((c) => linha(soma(por[c], c)));
-      if (Object.keys(por).length > 1) linha(soma(lst, 'Subtotal'), 'tot');
+      if (Object.keys(por).length > 1) linha(soma(lst, 'Subtotal · 小计'), 'tot');
     });
     t.appendChild(tb); const wrap = el('div'); wrap.style.overflowX = 'auto'; wrap.appendChild(t); box.appendChild(wrap);
-    const lg = el('div', 'mg-leg'); [['o', 'OK (aprovada sem apontamento)'], ['a', 'Aprovada com apontamento'], ['p', 'Pendente (sem foto aprovada)']].forEach(([kk, x]) => { const sp = el('span', null, x); sp.style.setProperty('--c', COR[kk]); lg.appendChild(sp); });
+    const lg = el('div', 'mg-leg'); [['o', 'OK (aprovada sem apontamento) · 合格'], ['a', 'Aprovada com apontamento · 有问题'], ['p', 'Pendente (sem foto aprovada) · 未上传']].forEach(([kk, x]) => { const sp = el('span', null, x); sp.style.setProperty('--c', COR[kk]); lg.appendChild(sp); });
     box.appendChild(lg);
   }
   // botão "Ver fotos": abre, logo abaixo da linha, as fotos do último envio aprovado da loja
   function botaoFotosResumo(l, ap, lojaDe) {
     const env = ap.filter((a) => lojaDe(a.canal, a.loja_raw) === l && (a.fotos || []).length).sort((a, b) => b.d - a.d)[0];
     if (!env) return el('span', 'note', '—');
-    const b = el('button', 'btn', '📷 Ver fotos'); b.type = 'button'; b.style.whiteSpace = 'nowrap';
+    const b = el('button', 'btn', '📷 Ver fotos · 看照片'); b.type = 'button'; b.style.whiteSpace = 'nowrap';
     b.addEventListener('click', () => {
       const tr = b.closest('tr'); const ja = tr.nextElementSibling;
-      if (ja && ja.classList.contains('r-fotos')) { ja.remove(); b.textContent = '📷 Ver fotos'; return; }
-      b.textContent = 'Fechar fotos';
+      if (ja && ja.classList.contains('r-fotos')) { ja.remove(); b.textContent = '📷 Ver fotos · 看照片'; return; }
+      b.textContent = 'Fechar · 关闭';
       const row = el('tr', 'r-fotos'); const td = el('td'); td.colSpan = tr.children.length; td.style.background = 'var(--accent-soft, #eef7f1)';
-      const cab = el('p', 'note', 'Foto aprovada em ' + fmtD(env.d) + (env.nome ? ' · enviada por ' + env.nome : '') + '. Apontamentos: ' + (apsR(l).join(', ') || '—') + (l.observacao ? ' · Anotação: ' + l.observacao : ''));
+      const cab = el('p', 'note', 'Foto aprovada em (通过日期) ' + fmtD(env.d) + (env.nome ? ' · enviada por (提交人) ' + env.nome : '') + '. Apontamentos (问题): ' + (apsR(l).map(apZh).join(', ') || '—') + (l.observacao ? ' · Anotação (备注): ' + l.observacao : ''));
       const g = el('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:8px';
       env.fotos.forEach((ft) => {
         const fig = el('figure'); fig.style.margin = '0';
         const bx = el('div'); bx.style.cssText = 'aspect-ratio:3/4;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--muted);cursor:zoom-in';
         bx.textContent = 'Carregando…';
-        const cap = el('figcaption', 'note', String(ft.label || 'Foto').split(' · ')[0]); cap.style.marginTop = '4px';
-        if (ft.feishu_url) { const a = el('a', null, ' · original no Feishu'); a.href = ft.feishu_url; a.target = '_blank'; a.rel = 'noopener'; cap.appendChild(a); }
+        const cap = el('figcaption', 'note', String(ft.label || 'Foto · 照片')); cap.style.marginTop = '4px';
+        if (ft.feishu_url) { const a = el('a', null, ' · original no Feishu · 原图'); a.href = ft.feishu_url; a.target = '_blank'; a.rel = 'noopener'; cap.appendChild(a); }
         if (ft.path) loadPhoto(ft).then((u) => { if (!bx.isConnected) return; bx.replaceChildren(); const im = el('img'); im.src = u; im.alt = ft.label || 'Foto'; im.style.cssText = 'width:100%;height:100%;object-fit:cover'; bx.appendChild(im); bx.addEventListener('click', () => lightbox(u)); })
-          .catch(() => { bx.textContent = 'Foto indisponível'; bx.style.cursor = 'default'; });
-        else { bx.textContent = 'Foto só no Feishu'; bx.style.cursor = 'default'; }
+          .catch(() => { bx.textContent = 'Foto indisponível · 照片不可用'; bx.style.cursor = 'default'; });
+        else { bx.textContent = 'Foto só no Feishu · 照片在飞书'; bx.style.cursor = 'default'; }
         fig.append(bx, cap); g.appendChild(fig);
       });
       td.append(cab, g); row.appendChild(td); tr.after(row);
