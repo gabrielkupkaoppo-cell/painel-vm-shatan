@@ -290,7 +290,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 17/11 12:50</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 17/11 13:00</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -1152,7 +1152,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       const h = el('div'); h.style.cssText = 'padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap'; h.appendChild(el('b', null, titulo + ' — ' + linhas.length)); sec.appendChild(h);
       // texto para colar no WhatsApp / Feishu (lido antes de as etiquetas irem para a tabela)
       const txtCel = (v) => (v instanceof Node ? [...v.childNodes].map((n) => n.textContent.trim()).filter(Boolean).join(', ') : String(v == null ? '' : v).trim());
-      const txt = '*' + titulo.split(' · ')[0] + ' — ' + linhas.length + '*' + (linhas.length ? '\n' + linhas.map((cells) => '• ' + cells.map((v, i) => { const t = txtCel(v); return !t || t === '—' ? '' : i < 2 ? t : cols[i] + ': ' + t; }).filter(Boolean).join(' — ')).join('\n') : '');
+      const txt = '*' + titulo.split(' · ')[0] + ' — ' + linhas.length + '*' + (linhas.length ? '\n' + linhas.map((cells) => '• ' + cells.map((v, i) => { if (cols[i] === 'Fotos') return ''; const t = txtCel(v); return !t || t === '—' ? '' : i < 2 ? t : cols[i] + ': ' + t; }).filter(Boolean).join(' — ')).join('\n') : '');
       resumoTextos.push(txt);
       if (linhas.length) { const cp = el('button', 'btn', 'Copiar lista · 复制'); cp.type = 'button'; cp.addEventListener('click', () => copiarTxt(cp, txt)); h.appendChild(cp); }
       if (!linhas.length) { sec.appendChild(el('p', 'note', vazio)); sec.lastChild.style.padding = '0 12px 12px'; box.appendChild(sec); return; }
@@ -1166,8 +1166,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     if (tp !== 'a') secao('r-sec-v', 'Lojas com foto pendente · 未上传照片', ['Loja', 'Cidade / UF', 'Anotação'],
       V.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), l.observacao || '']),
       'Nenhuma loja com foto pendente. 👏');
-    if (tp !== 'v') secao('r-sec-a', 'Lojas com apontamento de VM · 有陈列问题', ['Loja', 'Cidade / UF', 'Apontamentos', 'Anotação'],
-      A.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), pills(apsR(l)), l.observacao || '']),
+    if (tp !== 'v') secao('r-sec-a', 'Lojas com apontamento de VM · 有陈列问题', ['Loja', 'Cidade / UF', 'Apontamentos', 'Anotação', 'Fotos'],
+      A.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), pills(apsR(l)), l.observacao || '', botaoFotosResumo(l, ap, lojaDe)]),
       'Nenhuma loja com apontamento.');
   }
   // Resumo: só lojas com mesa de experiência (tipo de mesa marcado) e lojas das operadoras (form Checklist Fast/Operadoras)
@@ -1206,6 +1206,33 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     t.appendChild(tb); const wrap = el('div'); wrap.style.overflowX = 'auto'; wrap.appendChild(t); box.appendChild(wrap);
     const lg = el('div', 'mg-leg'); [['o', 'OK (aprovada sem apontamento)'], ['a', 'Aprovada com apontamento'], ['p', 'Pendente (sem foto aprovada)']].forEach(([kk, x]) => { const sp = el('span', null, x); sp.style.setProperty('--c', COR[kk]); lg.appendChild(sp); });
     box.appendChild(lg);
+  }
+  // botão "Ver fotos": abre, logo abaixo da linha, as fotos do último envio aprovado da loja
+  function botaoFotosResumo(l, ap, lojaDe) {
+    const env = ap.filter((a) => lojaDe(a.canal, a.loja_raw) === l && (a.fotos || []).length).sort((a, b) => b.d - a.d)[0];
+    if (!env) return el('span', 'note', '—');
+    const b = el('button', 'btn', '📷 Ver fotos'); b.type = 'button'; b.style.whiteSpace = 'nowrap';
+    b.addEventListener('click', () => {
+      const tr = b.closest('tr'); const ja = tr.nextElementSibling;
+      if (ja && ja.classList.contains('r-fotos')) { ja.remove(); b.textContent = '📷 Ver fotos'; return; }
+      b.textContent = 'Fechar fotos';
+      const row = el('tr', 'r-fotos'); const td = el('td'); td.colSpan = tr.children.length; td.style.background = 'var(--accent-soft, #eef7f1)';
+      const cab = el('p', 'note', 'Foto aprovada em ' + fmtD(env.d) + (env.nome ? ' · enviada por ' + env.nome : '') + '. Apontamentos: ' + (apsR(l).join(', ') || '—') + (l.observacao ? ' · Anotação: ' + l.observacao : ''));
+      const g = el('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:8px';
+      env.fotos.forEach((ft) => {
+        const fig = el('figure'); fig.style.margin = '0';
+        const bx = el('div'); bx.style.cssText = 'aspect-ratio:3/4;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--muted);cursor:zoom-in';
+        bx.textContent = 'Carregando…';
+        const cap = el('figcaption', 'note', String(ft.label || 'Foto').split(' · ')[0]); cap.style.marginTop = '4px';
+        if (ft.feishu_url) { const a = el('a', null, ' · original no Feishu'); a.href = ft.feishu_url; a.target = '_blank'; a.rel = 'noopener'; cap.appendChild(a); }
+        if (ft.path) loadPhoto(ft).then((u) => { if (!bx.isConnected) return; bx.replaceChildren(); const im = el('img'); im.src = u; im.alt = ft.label || 'Foto'; im.style.cssText = 'width:100%;height:100%;object-fit:cover'; bx.appendChild(im); bx.addEventListener('click', () => lightbox(u)); })
+          .catch(() => { bx.textContent = 'Foto indisponível'; bx.style.cursor = 'default'; });
+        else { bx.textContent = 'Foto só no Feishu'; bx.style.cursor = 'default'; }
+        fig.append(bx, cap); g.appendChild(fig);
+      });
+      td.append(cab, g); row.appendChild(td); tr.after(row);
+    });
+    return b;
   }
   let resumoVisivel = null, resumoTextos = [];
   async function copiarTxt(b, txt) {
