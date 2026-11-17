@@ -7,7 +7,7 @@
  */
 var PAINEL_CANAIS = ['Americanas', 'Magalu', 'Lider', 'Bemol', 'Martinello', 'Paraiba', 'Fast', 'Claro', 'Vivo', 'Tim', 'Gazin', 'Casas Bahia', 'Novo Mundo'];
 // Main push = loja com os DOIS materiais das colunas Q e R da aba. Estes canais não têm main push.
-var PAINEL_MP_COLS = [17, 18];   // Q = A6 Pro, R = Reno 16
+var PAINEL_MP_COLS = [17, 18];   // Q = Reno 16, R = A6 Pro
 var PAINEL_MP_SEM = ['Americanas', 'Claro', 'Vivo', 'Tim'];
 var PAINEL_REGIAO = { DF: 'DF/GO', GO: 'DF/GO', CE: 'CE/PI', PI: 'CE/PI', PA: 'PA/AP', AP: 'PA/AP', MT: 'MT/MS', MS: 'MT/MS', AM: 'AM/AC/RR/RO', AC: 'AM/AC/RR/RO', RR: 'AM/AC/RR/RO', RO: 'AM/AC/RR/RO', MA: 'MA/TO', TO: 'MA/TO' };
 
@@ -95,7 +95,7 @@ function atualizarPainel_(detalhado) {
     const dispCols = cols.filter((c) => H[c].some((v) => v.toLowerCase().indexOf('display') >= 0 && v.indexOf('Store') < 0));
     if (!C.name) { resumo.push(ch + ': sem coluna Store Name'); return; }
     const temMP = PAINEL_MP_SEM.indexOf(ch) < 0;
-    if (temMP) resumo.push(ch + ': main push → A6 Pro = Q "' + (H[17] || ['(sem título)']).join(' / ') + '" · Reno 16 = R "' + (H[18] || ['(sem título)']).join(' / ') + '"');
+    if (temMP) resumo.push(ch + ': main push → Reno 16 = Q "' + (H[17] || ['(sem título)']).join(' / ') + '" · A6 Pro = R "' + (H[18] || ['(sem título)']).join(' / ') + '"');
     // tem o material = célula com qualquer coisa (texto, imagem colada, anexo), menos "NO", "0", "-" etc.
     const temMat = (raw) => {
       if (raw == null || raw === '') return false;
@@ -127,7 +127,7 @@ function atualizarPainel_(detalhado) {
       const codigo = C.code ? g('code').replace(/\.0$/, '') : '';
       const mmCx = C.mm ? ['1', 'TRUE', 'YES', 'SIM', 'X'].indexOf(g('mm').toUpperCase()) >= 0 : false;
       const multimarcas = mmCx || /multimarca/i.test(mesaDe(ch, C.code ? g('code') : '', nome));
-      const temA6 = temMP ? temMat(cel(r, PAINEL_MP_COLS[0])) : null, temReno = temMP ? temMat(cel(r, PAINEL_MP_COLS[1])) : null;
+      const temReno = temMP ? temMat(cel(r, PAINEL_MP_COLS[0])) : null, temA6 = temMP ? temMat(cel(r, PAINEL_MP_COLS[1])) : null;
       const mpN = temMP ? (temA6 ? 1 : 0) + (temReno ? 1 : 0) : null;
       lojas.push({ id: ch + '-' + r, canal: ch, codigo: codigo === '0' ? '' : codigo, loja: nome, cidade, uf, regiao: PAINEL_REGIAO[uf] || 'Outra', classe: cls, promotor: prom,
         mesa_16: t16, mesa_12: t12, mesa_08: t08, mesas: t16 + t12 + t08, displays: nd, fotos, situacao: sit, ok_planilha: okp, apontamento: tg.join('; '), observacao: obs,
