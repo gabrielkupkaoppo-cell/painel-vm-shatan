@@ -290,7 +290,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 17/11 12:45</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 17/11 12:50</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -1188,17 +1188,17 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     if (!L.length) { box.appendChild(el('p', 'note', 'Nenhuma loja nesta seleção.')); return; }
     const COR = { o: 'var(--accent)', a: '#d64545', p: '#e0a100' };   // verde OK · vermelho apontamento · amarelo pendente
     const t = el('table', 'mg'); const h = el('tr');
-    ['Canal · 渠道', 'Lojas', 'No Forms', 'OK', 'Apontamento', 'Pendente', ''].forEach((x) => h.appendChild(el('th', null, x)));
+    ['Canal · 渠道', 'Lojas', 'OK', 'Apontamento', 'Pendente', ''].forEach((x) => h.appendChild(el('th', null, x)));
     const th = el('thead'); th.appendChild(h); t.appendChild(th); const tb = el('tbody');
     const linha = (c, cls) => {
       const tr = el('tr', cls);
-      [c.canal, c.t, c.f, c.o, c.a, c.p].forEach((v) => tr.appendChild(el('td', null, String(v))));
+      [c.canal, c.t, c.o, c.a, c.p].forEach((v) => tr.appendChild(el('td', null, String(v))));
       const td = el('td'); const b = el('div', 'barra'); b.title = 'OK ' + c.o + ' · apontamento ' + c.a + ' · pendente ' + c.p;
       [['o', c.o], ['a', c.a], ['p', c.p]].forEach(([kk, v]) => { if (!v) return; const i = el('i'); i.style.width = (v * 100 / c.t) + '%'; i.style.background = COR[kk]; b.appendChild(i); });
       td.appendChild(b); tr.appendChild(td); tb.appendChild(tr);
     };
     grupos.forEach(([nome, lst]) => {
-      const g = el('tr'); const gt = el('td', null, nome); gt.colSpan = 7; gt.style.cssText = 'font-weight:700;color:var(--accent);padding-top:12px'; g.appendChild(gt); tb.appendChild(g);
+      const g = el('tr'); const gt = el('td', null, nome); gt.colSpan = 6; gt.style.cssText = 'font-weight:700;color:var(--accent);padding-top:12px'; g.appendChild(gt); tb.appendChild(g);
       const por = {}; lst.forEach((l) => { (por[l.canal] = por[l.canal] || []).push(l); });
       Object.keys(por).sort((a, b) => por[b].length - por[a].length).forEach((c) => linha(soma(por[c], c)));
       if (Object.keys(por).length > 1) linha(soma(lst, 'Subtotal'), 'tot');
