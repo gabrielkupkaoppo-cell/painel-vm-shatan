@@ -290,7 +290,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 17/11 12:20</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 17/11 12:25</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -1182,7 +1182,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const tot = soma(L, 'Total');
     // números grandes
     const k = el('div', 'counts'); k.style.margin = '0 0 6px';
-    [['Lojas · 门店', tot.t, ''], ['Mandaram no Forms · 已提交', tot.f, ''], ['Aprovadas OK · 合格', tot.o, 'ap'], ['Com apontamento · 有问题', tot.a, 'rp'], ['Pendentes · 待处理', tot.p, 'aw']]
+    [['Total de lojas · 门店总数', tot.t, ''], ['Lojas com mesa de experiência · 体验台门店', L.filter((l) => Number(l.mesas) > 0).length, ''], ['Aprovadas · 通过', tot.o + tot.a, 'ap'], ['Apontamentos · 有问题', tot.a, 'rp'], ['Pendentes de foto · 未上传', tot.p, 'aw']]
       .forEach(([t, v, c]) => { const d = el('div', 'count ' + c); d.append(el('b', null, String(v)), el('span', null, t)); k.appendChild(d); });
     box.appendChild(k);
     if (!L.length) { box.appendChild(el('p', 'note', 'Nenhuma loja nesta seleção.')); return; }
