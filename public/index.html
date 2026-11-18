@@ -290,7 +290,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 18/11 09:50</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 18/11 10:20</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -385,7 +385,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 <div class="wrap">
   <div class="head"><div><h1>Resumo por estado<span class="zh">各州摘要</span></h1>
     <p class="note" id="r-sub"></p></div>
-    <div><button class="btn" type="button" id="r-copy">Copiar tudo · 复制</button> <button class="btn" type="button" id="r-csv">Baixar lista · 下载</button></div></div>
+    <div><button class="btn" type="button" id="r-link" hidden>🔗 Link público · 分享链接</button> <button class="btn" type="button" id="r-copy">Copiar tudo · 复制</button> <button class="btn" type="button" id="r-csv">Baixar lista · 下载</button></div></div>
+  <div class="users" id="r-link-box" style="padding:12px 14px;margin:10px 0" hidden></div>
   <div class="msg" id="r-msg" role="status" hidden></div>
   <div class="bar"><select id="r-reg" aria-label="Estado" hidden></select> <select id="r-canal" aria-label="Canal"></select> <select id="r-tipo" aria-label="Mostrar"><option value="">Pendentes e apontamentos · 全部</option><option value="v">Só foto pendente · 未上传</option><option value="a">Só com apontamento · 有问题</option></select> <span class="note" id="r-upd"></span></div>
   <div class="users" id="r-graf" style="padding:12px 14px;margin:12px 0"></div>
@@ -470,6 +471,17 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 
 
   let sess = null, perfil = null;
+  // link público do Resumo: ?resumo=TOKEN (sem login, só leitura)
+  const PUB = (() => { try { const t = new URLSearchParams(location.search).get('resumo'); return t && /^[a-f0-9]{32,}$/i.test(t) ? t : ''; } catch (e) { return ''; } })();
+  async function apiPub(path, opt) {
+    opt = opt || {};
+    const h = { apikey: KEY, Authorization: 'Bearer ' + KEY };
+    if (opt.body !== undefined) h['Content-Type'] = 'application/json';
+    const r = await fetch(SB + path, { method: opt.method || 'GET', headers: h, body: opt.body === undefined ? undefined : JSON.stringify(opt.body) });
+    if (!r.ok) throw Object.assign(new Error((await r.text()).slice(0, 200) || ('HTTP ' + r.status)), { status: r.status });
+    if (opt.raw) return r;
+    const t = await r.text(); return t ? JSON.parse(t) : null;
+  }
 
   // ---------- Supabase (REST, sem bibliotecas) ----------
   function saveSess(s) { sess = s; try { if (s) localStorage.setItem(SKEY, JSON.stringify(s)); else localStorage.removeItem(SKEY); } catch (e) {} }
@@ -553,7 +565,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 
   // ---------- depois do login ----------
   const isAdmin = () => perfil && perfil.ativo && perfil.papel === 'admin';
-  const isRegional = () => !isAdmin() && !!perfil;   // leitor: só o Resumo dos estados ligados a ele
+  const isRegional = () => !isAdmin() && !!perfil && !PUB;   // leitor: só o Resumo dos estados ligados a ele
   const UF_LISTA = ['AM', 'AC', 'RR', 'RO', 'CE', 'PI', 'DF', 'GO', 'MA', 'TO', 'MT', 'MS', 'PA', 'AP'];
   const REG_LISTA = ['AM/AC/RR/RO', 'CE/PI', 'DF/GO', 'MA/TO', 'MT/MS', 'PA/AP'];
   async function start() {
@@ -575,7 +587,26 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     if (!isRegional()) loadPainel();
     loadResumo();
     if (isAdmin()) { load(); loadUsers(); loadInst(); }
+    $('#r-link').hidden = !isAdmin();
   }
+  // admin: mostra / copia / troca o link público do Resumo
+  async function mostrarLinkPublico(novo) {
+    const box = $('#r-link-box'); box.hidden = false; box.replaceChildren(el('span', 'note', 'Gerando o link… · 生成中'));
+    try {
+      const t = await api('/rest/v1/rpc/link_publico_token', { method: 'POST', body: { p_novo: !!novo } });
+      const url = location.origin + location.pathname + '?resumo=' + t;
+      const inp = el('input'); inp.value = url; inp.readOnly = true; inp.style.cssText = 'width:100%;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;margin:6px 0';
+      const cp = el('button', 'btn ok', 'Copiar link · 复制'); cp.type = 'button';
+      cp.addEventListener('click', async () => { try { await navigator.clipboard.writeText(url); cp.textContent = 'Copiado ✓'; } catch (e) { inp.select(); document.execCommand('copy'); cp.textContent = 'Copiado ✓'; } });
+      const nv = el('button', 'btn', 'Gerar link novo (o antigo para de funcionar)'); nv.type = 'button';
+      nv.addEventListener('click', () => { if (confirm('O link antigo vai parar de funcionar para todo mundo. Continuar?')) mostrarLinkPublico(true); });
+      const fc = el('button', 'linkbtn', 'Fechar'); fc.type = 'button'; fc.addEventListener('click', () => { box.hidden = true; });
+      box.replaceChildren(el('b', null, 'Link público do Resumo · 公开链接'),
+        el('p', 'note', 'Quem abrir este link vê o Resumo de todos os estados (escolhe a região no filtro), com as fotos das lojas com apontamento — sem login e sem poder mudar nada. Não mostra telefones nem fotos reprovadas.'),
+        inp, cp, document.createTextNode(' '), nv, document.createTextNode(' '), fc);
+    } catch (e) { box.replaceChildren(el('span', 'note', errMsg(e))); }
+  }
+  $('#r-link').addEventListener('click', () => mostrarLinkPublico(false));
 
   // ---------- painel: dados do banco (importados do Excel); se ainda não houver, usa os arquivos criptografados do site ----------
   let painelOk = false, painelAtual = null;
@@ -1112,8 +1143,10 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     try {
       const v = sel.value;
       const body = { p_estados: !v ? null : v.startsWith('R:') ? v.slice(2).split('/') : [v] };
-      const r = await api('/rest/v1/rpc/resumo_regional', { method: 'POST', body });
+      const r = PUB ? await apiPub('/rest/v1/rpc/resumo_publico', { method: 'POST', body: Object.assign({ p_token: PUB }, body) })
+        : await api('/rest/v1/rpc/resumo_regional', { method: 'POST', body });
       if (n !== resumoReq) return;
+      if (PUB && !r) { msg.hidden = false; msg.textContent = 'Este link não vale mais. Peça o link novo a quem compartilhou. · 链接已失效'; return; }
       resumo = r; msg.hidden = true; renderResumo();
     } catch (e) { msg.hidden = false; msg.textContent = errMsg(e); }
   }
@@ -1870,7 +1903,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   function loadPhoto(p) {
     if (!p.path) return Promise.reject(Object.assign(new Error('pendente'), { pend: true }));
     if (photoCache.has(p.path)) return photoCache.get(p.path);
-    const pr = api('/storage/v1/object/authenticated/fotos/' + encodeURIComponent(p.path), { raw: true }).then((r) => r.blob()).then((b) => URL.createObjectURL(b));
+    const pr = (PUB ? apiPub : api)('/storage/v1/object/authenticated/fotos/' + encodeURIComponent(p.path), { raw: true }).then((r) => r.blob()).then((b) => URL.createObjectURL(b));
     photoCache.set(p.path, pr); pr.catch(() => photoCache.delete(p.path));
     return pr;
   }
@@ -2081,7 +2114,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 
   // ---------- abas ----------
   function showTab(t) {
-    if (isRegional()) t = 'resumo'; else if (!isAdmin() && t !== 'resumo') t = 'painel';
+    if (isRegional() || PUB) t = 'resumo'; else if (!isAdmin() && t !== 'resumo') t = 'painel';
     ['painel', 'resumo', 'rev', 'susp', 'novas', 'cob', 'inst', 'users'].forEach((x) => { $('#tab-' + x).setAttribute('aria-selected', String(x === t)); $('#pane-' + x).hidden = x !== t; });
     try { localStorage.setItem('vm-tab', t); } catch (e) {}
   }
@@ -2109,6 +2142,14 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 
   // ---------- início: volta de links de e-mail (#access_token) ou sessão salva ----------
   (async () => {
+    if (PUB) {   // link público: abre direto o Resumo, sem login
+      perfil = { papel: 'publico', ativo: true, nome: 'Visitante' };
+      showView('v-app');
+      ['painel', 'rev', 'susp', 'novas', 'cob', 'inst', 'users'].forEach((x) => { $('#tab-' + x).hidden = true; });
+      $('#tab-resumo').hidden = false; $('#who').textContent = ''; $('#who-role').textContent = 'Somente leitura · 只读'; $('#logout').hidden = true;
+      $('#r-link').hidden = true;
+      showTab('resumo'); loadResumo(); return;
+    }
     const h = new URLSearchParams(location.hash.replace(/^#/, ''));
     if (h.get('error_description')) { showView('v-login'); $('#l-err').textContent = h.get('error_description').replace(/\+/g, ' '); history.replaceState(null, '', location.pathname); return; }
     if (h.get('access_token')) {
