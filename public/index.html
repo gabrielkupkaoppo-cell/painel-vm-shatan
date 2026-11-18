@@ -290,7 +290,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 17/11 13:25</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 18/11 09:30</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -1173,7 +1173,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       V.slice().sort((a, b) => (aguarda.has(a.id) - aguarda.has(b.id)) || ordUF(a, b)).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), sitPend(l), l.observacao || '']),
       'Nenhuma loja com foto pendente. 👏 · 无待上传门店');
     if (tp !== 'v') secao('r-sec-a', 'Lojas com apontamento de VM · 有陈列问题', ['Loja · 门店', 'Cidade / UF · 城市/州', 'Apontamentos · 问题', 'Anotação · 备注', 'Fotos · 照片'],
-      A.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), pills(apsR(l).map(apZh)), l.observacao || '', botaoFotosResumo(l, ap, lojaDe)]),
+      A.slice().sort(ordUF).map((l) => [nomeL(l), [titulo(l.cidade), l.uf].filter(Boolean).join(' / '), pills(apsR(l).map(apZh)), anotResumo(l, ap, lojaDe), botaoFotosResumo(l, ap, lojaDe)]),
       'Nenhuma loja com apontamento. · 无问题门店');
   }
   // Resumo: só lojas com mesa de experiência (tipo de mesa marcado) e lojas das operadoras (form Checklist Fast/Operadoras)
@@ -1215,6 +1215,14 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     const lg = el('div', 'mg-leg'); [['o', 'OK (aprovada sem apontamento) · 合格'], ['a', 'Aprovada com apontamento · 有问题'], ['p', 'Pendente (sem foto aprovada) · 未上传']].forEach(([kk, x]) => { const sp = el('span', null, x); sp.style.setProperty('--c', COR[kk]); lg.appendChild(sp); });
     box.appendChild(lg);
   }
+  // anotação da lista de apontamentos: a observação da última aprovação da loja; sem ela, a anotação da planilha do Feishu
+  const OBS_GENERICA = /^Validada antes no painel/i;
+  function ultimaAprov(l, ap, lojaDe) { return ap.filter((a) => lojaDe(a.canal, a.loja_raw) === l).sort((a, b) => b.d - a.d)[0] || null; }
+  function anotResumo(l, ap, lojaDe) {
+    const u = ultimaAprov(l, ap, lojaDe), obs = u && String(u.obs || '').trim();
+    if (obs && !OBS_GENERICA.test(obs)) return obs + ' (foto de ' + u.d.toLocaleDateString('pt-BR') + ')';
+    return l.observacao ? '📋 ' + l.observacao : '—';
+  }
   // botão "Ver fotos": abre, logo abaixo da linha, as fotos do último envio aprovado da loja
   function botaoFotosResumo(l, ap, lojaDe) {
     const env = ap.filter((a) => lojaDe(a.canal, a.loja_raw) === l && (a.fotos || []).length).sort((a, b) => b.d - a.d)[0];
@@ -1225,7 +1233,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       if (ja && ja.classList.contains('r-fotos')) { ja.remove(); b.textContent = '📷 Ver fotos · 看照片'; return; }
       b.textContent = 'Fechar · 关闭';
       const row = el('tr', 'r-fotos'); const td = el('td'); td.colSpan = tr.children.length; td.style.background = 'var(--accent-soft, #eef7f1)';
-      const cab = el('p', 'note', 'Foto aprovada em (通过日期) ' + fmtD(env.d) + (env.nome ? ' · enviada por (提交人) ' + env.nome : '') + '. Apontamentos (问题): ' + (apsR(l).map(apZh).join(', ') || '—') + (l.observacao ? ' · Anotação (备注): ' + l.observacao : ''));
+      const cab = el('p', 'note', 'Foto aprovada em (通过日期) ' + fmtD(env.d) + (env.nome ? ' · enviada por (提交人) ' + env.nome : '') + '. Apontamentos (问题): ' + (apsR(l).map(apZh).join(', ') || '—') + (' · Anotação (备注): ' + anotResumo(l, ap, lojaDe)));
       const g = el('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:8px';
       env.fotos.forEach((ft) => {
         const fig = el('figure'); fig.style.margin = '0';
