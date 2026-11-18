@@ -104,11 +104,24 @@ function fotoSemMiniatura_(p) {
   try { const f = DriveApp.getFileById(p.id); if (f.getSize() < 3 * 1048576 && /^image\/(jpeg|png)/.test(f.getMimeType())) return f.getBlob(); } catch (e) { /* */ }
   return null;
 }
+// garante que a aba tem linhas suficientes (aba nova do Feishu nasce com 200 linhas)
+function arquivoLinhas_(tk, cfg, E, aba, n) {
+  if (aba.linhas && n <= aba.linhas) return;
+  const abas = feishu_(tk, 'GET', '/sheets/v3/spreadsheets/' + cfg.token + '/sheets/query').sheets || [];
+  const a = abas.find((x) => x.sheet_id === aba.id);
+  let total = (a && a.grid_properties && a.grid_properties.row_count) || 200;
+  if (n > total) {
+    feishu_(tk, 'POST', '/sheets/v2/spreadsheets/' + cfg.token + '/dimension_range', { dimension: { sheetId: aba.id, majorDimension: 'ROWS', length: 1000 } });
+    total += 1000;
+  }
+  aba.linhas = total; E.salvar();
+}
 function arquivarFoto_(tk, cfg, E, e, p, status) {
   const d = new Date(e.data);
   const aba = arquivoAba_(tk, cfg, E, Utilities.formatDate(d, 'America/Sao_Paulo', 'yyyy-MM'));
   const daVaga = aba.vagas && aba.vagas.length > 0;
   const n = daVaga ? aba.vagas[0] : aba.prox;
+  arquivoLinhas_(tk, cfg, E, aba, n);
   // 1) a imagem primeiro: se o Feishu recusar, nenhuma linha fica ocupada
   let ok = null, ultimo = '';
   for (const px of [1600, 1000, 0]) {
