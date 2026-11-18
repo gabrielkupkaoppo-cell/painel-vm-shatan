@@ -242,7 +242,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <label>Senha · 密码<input id="l-pw" type="password" autocomplete="current-password" required></label>
   <button class="btn main" type="submit" id="l-go">Entrar · 登录</button>
   <span class="err" id="l-err" role="alert"></span>
-  <div class="links"><button class="linkbtn" type="button" data-go="v-signup">Pedir acesso · 申请账号</button><button class="linkbtn" type="button" data-go="v-forgot">Esqueci a senha · 忘记密码</button></div>
+  <div class="links"><button class="linkbtn" type="button" id="l-back">← Ver o Resumo sem login · 返回摘要</button><button class="linkbtn" type="button" data-go="v-signup">Pedir acesso · 申请账号</button><button class="linkbtn" type="button" data-go="v-forgot">Esqueci a senha · 忘记密码</button></div>
 </form>
 
 <form class="card" id="v-signup" hidden autocomplete="on">
@@ -290,7 +290,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 18/11 10:20</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 18/11 14:50</span><span id="who"></span><span class="tag" id="who-role"></span><button class="btn" type="button" id="login-btn" hidden style="background:#fff;color:var(--accent);border-color:#fff;font-weight:700">🔐 Entrar · 登录</button><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -472,7 +472,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 
   let sess = null, perfil = null;
   // link público do Resumo: ?resumo=TOKEN (sem login, só leitura)
-  const PUB = (() => { try { const t = new URLSearchParams(location.search).get('resumo'); return t && /^[a-f0-9]{32,}$/i.test(t) ? t : ''; } catch (e) { return ''; } })();
+  let PUB = false;   // modo público: quem abre o site sem login vê o Resumo (só leitura)
   async function apiPub(path, opt) {
     opt = opt || {};
     const h = { apikey: KEY, Authorization: 'Bearer ' + KEY };
@@ -558,6 +558,18 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     catch (e) { err.textContent = /password/i.test(e.message) ? 'Senha fraca: use pelo menos 8 caracteres.' : errMsg(e); }
     finally { busy(b, false, 'Salvar senha · 保存'); }
   });
+  // sem login: abre o Resumo público, com o botão "Entrar" para quem tem acesso aos outros menus
+  function abrirPublico() {
+    PUB = true; perfil = { papel: 'publico', ativo: true, nome: 'Visitante' }; resumo = null;
+    showView('v-app');
+    ['painel', 'rev', 'susp', 'novas', 'cob', 'inst', 'users'].forEach((x) => { $('#tab-' + x).hidden = true; });
+    $('#tab-resumo').hidden = false; $('#who').textContent = ''; $('#who-role').textContent = 'Visitante · 访客';
+    $('#logout').hidden = true; $('#login-btn').hidden = false; $('#r-link').hidden = true;
+    $('#r-reg').replaceChildren();
+    showTab('resumo'); loadResumo();
+  }
+  $('#login-btn').addEventListener('click', () => { showView('v-login'); $('#l-email').focus(); });
+  $('#l-back').addEventListener('click', abrirPublico);
   function logout() { const t = sess && sess.access_token; saveSess(null); if (t) authCall('logout', {}, t).catch(() => {}); location.hash = ''; location.reload(); }
   $('#logout').addEventListener('click', logout);
   $('#w-out').addEventListener('click', logout);
@@ -569,6 +581,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   const UF_LISTA = ['AM', 'AC', 'RR', 'RO', 'CE', 'PI', 'DF', 'GO', 'MA', 'TO', 'MT', 'MS', 'PA', 'AP'];
   const REG_LISTA = ['AM/AC/RR/RO', 'CE/PI', 'DF/GO', 'MA/TO', 'MT/MS', 'PA/AP'];
   async function start() {
+    PUB = false; resumo = null; $('#r-reg').replaceChildren(); $('#login-btn').hidden = true; $('#logout').hidden = false;
     const uid = (sess.user && sess.user.id) || (await authCall('user', undefined, await token())).id;
     if (!sess.user) { sess.user = { id: uid }; saveSess(sess); }
     const p = await api('/rest/v1/perfis?id=eq.' + uid + '&select=*');
@@ -587,7 +600,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     if (!isRegional()) loadPainel();
     loadResumo();
     if (isAdmin()) { load(); loadUsers(); loadInst(); }
-    $('#r-link').hidden = !isAdmin();
+    $('#r-link').hidden = true;   // link público não é mais necessário: o próprio site abre o Resumo sem login
   }
   // admin: mostra / copia / troca o link público do Resumo
   async function mostrarLinkPublico(novo) {
@@ -1143,10 +1156,10 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     try {
       const v = sel.value;
       const body = { p_estados: !v ? null : v.startsWith('R:') ? v.slice(2).split('/') : [v] };
-      const r = PUB ? await apiPub('/rest/v1/rpc/resumo_publico', { method: 'POST', body: Object.assign({ p_token: PUB }, body) })
+      const r = PUB ? await apiPub('/rest/v1/rpc/resumo_publico', { method: 'POST', body: Object.assign({ p_token: null }, body) })
         : await api('/rest/v1/rpc/resumo_regional', { method: 'POST', body });
       if (n !== resumoReq) return;
-      if (PUB && !r) { msg.hidden = false; msg.textContent = 'Este link não vale mais. Peça o link novo a quem compartilhou. · 链接已失效'; return; }
+      if (PUB && !r) { msg.hidden = false; msg.textContent = 'Não consegui carregar o Resumo. Tente de novo em instantes. · 加载失败'; return; }
       resumo = r; msg.hidden = true; renderResumo();
     } catch (e) { msg.hidden = false; msg.textContent = errMsg(e); }
   }
@@ -2142,14 +2155,6 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 
   // ---------- início: volta de links de e-mail (#access_token) ou sessão salva ----------
   (async () => {
-    if (PUB) {   // link público: abre direto o Resumo, sem login
-      perfil = { papel: 'publico', ativo: true, nome: 'Visitante' };
-      showView('v-app');
-      ['painel', 'rev', 'susp', 'novas', 'cob', 'inst', 'users'].forEach((x) => { $('#tab-' + x).hidden = true; });
-      $('#tab-resumo').hidden = false; $('#who').textContent = ''; $('#who-role').textContent = 'Somente leitura · 只读'; $('#logout').hidden = true;
-      $('#r-link').hidden = true;
-      showTab('resumo'); loadResumo(); return;
-    }
     const h = new URLSearchParams(location.hash.replace(/^#/, ''));
     if (h.get('error_description')) { showView('v-login'); $('#l-err').textContent = h.get('error_description').replace(/\+/g, ' '); history.replaceState(null, '', location.pathname); return; }
     if (h.get('access_token')) {
@@ -2157,7 +2162,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
       const type = h.get('type'); history.replaceState(null, '', location.pathname);
       if (type === 'recovery') { showView('v-newpw'); return; }
     } else { try { sess = JSON.parse(localStorage.getItem(SKEY) || 'null'); } catch (e) { sess = null; } }
-    if (!sess) { showView('v-login'); return; }
+    if (!sess) { abrirPublico(); return; }
     try { await start(); } catch (e) { showView('v-login'); if (e.status !== 401) $('#l-err').textContent = errMsg(e); }
   })();
 })();
