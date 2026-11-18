@@ -48,7 +48,7 @@ function enviarFeishu_(limite, detalhado) {
   const cacheAba = {};
 
   // aprovações ainda não enviadas, com fotos já copiadas
-  const pend = supa_('GET', '/rest/v1/revisoes?select=key,status,canal_corrigido,loja_corrigida,mesa_corrigida&status=eq.Aprovado&feishu_em=is.null&order=revisado_em.desc&limit=100');
+  const pend = supa_('GET', '/rest/v1/revisoes?select=key,status,motivos,obs,revisado_em,canal_corrigido,loja_corrigida,mesa_corrigida&status=eq.Aprovado&feishu_em=is.null&order=revisado_em.desc&limit=100');
   if (!pend.length) { console.log('Nada novo para mandar ao Feishu.'); return; }
   const envioDe = (key) => (supa_('GET', '/rest/v1/envios?select=key,form,canal,loja_raw,uf,fotos,produtos,mesa&key=eq.' + encodeURIComponent(key)) || [])[0];
 
@@ -89,8 +89,10 @@ function enviarFeishu_(limite, detalhado) {
       });
       let caixasTxt = '';
       try { caixasTxt = marcarCaixas_(tk, planilha, aba, A, linha, e); } catch (e3) { console.warn('Caixas de seleção da linha ' + linha + ': ' + e3); caixasTxt = ' · caixas: erro (' + String(e3).replace(/^Error: /, '').slice(0, 120) + ')'; }
+      let anotTxt = '';
+      try { anotTxt = anotarAprovacao_(tk, planilha, aba, A, linha, pend[i]); } catch (e4) { console.warn('Anotação da linha ' + linha + ': ' + e4); anotTxt = ' · anotação: erro'; }
       if (!feitas.length && falhas.length) throw new Error('o Feishu recusou as fotos em ' + aba.title + ' ' + falhas.join(', ') + ' — confira se essas células não estão mescladas ou protegidas');
-      info = aba.title + ' linha ' + linha + ': ' + (feitas.join('; ') || 'nenhuma coluna de foto') + (falhas.length ? ' · NÃO ENTROU: ' + falhas.join(', ') : '') + caixasTxt;
+      info = aba.title + ' linha ' + linha + ': ' + (feitas.join('; ') || 'nenhuma coluna de foto') + (falhas.length ? ' · NÃO ENTROU: ' + falhas.join(', ') : '') + caixasTxt + anotTxt;
       marcar_(key, info, true);
       feitos++;
       console.log(key + ' → ' + info);
@@ -107,6 +109,21 @@ function enviarFeishu_(limite, detalhado) {
     }
   }
   console.log('Enviadas ao Feishu nesta rodada: ' + feitos);
+}
+
+// ---------- anotação da aprovação: a coluna de anotação da loja passa a ter a ÚLTIMA aprovação ----------
+// "18/11/2026 · Sem tag verde / preço; Canvas errado ou antigo · <observação>"  ou  "18/11/2026 · Aprovado sem apontamento".
+// O painel lê essa coluna para marcar "OK c/ apontamento" (ver etiquetas_ no Painel.gs).
+function anotarAprovacao_(tk, planilha, aba, A, linha, rev) {
+  if (!A.colAnot) return ' · anotação: coluna não encontrada';
+  const motivos = String(rev.motivos || '').split(';').map((x) => x.trim()).filter(Boolean);
+  const obs = String(rev.obs || '').trim();
+  if (/^Validada antes no painel/i.test(obs) && !motivos.length) return '';   // aprovação antiga em lote: não mexe
+  const data = Utilities.formatDate(rev.revisado_em ? new Date(rev.revisado_em) : new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
+  const txt = data + ' · ' + ((motivos.length || obs) ? [motivos.join('; '), obs].filter(Boolean).join(' · ') : 'Aprovado sem apontamento');
+  const cel = aba.sheet_id + '!' + letra_(A.colAnot) + linha + ':' + letra_(A.colAnot) + linha;
+  feishu_(tk, 'POST', '/sheets/v2/spreadsheets/' + planilha + '/values_batch_update', { valueRanges: [{ range: cel, values: [[txt]] }] });
+  return ' · anotação ' + letra_(A.colAnot) + linha + ' atualizada';
 }
 
 // ---------- loja nova: abas em que o script pode criar a linha sozinho ----------
@@ -217,9 +234,10 @@ function lerAba_(tk, planilha, aba) {
   cols.forEach((c) => { const vs = valores_(tk, planilha, aba.sheet_id + '!' + letra_(c) + '1:' + letra_(c) + nLin); dados[c] = vs.map((r) => texto_(r && r[0])); });
   console.log('Aba ' + aba.title + ': código na coluna ' + (colCod ? letra_(colCod) : '—') + ', nome na ' + (colNome ? letra_(colNome) : '—') +
     ', fotos em ' + fotoCols.map((f) => letra_(f.col)).join(', '));
+  const colAnot = achar((v) => /anota|备注/i.test(semAcento_(v)) || v.indexOf('备注') >= 0);
   const caixas = {}; // nome normalizado do cabeçalho -> coluna
   Object.keys(H).forEach((c) => H[c].forEach((v) => { const k = normItem_(v); if (k && !caixas[k]) caixas[k] = +c; }));
-  return { colCod, colNome, fotoCols, dados, nLin, caixas };
+  return { colCod, colNome, fotoCols, dados, nLin, caixas, colAnot };
 }
 function acharLinha_(A, codigoForms) {
   const alvo = chaves_(codigoForms); if (!alvo.length) return null;

@@ -169,6 +169,8 @@ function etiquetas_(o) {
   if (/qualida|foto|escuro|irregular|nao mostra/.test(n)) t.push('Foto fora do padrão');
   if (n.indexOf('spec') >= 0) t.push('Sem spec card');
   if (n.indexOf('demo') >= 0) t.push('Sem modo demo');
+  if (/tag verde|preco|etiqueta/.test(n)) t.push('Sem tag de preço');
+  if (/faltando aparelho|falta aparelho|sem aparelho/.test(n)) t.push('Faltando aparelho');
   if (/mostruario|estoque/.test(n)) t.push('Mostruário / estoque');
   if (/mesa|bancada|atuacao/.test(n)) t.push('Sem mesa / sem espaço');
   if (/canva|material|chegou|inventario|transito/.test(n)) t.push('Material / canvas');

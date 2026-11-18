@@ -290,7 +290,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   <button class="tab" role="tab" id="tab-cob" aria-selected="false" aria-controls="pane-cob" type="button" hidden>Lojas · 门店查询<span class="n" id="tab-cn" hidden></span></button>
   <button class="tab" role="tab" id="tab-inst" aria-selected="false" aria-controls="pane-inst" type="button" hidden>Instalações · 安装<span class="n" id="tab-in" hidden></span></button>
   <button class="tab" role="tab" id="tab-users" aria-selected="false" aria-controls="pane-users" type="button" hidden>Usuários · 用户<span class="n" id="tab-un" hidden></span></button>
-  <span class="who"><span class="ver" title="Versão do site">versão 18/11 09:30</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
+  <span class="who"><span class="ver" title="Versão do site">versão 18/11 09:50</span><span id="who"></span><span class="tag" id="who-role"></span><button class="linkbtn" type="button" id="logout">Sair · 退出</button></span>
 </nav>
 <section id="pane-painel" role="tabpanel" aria-labelledby="tab-painel">
   <div class="imp" id="imp" hidden>
@@ -1011,7 +1011,7 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   }
 
   // ---------- consulta de lojas + relatório de apontamentos ----------
-  const AP_TIPOS = ['Foto fora do padrão', 'Sem spec card', 'Sem modo demo', 'Mostruário / estoque', 'Material / canvas'];
+  const AP_TIPOS = ['Foto fora do padrão', 'Sem spec card', 'Sem modo demo', 'Sem tag de preço', 'Faltando aparelho', 'Mostruário / estoque', 'Material / canvas'];
   const apsDe = (l) => String(l.apontamento || '').split('; ').filter((t) => AP_TIPOS.includes(t));
   const chaveL = (canal, cod) => canal + '|' + codN(cod);
   function loadCob() { renderBusca(); renderRel(); }
@@ -1093,8 +1093,8 @@ h1{color:var(--accent)} h2{color:var(--accent)}
 
   // ---------- resumo da região (leitor) ----------
   let resumo = null, resumoReq = 0;
-  const AP_TIPOS_R = ['Foto fora do padrão', 'Sem spec card', 'Sem modo demo', 'Mostruário / estoque', 'Material / canvas'];
-  const AP_ZH_R = { 'Foto fora do padrão': '照片不合格', 'Sem spec card': '缺参数卡', 'Sem modo demo': '未开演示', 'Mostruário / estoque': '样机/库存', 'Material / canvas': '物料/画面' };
+  const AP_TIPOS_R = ['Foto fora do padrão', 'Sem spec card', 'Sem modo demo', 'Sem tag de preço', 'Faltando aparelho', 'Mostruário / estoque', 'Material / canvas'];
+  const AP_ZH_R = { 'Foto fora do padrão': '照片不合格', 'Sem spec card': '缺参数卡', 'Sem modo demo': '未开演示', 'Mostruário / estoque': '样机/库存', 'Material / canvas': '物料/画面', 'Sem tag de preço': '缺绿色价签', 'Faltando aparelho': '缺样机' };
   const apZh = (t) => t + (AP_ZH_R[t] ? ' · ' + AP_ZH_R[t] : '');
   const apsR = (l) => String(l.apontamento || '').split('; ').filter((t) => AP_TIPOS_R.includes(t));
   const numDe = (raw) => { const m = String(raw || '').match(/\d+/g); return m ? m[m.length - 1].replace(/^0+/, '') : ''; };
@@ -1219,8 +1219,9 @@ h1{color:var(--accent)} h2{color:var(--accent)}
   const OBS_GENERICA = /^Validada antes no painel/i;
   function ultimaAprov(l, ap, lojaDe) { return ap.filter((a) => lojaDe(a.canal, a.loja_raw) === l).sort((a, b) => b.d - a.d)[0] || null; }
   function anotResumo(l, ap, lojaDe) {
-    const u = ultimaAprov(l, ap, lojaDe), obs = u && String(u.obs || '').trim();
-    if (obs && !OBS_GENERICA.test(obs)) return obs + ' (foto de ' + u.d.toLocaleDateString('pt-BR') + ')';
+    const u = ultimaAprov(l, ap, lojaDe), obs = u && String(u.obs || '').trim(), mot = u && String(u.motivos || '').trim();
+    const t = [mot, obs && !OBS_GENERICA.test(obs) ? obs : ''].filter(Boolean).join(' · ');
+    if (t) return t + ' (foto de ' + u.d.toLocaleDateString('pt-BR') + ')';
     return l.observacao ? '📋 ' + l.observacao : '—';
   }
   // botão "Ver fotos": abre, logo abaixo da linha, as fotos do último envio aprovado da loja
@@ -1787,16 +1788,16 @@ h1{color:var(--accent)} h2{color:var(--accent)}
     dec.appendChild(el('b', null, 'Decisão · 审核结果'));
     const rs = el('div', 'reasons'); rs.setAttribute('role', 'group'); rs.setAttribute('aria-label', 'Motivos da reprovação');
     MOTIVOS.forEach((m, i) => { const l = el('label'); const c = el('input'); c.type = 'checkbox'; c.value = m; c.id = 'mot-' + i; l.append(c, document.createTextNode(m + ' · ' + MOTZH[m])); rs.appendChild(l); });
-    const ta = el('textarea'); ta.id = 'obs'; ta.placeholder = 'Observação (opcional) — vai junto na cobrança · 备注'; ta.setAttribute('aria-label', 'Observação');
+    const ta = el('textarea'); ta.id = 'obs'; ta.placeholder = 'Observação (opcional) — vai para a anotação da loja no Feishu · 备注'; ta.setAttribute('aria-label', 'Observação');
     const acts = el('div', 'acts');
     const ok = el('button', 'btn ok', '✓ Aprovar · 通过'); ok.type = 'button';
     const no = el('button', 'btn no', '✕ Reprovar · 不通过'); no.type = 'button';
     const info = el('span', 'note', ''); info.setAttribute('role', 'status');
     acts.append(ok, no, info, el('span', 'note', ' Atalhos: '));
     const k1 = el('kbd', null, 'A'); const k2 = el('kbd', null, 'R'); acts.append(k1, document.createTextNode(' aprovar, '), k2, document.createTextNode(' reprovar'));
-    dec.append(el('span', 'note', 'Para reprovar, marque ao menos um motivo:'), rs, ta, acts);
+    dec.append(el('span', 'note', 'Reprovar: marque ao menos um motivo. Aprovar com ressalva: marque os itens e/ou escreva a observação — viram a anotação da loja no Feishu (apontamento). · 有问题请勾选'), rs, ta, acts);
     d.appendChild(dec);
-    ok.addEventListener('click', () => decide(r, 'Aprovado', [], ta.value, [ok, no], info));
+    ok.addEventListener('click', () => decide(r, 'Aprovado', [...rs.querySelectorAll('input:checked')].map((x) => x.value), ta.value, [ok, no], info));   // caixas marcadas = aprovado com ressalva
     no.addEventListener('click', () => {
       const ms = [...rs.querySelectorAll('input:checked')].map((x) => x.value);
       if (!ms.length) { info.textContent = 'Marque pelo menos um motivo para reprovar.'; return; }
