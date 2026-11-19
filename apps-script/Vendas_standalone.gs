@@ -9,8 +9,8 @@
  * Os IMEIs que não existirem na Base vão para a aba "Não encontrados Feishu" da planilha de vendas.
  *
  * Propriedades do script (⚙️ Configurações do projeto → Propriedades do script):
- *   VENDAS_PLANILHA   = link (ou ID) da planilha de vendas do Google.
- *   VENDAS_ABA        = (opcional) nome da aba das vendas. Em branco = a primeira aba.
+ *   VENDAS_PLANILHA   = link da planilha de vendas do Google. VÁRIOS MESES: separe os links por vírgula.
+ *   VENDAS_ABA        = nome da aba das vendas (a mesma em todas, ex.: dados). Em branco = a primeira aba de cada.
  *   FEISHU_ESTOQUE    = link da Base do Feishu (começa com .../wiki/... ou .../base/...).
  *   FEISHU_APP_ID     = App ID do app no Feishu (ex.: cli_xxx).      ← em 凭证与基础信息
  *   FEISHU_APP_SECRET = App Secret do mesmo app.                     ← em 凭证与基础信息 (botão de revelar)
@@ -80,17 +80,22 @@ function formataData_(v) {
 }
 function achaCampo_(campos, re) { for (var i = 0; i < campos.length; i++) { if (re.test(campos[i].field_name)) return campos[i].field_name; } return ''; }
 
-// ---------- planilha de vendas (Google) ----------
-function vendasPlanilha_() {
-  var link = String(PropertiesService.getScriptProperties().getProperty('VENDAS_PLANILHA') || '').trim();
-  if (!link) throw new Error('Falta a propriedade VENDAS_PLANILHA (link da planilha de vendas do Google).');
-  var m = link.match(/\/d\/([A-Za-z0-9_-]+)/);
-  return SpreadsheetApp.openById(m ? m[1] : link);
-}
-function vendasAba_(ss) {
-  var nome = String(PropertiesService.getScriptProperties().getProperty('VENDAS_ABA') || '').trim();
-  if (nome) { var a = ss.getSheetByName(nome); if (!a) throw new Error('Não achei a aba "' + nome + '" na planilha de vendas.'); return a; }
-  return ss.getSheets()[0];
+// ---------- planilhas de vendas (Google) — uma ou várias (uma por mês), separadas por vírgula ----------
+function vendasFontes_() {
+  var p = PropertiesService.getScriptProperties();
+  var links = String(p.getProperty('VENDAS_PLANILHA') || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  if (!links.length) throw new Error('Falta a propriedade VENDAS_PLANILHA (link da planilha; separe vários meses por vírgula).');
+  var nome = String(p.getProperty('VENDAS_ABA') || '').trim();
+  var fontes = [];
+  links.forEach(function (link) {
+    var m = link.match(/\/d\/([A-Za-z0-9_-]+)/);
+    var ss = SpreadsheetApp.openById(m ? m[1] : link);
+    var a = nome ? ss.getSheetByName(nome) : ss.getSheets()[0];
+    if (a) fontes.push({ ss: ss, aba: a });
+    else console.warn('Aba "' + nome + '" não existe em "' + ss.getName() + '" — pulei essa planilha.');
+  });
+  if (!fontes.length) throw new Error('Nenhuma aba encontrada. Confira VENDAS_ABA (nome exato) e os links em VENDAS_PLANILHA.');
+  return fontes;
 }
 function escreveNaoEncontrados_(ss, linhas) {
   var a = ss.getSheetByName('Não encontrados Feishu') || ss.insertSheet('Não encontrados Feishu');
@@ -141,7 +146,7 @@ function marcarVendidosDesligar() {
 
 function marcarVendidos_(teste) {
   var inicio = Date.now(), limite = 5 * 60 * 1000;
-  var ss = vendasPlanilha_(), aba = vendasAba_(ss);
+  var fontes = vendasFontes_();
   var app = estoqueBase_();
 
   var tabelas = vdLista_('/bitable/v1/apps/' + app + '/tables', false).map(function (t) {
@@ -158,9 +163,10 @@ function marcarVendidos_(teste) {
     });
   });
 
-  var ultima = aba.getLastRow();
   var naoAchou = [], marcou = 0, jaTinha = 0, lin = 0, parou = false;
-  if (ultima >= VENDAS_LIN_INI) {
+  for (var s = 0; s < fontes.length && !parou; s++) {
+    var aba = fontes[s].aba, ultima = aba.getLastRow();
+    if (ultima < VENDAS_LIN_INI) continue;
     var vals = aba.getRange(VENDAS_LIN_INI, 1, ultima - VENDAS_LIN_INI + 1, Math.max(VENDAS_COL_DATA, VENDAS_COL_IMEI)).getValues();
     for (var i = 0; i < vals.length; i++) {
       if (Date.now() - inicio > limite) { parou = true; break; }
@@ -179,9 +185,9 @@ function marcarVendidos_(teste) {
     }
   }
 
-  if (!teste) escreveNaoEncontrados_(ss, naoAchou);
+  if (!teste) escreveNaoEncontrados_(fontes[0].ss, naoAchou);
 
-  console.log((teste ? 'TESTE (nada gravado): ' : '') + lin + ' vendas lidas · ' +
+  console.log((teste ? 'TESTE (nada gravado): ' : '') + lin + ' vendas lidas em ' + fontes.length + ' planilha(s) · ' +
     marcou + (teste ? ' seriam marcadas' : ' marcadas') + ' como Vendido na Base (' + tabelas.map(function (t) { return t.nome; }).join(', ') + ') · ' +
     jaTinha + ' já estavam marcadas · ' + naoAchou.length + ' não encontradas na Base' +
     (!teste && naoAchou.length ? ' (veja a aba "Não encontrados Feishu")' : '') +
