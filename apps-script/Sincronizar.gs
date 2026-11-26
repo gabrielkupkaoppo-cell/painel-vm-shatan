@@ -167,10 +167,23 @@ function cabecalhos_(extra) {
   return h;
 }
 function supaRaw_(method, path, payload, extra) {
-  const res = UrlFetchApp.fetch(SUPABASE_URL + path, { method: method.toLowerCase(), headers: cabecalhos_(extra), payload: payload, muteHttpExceptions: true });
-  const code = res.getResponseCode();
-  if (code >= 300) throw new Error(method + ' ' + path.split('?')[0] + ' → ' + code + ' ' + res.getContentText().slice(0, 300));
-  return res.getContentText();
+  // tenta até 3 vezes quando o banco tropeça (522/503/timeout e parecidos); erro definitivo (400/404...) não repete
+  const passageiro = [429, 500, 502, 503, 504, 520, 521, 522, 523, 524];
+  let ultimo = '';
+  for (let tent = 1; tent <= 3; tent++) {
+    let res = null, erroRede = false;
+    try {
+      res = UrlFetchApp.fetch(SUPABASE_URL + path, { method: method.toLowerCase(), headers: cabecalhos_(extra), payload: payload, muteHttpExceptions: true });
+    } catch (e) { erroRede = true; ultimo = String((e && e.message) || e); }   // ex.: tempo esgotado
+    if (!erroRede) {
+      const code = res.getResponseCode();
+      if (code < 300) return res.getContentText();
+      ultimo = method + ' ' + path.split('?')[0] + ' → ' + code + ' ' + res.getContentText().slice(0, 300);
+      if (passageiro.indexOf(code) < 0) throw new Error(ultimo);   // não adianta repetir
+    }
+    if (tent < 3) Utilities.sleep(1500 * tent);   // espera 1,5s, depois 3s, e tenta de novo
+  }
+  throw new Error('Supabase falhou após 3 tentativas: ' + ultimo);
 }
 function supa_(method, path, body, extra) {
   const h = Object.assign({ 'Content-Type': 'application/json' }, extra || {});
